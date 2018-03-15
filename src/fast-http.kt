@@ -2,6 +2,7 @@ import java.net.InetAddress
 import java.net.URL
 import java.security.Security
 import java.security.cert.X509Certificate
+import java.util.*
 import java.util.concurrent.CountDownLatch
 import javax.net.SocketFactory
 import javax.net.ssl.SSLContext
@@ -52,65 +53,89 @@ fun main(args : Array<String>) {
     println("Time: " + "%.2f".format(time.toFloat() / 1000000000))
 }
 
+
+private fun connect() {
+
+}
+
 private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, requestsPerThread: Int, request: ByteArray, statusMap: HashMap<Int, Int>, totalBytes: Int, latch: CountDownLatch, readFreq: Int) {
     var totalBytes1 = totalBytes
     var threadBytes = 0
-    try {
-        val socket = if (url.protocol.equals("https")) {
-            trustingSslSocketFactory.createSocket(ipAddress, port)
-        } else {
-            SocketFactory.getDefault().createSocket(ipAddress, port)
-        }
-
-        for (loop in 1..requestsPerThread/readFreq) {
-
-            
-
-            for (i in 1..readFreq) {
-                socket.getOutputStream().write(request)
-            }
-            val read = ByteArray(1024)
-            var buffer = ""
-
-            for (i in 1..readFreq) {
-                var delimOffset = buffer.indexOf("\r\n\r\n")
-                while (delimOffset == -1) {
-                    var len = socket.getInputStream().read(read)
-
-                    buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
-                    delimOffset = buffer.indexOf("\r\n\r\n")
-                }
-
-                val contentLength = Regex("Content-Length: (\\d+)").find(buffer)!!.groups[1]!!.value.toInt()
-                val responseLength = delimOffset + contentLength + 4
-
-                while (buffer.length < responseLength) {
-                    val len = socket.getInputStream().read(read)
-                    buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
-                }
-
-                val msg = buffer.substring(0, responseLength)
-                buffer = buffer.substring(responseLength)
-                threadBytes += responseLength
-
-                if (!msg.startsWith("HTTP")) {
-                    println("Error")
-                    break
-                }
-                val status = msg.split(" ")[1].toInt()
-                synchronized(statusMap) {
-                    statusMap.put(status, statusMap.getOrDefault(status, 0) + 1)
-                }
-            }
-        }
-    } catch (ex: Exception) {
-        ex.printStackTrace()
-    } finally {
-        synchronized(totalBytes1) {
-            totalBytes1 += threadBytes
-        }
-        latch.countDown()
+    var inflight = ArrayDeque<ByteArray>()
+    var todo = ArrayDeque<ByteArray>();
+    for (i in 1..requestsPerThread) {
+        todo.add(request);
     }
+
+    val requestsPerConnection = 10000
+
+    while (!todo.isEmpty()) {
+
+        try {
+            val socket = if (url.protocol.equals("https")) {
+                trustingSslSocketFactory.createSocket(ipAddress, port)
+            } else {
+                SocketFactory.getDefault().createSocket(ipAddress, port)
+            }
+
+            for (i in 1..requestsPerConnection) {
+
+                var readCount = 0
+                for (j in 1..readFreq) {
+                    if (todo.isEmpty()) {
+                        break
+                    }
+
+                    val req = todo.pop();
+                    inflight.push(req)
+                    socket.getOutputStream().write(req)
+                    readCount++
+                }
+                val read = ByteArray(1024)
+                var buffer = ""
+
+                for (k in 1..readCount) {
+                    var delimOffset = buffer.indexOf("\r\n\r\n")
+                    while (delimOffset == -1) {
+                        val len = socket.getInputStream().read(read)
+                        buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
+                        delimOffset = buffer.indexOf("\r\n\r\n")
+                    }
+
+                    val contentLength = Regex("Content-Length: (\\d+)").find(buffer)!!.groups[1]!!.value.toInt()
+                    val responseLength = delimOffset + contentLength + 4
+
+                    while (buffer.length < responseLength) {
+                        val len = socket.getInputStream().read(read)
+                        buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
+                    }
+
+                    val msg = buffer.substring(0, responseLength)
+                    buffer = buffer.substring(responseLength)
+                    threadBytes += responseLength
+
+                    if (!msg.startsWith("HTTP")) {
+                        throw Exception("no http")
+                    }
+                    val status = msg.split(" ")[1].toInt()
+                    inflight.removeFirst()
+                    synchronized(statusMap) {
+                        statusMap.put(status, statusMap.getOrDefault(status, 0) + 1)
+                    }
+                }
+            }
+        } catch (ex: Exception) {
+            print("error, continuing\n")
+            ex.printStackTrace()
+            //todo.addAll(inflight)
+        }
+    }
+
+    synchronized(totalBytes1) {
+        totalBytes1 += threadBytes
+    }
+
+    latch.countDown()
 }
 
 
