@@ -16,9 +16,12 @@ fun main(args : Array<String>) {
     val url = URL(args[0])
     val requests = args[1].toInt();
     val threads = args[2].toInt()
-    val readFreq = args[3].toInt();
-    val requestsPerThread = requests / threads;
+    val requestsPerConnection = args[3].toInt()
+    val readFreq = args[4].toInt();
 
+
+
+    val requestsPerThread = requests / threads;
     val request = ("GET ${url.path} HTTP/1.1\r\n"
                   +"Host: ${url.host}\r\n"
                   +"Connection: keep-alive\r\n"
@@ -38,7 +41,7 @@ fun main(args : Array<String>) {
 
     for(j in 1..threads) {
         thread {
-            sendRequests(url, trustingSslSocketFactory, ipAddress, port, requestsPerThread, request, statusMap, totalBytes, latch, readFreq)
+            sendRequests(url, trustingSslSocketFactory, ipAddress, port, requestsPerThread, request, statusMap, totalBytes, latch, readFreq, requestsPerConnection)
         }
     }
     latch.await()
@@ -54,20 +57,16 @@ fun main(args : Array<String>) {
 }
 
 
-private fun connect() {
-
-}
-
-private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, requestsPerThread: Int, request: ByteArray, statusMap: HashMap<Int, Int>, totalBytes: Int, latch: CountDownLatch, readFreq: Int) {
+private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, requestsPerThread: Int, request: ByteArray, statusMap: HashMap<Int, Int>, totalBytes: Int, latch: CountDownLatch, readFreq: Int, baseRequestsPerConnection: Int) {
     var totalBytes1 = totalBytes
     var threadBytes = 0
-    var inflight = ArrayDeque<ByteArray>()
-    var todo = ArrayDeque<ByteArray>();
+    val inflight = ArrayDeque<ByteArray>()
+    val todo = ArrayDeque<ByteArray>();
     for (i in 1..requestsPerThread) {
         todo.add(request);
     }
 
-    val requestsPerConnection = 10000
+    var requestsPerConnection = baseRequestsPerConnection
 
     while (!todo.isEmpty()) {
 
@@ -78,7 +77,7 @@ private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, i
                 SocketFactory.getDefault().createSocket(ipAddress, port)
             }
 
-            for (i in 1..requestsPerConnection) {
+            for (i in 1..requestsPerConnection/readFreq) {
 
                 var readCount = 0
                 for (j in 1..readFreq) {
@@ -127,7 +126,9 @@ private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, i
         } catch (ex: Exception) {
             print("error, continuing\n")
             ex.printStackTrace()
-            //todo.addAll(inflight)
+            requestsPerConnection = requestsPerThread / 2
+            todo.addAll(inflight)
+            inflight.clear()
         }
     }
 
