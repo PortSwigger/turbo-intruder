@@ -12,6 +12,8 @@ import kotlin.concurrent.thread
 import java.io.File
 import java.io.InputStream
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.LinkedBlockingDeque
+import java.util.concurrent.LinkedBlockingQueue
 
 
 fun main(args : Array<String>) {
@@ -25,6 +27,7 @@ fun main(args : Array<String>) {
     }
 
     val requestQueue = ArrayBlockingQueue<ByteArray>(1000000);
+    val retryQueue = LinkedBlockingQueue<ByteArray>();
 
     val inputStream: InputStream = File(urlfile).inputStream()
 
@@ -55,7 +58,7 @@ fun main(args : Array<String>) {
 
     for(j in 1..threads) {
         thread {
-            sendRequests(target, trustingSslSocketFactory, ipAddress, port, requestQueue, statusMap, latch, readFreq, requestsPerConnection)
+            sendRequests(target, trustingSslSocketFactory, ipAddress, port, requestQueue, retryQueue, statusMap, latch, readFreq, requestsPerConnection)
         }
     }
     latch.await()
@@ -69,13 +72,13 @@ fun main(args : Array<String>) {
 }
 
 
-private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, requestQueue: ArrayBlockingQueue<ByteArray>, statusMap: HashMap<Int, Int>, latch: CountDownLatch, baseReadFreq: Int, baseRequestsPerConnection: Int) {
+private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, requestQueue: ArrayBlockingQueue<ByteArray>, retryQueue: LinkedBlockingQueue<ByteArray>, statusMap: HashMap<Int, Int>, latch: CountDownLatch, baseReadFreq: Int, baseRequestsPerConnection: Int) {
     var readFreq = baseReadFreq
     val inflight = ArrayDeque<ByteArray>()
 
     var requestsPerConnection = baseRequestsPerConnection
 
-    while (!requestQueue.isEmpty()) {
+    while (!(requestQueue.isEmpty() && retryQueue.isEmpty())) {
 
         try {
             val socket = if (url.protocol.equals("https")) {
@@ -87,7 +90,7 @@ private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, i
             // todo tweak other TCP options for max performance
 
             var requestsSent = 0
-            while (requestsSent < requestsPerConnection && !requestQueue.isEmpty()) {
+            while (requestsSent < requestsPerConnection && !(requestQueue.isEmpty() && retryQueue.isEmpty())) {
 
                 var readCount = 0
                 for (j in 1..readFreq) {
@@ -95,9 +98,12 @@ private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, i
                         break
                     }
 
-                    val req = requestQueue.poll();
-                    if(req == null) {
-                        break
+                    var req = retryQueue.poll()
+                    if (req == null) {
+                        req = requestQueue.poll();
+                        if(req == null) {
+                            break
+                        }
                     }
 
                     inflight.addLast(req)
@@ -151,7 +157,7 @@ private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, i
             //readFreq = max(1, readFreq / 2)
             //requestsPerConnection = max(1, requestsPerConnection/2)
             //println("Lost ${inflight.size} requests. Changing requestsPerConnection to $requestsPerConnection and readFreq to $readFreq")
-            requestQueue.addAll(inflight)
+            retryQueue.addAll(inflight)
             inflight.clear()
         }
     }
