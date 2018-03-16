@@ -1,7 +1,5 @@
-import java.lang.Integer.max
 import java.net.InetAddress
 import java.net.URL
-import java.security.Security
 import java.security.cert.X509Certificate
 import java.util.*
 import java.util.concurrent.CountDownLatch
@@ -11,14 +9,8 @@ import javax.net.ssl.SSLSocketFactory
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 import kotlin.concurrent.thread
-import java.io.IOException
-import jdk.nashorn.internal.objects.NativeArray.forEach
 import java.io.File
 import java.io.InputStream
-import java.nio.file.Paths
-import java.nio.file.Files
-import java.util.function.Consumer
-import java.util.stream.Stream
 
 
 
@@ -52,12 +44,11 @@ fun main(args : Array<String>) {
 
     val start = System.nanoTime()
     val latch = CountDownLatch(threads)
-    var totalBytes = 0
     val statusMap = HashMap<Int,Int>()
 
     for(j in 1..threads) {
         thread {
-            sendRequests(url, trustingSslSocketFactory, ipAddress, port, urls.get(j-1), statusMap, totalBytes, latch, readFreq, requestsPerConnection)
+            sendRequests(url, trustingSslSocketFactory, ipAddress, port, urls.get(j-1), statusMap, latch, readFreq, requestsPerConnection)
         }
     }
     latch.await()
@@ -65,8 +56,6 @@ fun main(args : Array<String>) {
     for((status, freq) in statusMap) {
         println("Status ${status} count ${freq}")
     }
-
-    println("Bytes read: ${totalBytes}")
 
     val time = System.nanoTime() - start
     println("Time: " + "%.2f".format(time.toFloat() / 1000000000))
@@ -78,10 +67,8 @@ fun main(args : Array<String>) {
 }
 
 
-private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, urls: ArrayList<String>, statusMap: HashMap<Int, Int>, totalBytes: Int, latch: CountDownLatch, baseReadFreq: Int, baseRequestsPerConnection: Int) {
+private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, urls: ArrayList<String>, statusMap: HashMap<Int, Int>, latch: CountDownLatch, baseReadFreq: Int, baseRequestsPerConnection: Int) {
     var readFreq = baseReadFreq
-    var totalBytes1 = totalBytes
-    var threadBytes = 0
     val inflight = ArrayDeque<ByteArray>()
     val todo = ArrayDeque<ByteArray>();
 
@@ -134,7 +121,8 @@ private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, i
                         delimOffset = buffer.indexOf("\r\n\r\n")
                     }
 
-                    val contentLength = Regex("Content-Length: (\\d+)").find(buffer)!!.groups[1]!!.value.toInt()
+                    // val contentLength = Regex("Content-Length: (\\d+)").find(buffer)!!.groups[1]!!.value.toInt()
+                    val contentLength = getContentLength(buffer)
                     val responseLength = delimOffset + contentLength + 4
 
                     while (buffer.length < responseLength) {
@@ -144,7 +132,6 @@ private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, i
 
                     val msg = buffer.substring(0, responseLength)
                     buffer = buffer.substring(responseLength)
-                    threadBytes += responseLength
 
                     if (!msg.startsWith("HTTP")) {
                         throw Exception("no http")
@@ -172,13 +159,14 @@ private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, i
         }
     }
 
-    synchronized(totalBytes1) {
-        totalBytes1 += threadBytes
-    }
-
     latch.countDown()
 }
 
+fun getContentLength(buf: String): Int {
+    val cstart = buf.indexOf("Content-Length: ")+16
+    val cend = buf.indexOf("\r", cstart)
+    return buf.substring(cstart, cend).toInt()
+}
 
 private class TrustingTrustManager : X509TrustManager {
     override fun getAcceptedIssuers(): Array<X509Certificate>? {
