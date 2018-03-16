@@ -11,8 +11,7 @@ import javax.net.ssl.X509TrustManager
 import kotlin.concurrent.thread
 import java.io.File
 import java.io.InputStream
-
-
+import java.util.concurrent.ArrayBlockingQueue
 
 
 fun main(args : Array<String>) {
@@ -25,18 +24,26 @@ fun main(args : Array<String>) {
         readFreq = args[3].toInt();
     }
 
+    val requestQueue = ArrayBlockingQueue<ByteArray>(1000000);
+
     val inputStream: InputStream = File(urlfile).inputStream()
-    val urls = ArrayList<ArrayList<String>>()
-    for(i in 1..threads) {
-        urls.add(ArrayList<String>())
+
+    var target : URL?=null
+    val lines = inputStream.bufferedReader().readLines()
+
+    var requests = 0
+    for(line in lines) {
+        requests++
+        target = URL(line);
+        requestQueue.add(("GET ${target.path}?${target.query} HTTP/1.1\r\n"
+                +"Host: ${target.host}\r\n"
+                +"Connection: keep-alive\r\n"
+                +"\r\n").toByteArray(Charsets.ISO_8859_1))
     }
 
-    var i = 0
-    inputStream.bufferedReader().useLines { lines -> lines.forEach { urls.get(i++ % threads).add(it)} }
 
-    val url = URL(urls.get(0).get(0))
-    val ipAddress = InetAddress.getByName(url.host)
-    val port = if (url.port == -1) { url.defaultPort } else { url.port }
+    val ipAddress = InetAddress.getByName(target!!.host)
+    val port = if (target.port == -1) { target.defaultPort } else { target.port }
 
     val trustingSslContext = SSLContext.getInstance("TLS")
     trustingSslContext.init(null, arrayOf<TrustManager>(TrustingTrustManager()), null)
@@ -48,42 +55,27 @@ fun main(args : Array<String>) {
 
     for(j in 1..threads) {
         thread {
-            sendRequests(url, trustingSslSocketFactory, ipAddress, port, urls.get(j-1), statusMap, latch, readFreq, requestsPerConnection)
+            sendRequests(target, trustingSslSocketFactory, ipAddress, port, requestQueue, statusMap, latch, readFreq, requestsPerConnection)
         }
     }
     latch.await()
 
+    val time = System.nanoTime() - start
     for((status, freq) in statusMap) {
         println("Status ${status} count ${freq}")
     }
-
-    val time = System.nanoTime() - start
     println("Time: " + "%.2f".format(time.toFloat() / 1000000000))
-    var requests = 0
-    for (e in urls) {
-        requests += e.size
-    }
     println("RPS: %.0f".format(requests/(time.toFloat() / 1000000000)))
 }
 
 
-private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, urls: ArrayList<String>, statusMap: HashMap<Int, Int>, latch: CountDownLatch, baseReadFreq: Int, baseRequestsPerConnection: Int) {
+private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, requestQueue: ArrayBlockingQueue<ByteArray>, statusMap: HashMap<Int, Int>, latch: CountDownLatch, baseReadFreq: Int, baseRequestsPerConnection: Int) {
     var readFreq = baseReadFreq
     val inflight = ArrayDeque<ByteArray>()
-    val todo = ArrayDeque<ByteArray>();
-
-    for (i in urls) {
-        val target = URL(i)
-        val request = ("GET ${target.path}?${target.query} HTTP/1.1\r\n"
-                +"Host: ${target.host}\r\n"
-                +"Connection: keep-alive\r\n"
-                +"\r\n").toByteArray(Charsets.ISO_8859_1)
-        todo.add(request);
-    }
 
     var requestsPerConnection = baseRequestsPerConnection
 
-    while (!todo.isEmpty()) {
+    while (!requestQueue.isEmpty()) {
 
         try {
             val socket = if (url.protocol.equals("https")) {
@@ -95,15 +87,19 @@ private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, i
             // todo tweak other TCP options for max performance
 
             var requestsSent = 0
-            while (requestsSent < requestsPerConnection && !todo.isEmpty()) {
+            while (requestsSent < requestsPerConnection && !requestQueue.isEmpty()) {
 
                 var readCount = 0
                 for (j in 1..readFreq) {
-                    if (todo.isEmpty() || requestsSent >= requestsPerConnection) {
+                    if (requestsSent >= requestsPerConnection) {
                         break
                     }
 
-                    val req = todo.pop();
+                    val req = requestQueue.poll();
+                    if(req == null) {
+                        break
+                    }
+
                     inflight.addLast(req)
                     socket.getOutputStream().write(req)
                     readCount++
@@ -151,10 +147,11 @@ private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, i
         } catch (ex: Exception) {
 
             ex.printStackTrace()
+            // do callback here (allow user code change
             //readFreq = max(1, readFreq / 2)
             //requestsPerConnection = max(1, requestsPerConnection/2)
             //println("Lost ${inflight.size} requests. Changing requestsPerConnection to $requestsPerConnection and readFreq to $readFreq")
-            todo.addAll(inflight)
+            requestQueue.addAll(inflight)
             inflight.clear()
         }
     }
