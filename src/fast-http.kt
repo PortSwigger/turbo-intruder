@@ -31,13 +31,22 @@ fun main(args : Array<String>) {
         readFreq = args[3].toInt();
     }
     javaSend(urlfile, threads, requestsPerConnection, readFreq)
-    println("Starting jythonsend...")
-    jythonSend(urlfile, threads, requestsPerConnection, readFreq)
+    //println("Starting jythonsend...")
+    //jythonSend(urlfile, threads, requestsPerConnection, readFreq)
+}
+
+fun handlecallback(req: ByteArray, resp: String): Boolean {
+    val status = resp.split(" ")[1].toInt()
+    if (status != 404 && status != 401) {
+        println("" + status + ": " + String(req).split("\n")[0])
+    }
+
+    return true
 }
 
 fun javaSend(urlfile: String, threads: Int, requestsPerConnection: Int, readFreq: Int) {
     var target: URL
-    val engine = RequestEngine("https://research1.hackxor.net/static/cow", threads, readFreq, requestsPerConnection)
+    val engine = RequestEngine("https://research1.hackxor.net/static/cow", threads, readFreq, requestsPerConnection, ::handlecallback)
     engine.start()
 
 
@@ -79,7 +88,7 @@ engine.getResult(requests)
     }
 }
 
-class RequestEngine(url: String, val threads: Int, val readFreq: Int, val requestsPerConnection: Int) {
+class RequestEngine(url: String, val threads: Int, val readFreq: Int, val requestsPerConnection: Int, val callback: (ByteArray, String) -> Boolean) {
 
     companion object {
         @JvmStatic
@@ -116,6 +125,9 @@ class RequestEngine(url: String, val threads: Int, val readFreq: Int, val reques
     }
 
     fun getResult(requests: Int) {
+//        while(latch.count > 0) {
+//
+//        }
         latch.await()
 
         val time = System.nanoTime() - start
@@ -196,15 +208,13 @@ class RequestEngine(url: String, val threads: Int, val readFreq: Int, val reques
                             throw Exception("no http")
                         }
 
-                        val status = msg.split(" ")[1].toInt()
                         val req = inflight.removeFirst()
-                        if (status != 404 && status != 401) {
-                            println("" + status + ": " + String(req).split("\n")[0])
-                        }
+                        callback(req, msg)
 
-                        synchronized(statusMap) {
-                            statusMap.put(status, statusMap.getOrDefault(status, 0) + 1)
-                        }
+//                        val status = msg.split(" ")[1].toInt()
+//                        synchronized(statusMap) {
+//                            statusMap.put(status, statusMap.getOrDefault(status, 0) + 1)
+//                        }
                     }
                 }
             } catch (ex: Exception) {
