@@ -27,19 +27,22 @@ fun main(args : Array<String>) {
     val threads = args[1].toInt()
     val requestsPerConnection = args[2].toInt()
     var readFreq = requestsPerConnection
-    if(args.size > 3) {
+    if (args.size > 3) {
         readFreq = args[3].toInt();
     }
+    javaSend(urlfile, threads, requestsPerConnection, readFreq)
+    println("Starting jythonsend...")
+    jythonSend(urlfile, threads, requestsPerConnection, readFreq)
+}
+
+fun javaSend(urlfile: String, threads: Int, requestsPerConnection: Int, readFreq: Int) {
+    var target: URL
+    val engine = RequestEngine("https://research1.hackxor.net/static/cow", threads, readFreq, requestsPerConnection)
+    engine.start()
+
+
 
     val inputStream: InputStream = File(urlfile).inputStream()
-
-    var target = URL("https://research1.hackxor.net/static/cow")
-
-
-    val latch = CountDownLatch(threads)
-    val engine = RequestEngine(target, threads, readFreq, requestsPerConnection, latch)
-    val start = System.nanoTime()
-
     val lines = inputStream.bufferedReader().readLines()
     var requests = 0
     for(line in lines) {
@@ -50,29 +53,33 @@ fun main(args : Array<String>) {
                 +"Connection: keep-alive\r\n"
                 +"\r\n").toByteArray(Charsets.ISO_8859_1))
     }
-    latch.await()
 
-    val time = System.nanoTime() - start
-//    for((status, freq) in statusMap) {
-//        println("Status ${status} count ${freq}")
-//    }
-    println("Time: " + "%.2f".format(time.toFloat() / 1000000000))
-    println("RPS: %.0f".format(requests/(time.toFloat() / 1000000000)-1))
-
+    engine.getResult(requests)
 }
 
-fun jyval() {
+fun jythonSend(urlfile: String, threads: Int, requestsPerConnection: Int, readFreq: Int) {
     val engine = ScriptEngineManager().getEngineByName("python")
     if(engine == null) {
         println("can't find engine")
     }
     else {
-        engine.eval("import req.RequestEngine")
-        engine.eval("req.RequestEngine.hello()")
+        engine.eval("""import req.RequestEngine
+from urlparse import urlparse
+engine = req.RequestEngine('https://research1.hackxor.net/static/cow', $threads, $readFreq, $requestsPerConnection)
+engine.start()
+requests = 0
+with open('$urlfile') as file:
+    for line in file:
+        requests+=1
+        url = urlparse(line.rstrip())
+        engine.queue('GET %s?%s HTTP/1.1\r\nHost: %s\r\nConnection: keep-alive\r\n\r\n' % (url.path, url.query, url.netloc))
+
+engine.getResult(requests)
+""")
     }
 }
 
-class RequestEngine(target: URL, threads: Int, readFreq: Int, requestsPerConnection: Int, latch: CountDownLatch) {
+class RequestEngine(url: String, val threads: Int, val readFreq: Int, val requestsPerConnection: Int) {
 
     companion object {
         @JvmStatic
@@ -81,13 +88,14 @@ class RequestEngine(target: URL, threads: Int, readFreq: Int, requestsPerConnect
         }
     }
 
-    val statusMap = HashMap<Int,Int>()
-    val requestQueue = ArrayBlockingQueue<ByteArray>(200005)
+    private val statusMap = HashMap<Int,Int>()
+    private val requestQueue = ArrayBlockingQueue<ByteArray>(200005)
+    private val latch = CountDownLatch(threads)
+    private val target = URL(url)
+    private var start: Long = 0
 
-    init {
+    fun start() {
         val retryQueue = LinkedBlockingQueue<ByteArray>();
-
-
         val ipAddress = InetAddress.getByName(target.host)
         val port = if (target.port == -1) { target.defaultPort } else { target.port }
 
@@ -100,10 +108,22 @@ class RequestEngine(target: URL, threads: Int, readFreq: Int, requestsPerConnect
                 sendRequests(target, trustingSslSocketFactory, ipAddress, port, requestQueue, retryQueue, latch, readFreq, requestsPerConnection)
             }
         }
+        start = System.nanoTime()
     }
 
     fun queue(req: ByteArray) {
         requestQueue.add(req) // todo should this be synchronised?
+    }
+
+    fun getResult(requests: Int) {
+        latch.await()
+
+        val time = System.nanoTime() - start
+//    for((status, freq) in statusMap) {
+//        println("Status ${status} count ${freq}")
+//    }
+        println("Time: " + "%.2f".format(time.toFloat() / 1000000000))
+        println("RPS: %.0f".format(requests/(time.toFloat() / 1000000000)-1))
     }
 
 
