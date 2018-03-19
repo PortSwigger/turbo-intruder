@@ -1,3 +1,4 @@
+package req
 import java.net.InetAddress
 import java.net.URL
 import java.security.cert.X509Certificate
@@ -15,8 +16,36 @@ import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.LinkedBlockingDeque
 import java.util.concurrent.LinkedBlockingQueue
 
+import org.python.core.PyObject;
+import org.python.core.PyString;
+import org.python.util.PythonInterpreter;
+
+import javax.script.ScriptEngine
+import javax.script.ScriptEngineManager
+
+class cow {
+    fun hello() {
+        println("hello")
+    }
+
+
+}
+
+fun jyval() {
+    val engine = ScriptEngineManager().getEngineByName("python")
+    if(engine == null) {
+        println("can't find engine")
+    }
+    else {
+        engine.eval("import req.cow")
+        engine.eval("req.cow().hello()")
+    }
+}
 
 fun main(args : Array<String>) {
+    jyval()
+    return
+
     val urlfile = args[0]
     val threads = args[1].toInt()
     val requestsPerConnection = args[2].toInt()

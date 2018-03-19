@@ -1,4 +1,4 @@
 Manifest-Version: 1.0
 Class-Path: kotlin-stdlib.jar kotlin-reflect.jar kotlin-test.jar kotli
  n-stdlib-jre7.jar kotlin-stdlib-jre8.jar
-Main-Class: Fast_httpKt
+Main-Class: req.Fast_httpKt
