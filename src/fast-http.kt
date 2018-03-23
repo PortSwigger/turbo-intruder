@@ -10,16 +10,11 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 import kotlin.concurrent.thread
 
-import org.python.core.PyObject;
-import org.python.core.PyString;
-import org.python.util.PythonInterpreter;
 import java.util.concurrent.*
 
-import javax.script.ScriptEngine
 import javax.script.ScriptEngineManager
 
 import java.nio.ByteBuffer
-import java.util.*
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
@@ -35,15 +30,11 @@ import org.apache.http.impl.nio.reactor.DefaultConnectingIOReactor
 import org.apache.http.impl.nio.reactor.IOReactorConfig
 
 import org.apache.http.message.BasicHttpEntityEnclosingRequest
-import org.apache.http.message.BasicHttpRequest
 import org.apache.http.nio.ContentDecoder
 import org.apache.http.nio.ContentEncoder
 import org.apache.http.nio.NHttpClientConnection
 import org.apache.http.nio.NHttpClientEventHandler
-import org.apache.http.nio.reactor.*
-import org.apache.http.protocol.HttpContext
-import java.awt.Dimension
-import java.awt.Frame
+import java.awt.*
 import java.awt.event.ActionEvent
 import java.awt.event.ActionListener
 import java.io.*
@@ -53,6 +44,36 @@ import javax.swing.*
 class BurpExtender(): IBurpExtender {
     companion object {
         lateinit var callbacks: IBurpExtenderCallbacks
+
+        val sampleScript = """import burp.RequestEngine
+import burp.Env
+from urlparse import urlparse
+
+def handleResponse(req, resp):
+    code = resp.split(' ', 2)[1]
+    if code != '404':
+        print(code + ': '+req.split('\r', 1)[0])
+
+def queueRequests():
+    baseRequest = burp.Env.request
+    service = baseRequest.getHttpService()
+    targeturl = service.getProtocol() + "://" + service.getHost() + ":" + service.getPort()
+    wordfile = 'payloads'
+    concurrentConnections = 50
+    readFreq = 100
+    requestsPerConnection = 100
+    engine = burp.AsyncRequestEngine(targeturl, concurrentConnections, readFreq, requestsPerConnection, handleResponse)
+    engine.start()
+    requests = 0
+    with open(wordfile) as file:
+        for line in file:
+            requests+=1
+            engine.queue(baseRequest.replace('INJECTION', line)
+
+    engine.showStats(requests)
+
+
+queueRequests()"""
     }
 
     override fun registerExtenderCallbacks(callbacks: IBurpExtenderCallbacks?) {
@@ -76,7 +97,7 @@ class OfferTurboIntruder(): IContextMenuFactory {
 class OpenTurboIntruder(val req: IHttpRequestResponse): ActionListener {
     override fun actionPerformed(e: ActionEvent?) {
         val frame = TurboIntruderFrame(req)
-        frame.setLocationRelativeTo(getBurpFrame())
+        //frame.setLocationRelativeTo(getBurpFrame())
         frame.isVisible = true
     }
 
@@ -88,17 +109,15 @@ class OpenTurboIntruder(val req: IHttpRequestResponse): ActionListener {
 
 
 
-class TurboIntruderFrame(req: IHttpRequestResponse): JFrame("Turbo Intruder") {
+class TurboIntruderFrame(req: IHttpRequestResponse): JFrame("Turbo Intruder - " + req.httpService.host) {
     init {
         SwingUtilities.invokeLater{
+            val outerpane = JPanel(GridBagLayout())
             val pane = JSplitPane(JSplitPane.VERTICAL_SPLIT)
-            //pane.setOneTouchExpandable(true);
-            //pane.setDividerLocation(150);
-
             val textEditor = BurpExtender.callbacks.createTextEditor()
             val messageEditor = BurpExtender.callbacks.createMessageEditor(null, true)
             messageEditor.setMessage(req.request, true)
-            textEditor.setText("cow".toByteArray())
+            textEditor.setText(BurpExtender.sampleScript.toByteArray())
             textEditor.setEditable(true)
 
             pane.topComponent = messageEditor.component
@@ -107,7 +126,15 @@ class TurboIntruderFrame(req: IHttpRequestResponse): JFrame("Turbo Intruder") {
             messageEditor.component.preferredSize = Dimension(1280, 200);
             textEditor.component.preferredSize = Dimension(1280, 600);
 
-            add(pane)
+            val button = JButton("Attack");
+            val c =  GridBagConstraints();
+            outerpane.add(pane, c)
+            c.fill = GridBagConstraints.HORIZONTAL;
+            c.gridx = 0
+            c.gridy = 1
+            outerpane.add(button, c)
+
+            add(outerpane)
             pack()
 
         }
@@ -159,20 +186,24 @@ fun javaSend(url: String, urlfile: String, threads: Int, requestsPerConnection: 
                 +"\r\n")
     }
 
-    engine.getResult(requests)
+    engine.showStats(requests)
 }
 
-fun jythonSend(scriptFile: String) {
+fun evalJython(code: String) {
     val engine = ScriptEngineManager().getEngineByName("python")
     if(engine == null) {
-        println("Can't find engine")
+        println("Can't find Jython engine")
     }
-    else {
-        try {
-            engine.eval(File(scriptFile).readText())
-        }
-        catch (e: FileNotFoundException) {
-            val content = """import burp.RequestEngine
+    engine.eval(code)
+}
+
+
+fun jythonSend(scriptFile: String) {
+    try {
+        evalJython(File(scriptFile).readText())
+    }
+    catch (e: FileNotFoundException) {
+        val content = """import burp.RequestEngine
 import burp.Args
 from urlparse import urlparse
 
@@ -197,34 +228,42 @@ def queueRequests():
             url = urlparse(line.rstrip())
             engine.queue('GET %s?%s HTTP/1.1\r\nHost: %s\r\nConnection: keep-alive\r\n\r\n' % (url.path, url.query, url.netloc))
 
-    engine.getResult(requests)
+    engine.showStats(requests)
 
 
 queueRequests()"""
 
-            File(scriptFile).printWriter().use { out -> out.println(content) }
-            System.out.println("Wrote example script to "+scriptFile);
-        }
-
+        File(scriptFile).printWriter().use { out -> out.println(content) }
+        System.out.println("Wrote example script to "+scriptFile);
     }
-
 }
 
-class Args(inArgs: Array<String>) {
+class Args(args: Array<String>) {
 
     companion object {
         lateinit var args: Array<String>
     }
 
     init {
-        args = inArgs
+        Companion.args = args
+    }
+}
+
+class Env(req: HttpRequest) {
+
+    companion object {
+        lateinit var request: HttpRequest
+    }
+
+    init {
+        Companion.request = req
     }
 }
 
 
 interface RequestEngine {
     fun start()
-    fun getResult(requestCount: Int)
+    fun showStats(requestCount: Int)
     fun queue(req: String)
 }
 
@@ -257,7 +296,7 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
         requestQueue.offer(req.toByteArray(Charsets.ISO_8859_1), 10, TimeUnit.SECONDS) // todo should this be synchronised?
     }
 
-    override fun getResult(requestCount: Int) {
+    override fun showStats(requestCount: Int) {
 //        while(latch.count > 0) {
 //
 //        }
@@ -453,7 +492,7 @@ class AsyncRequestEngine (val url: String, val threads: Int, val readFreq: Int, 
         requestQueue.add(stringToRequest(req));
     }
 
-    override fun getResult(requestCount: Int) {
+    override fun showStats(requestCount: Int) {
 //        println("Sent " + REQUESTS + " requests in " + duration / 1000000000 + " seconds")
         poolThread.join()
         val duration = System.nanoTime().toFloat() - start
