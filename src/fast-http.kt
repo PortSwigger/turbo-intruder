@@ -20,36 +20,62 @@ import java.util.concurrent.*
 import javax.script.ScriptEngine
 import javax.script.ScriptEngineManager
 
+import java.io.IOException
+import java.io.InterruptedIOException
+import java.nio.ByteBuffer
+import java.util.*
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.Future
+import java.util.concurrent.TimeUnit
+
+import org.apache.http.*
+import org.apache.http.config.ConnectionConfig
+import org.apache.http.entity.StringEntity
+import org.apache.http.impl.nio.DefaultHttpClientIODispatch
+import org.apache.http.impl.nio.pool.BasicNIOConnFactory
+import org.apache.http.impl.nio.pool.BasicNIOConnPool
+import org.apache.http.impl.nio.pool.BasicNIOPoolEntry
+import org.apache.http.impl.nio.reactor.DefaultConnectingIOReactor
+import org.apache.http.impl.nio.reactor.IOReactorConfig
+
+import org.apache.http.message.BasicHttpEntityEnclosingRequest
+import org.apache.http.message.BasicHttpRequest
+import org.apache.http.nio.ContentDecoder
+import org.apache.http.nio.ContentEncoder
+import org.apache.http.nio.NHttpClientConnection
+import org.apache.http.nio.NHttpClientEventHandler
+import org.apache.http.nio.reactor.*
+import org.apache.http.protocol.HttpContext
 
 
 fun main(args : Array<String>) {
-    val urlfile = args[0]
-    val threads = args[1].toInt()
-    val requestsPerConnection = args[2].toInt()
+    val url = args[0]
+    val urlfile = args[1]
+    val threads = args[2].toInt()
+    val requestsPerConnection = args[3].toInt()
     var readFreq = requestsPerConnection
-    if (args.size > 3) {
-        readFreq = args[3].toInt();
+    if (args.size > 4) {
+        readFreq = args[4].toInt();
     }
-    javaSend(urlfile, threads, requestsPerConnection, readFreq)
+    javaSend(url, urlfile, threads, requestsPerConnection, readFreq)
     //println("Starting jythonsend...")
-    //jythonSend(urlfile, threads, requestsPerConnection, readFreq)
+    //jythonSend(url, urlfile, threads, requestsPerConnection, readFreq)
 }
 
-fun handlecallback(req: ByteArray, resp: String): Boolean {
+fun handlecallback(req: String, resp: String): Boolean {
     val status = resp.split(" ")[1].toInt()
     if (status != 404 && status != 401) {
-        println("" + status + ": " + String(req).split("\n")[0])
+        println("" + status + ": " + req.split("\n")[0])
+        println(resp)
     }
 
     return true
 }
 
-fun javaSend(urlfile: String, threads: Int, requestsPerConnection: Int, readFreq: Int) {
+fun javaSend(url: String, urlfile: String, threads: Int, requestsPerConnection: Int, readFreq: Int) {
     var target: URL
-    val engine = RequestEngine("https://research1.hackxor.net/static/cow", threads, readFreq, requestsPerConnection, ::handlecallback)
+    val engine = AsyncRequestEngine(url, threads, readFreq, requestsPerConnection, ::handlecallback)
     engine.start()
-
-
 
     val inputStream: InputStream = File(urlfile).inputStream()
     val lines = inputStream.bufferedReader().readLines()
@@ -57,16 +83,16 @@ fun javaSend(urlfile: String, threads: Int, requestsPerConnection: Int, readFreq
     for(line in lines) {
         requests++
         target = URL(line);
-        engine.queue(("GET ${target.path}?${target.query} HTTP/1.1\r\n"
+        engine.queue("GET ${target.path}?${target.query} HTTP/1.1\r\n"
                 +"Host: ${target.host}\r\n"
                 +"Connection: keep-alive\r\n"
-                +"\r\n").toByteArray(Charsets.ISO_8859_1))
+                +"\r\n")
     }
 
     engine.getResult(requests)
 }
 
-fun jythonSend(urlfile: String, threads: Int, requestsPerConnection: Int, readFreq: Int) {
+fun jythonSend(url: String, urlfile: String, threads: Int, requestsPerConnection: Int, readFreq: Int) {
     val engine = ScriptEngineManager().getEngineByName("python")
     if(engine == null) {
         println("can't find engine")
@@ -74,36 +100,44 @@ fun jythonSend(urlfile: String, threads: Int, requestsPerConnection: Int, readFr
     else {
         engine.eval("""import req.RequestEngine
 from urlparse import urlparse
-engine = req.RequestEngine('https://research1.hackxor.net/static/cow', $threads, $readFreq, $requestsPerConnection)
-engine.start()
-requests = 0
-with open('$urlfile') as file:
-    for line in file:
-        requests+=1
-        url = urlparse(line.rstrip())
-        engine.queue('GET %s?%s HTTP/1.1\r\nHost: %s\r\nConnection: keep-alive\r\n\r\n' % (url.path, url.query, url.netloc))
 
-engine.getResult(requests)
+def handleResponse(req, resp):
+    code = resp.split(' ', 2)[1]
+    if code != '404':
+        print(code + ': '+req.split('\r', 1)[0])
+
+def queueRequests():
+    engine = req.RequestEngine('$url', $threads, $readFreq, $requestsPerConnection, handleResponse)
+    engine.start()
+    requests = 0
+    with open('$urlfile') as file:
+        for line in file:
+            requests+=1
+            url = urlparse(line.rstrip())
+            engine.queue('GET %s?%s HTTP/1.1\r\nHost: %s\r\nConnection: keep-alive\r\n\r\n' % (url.path, url.query, url.netloc))
+
+    engine.getResult(requests)
+
+queueRequests()
 """)
     }
 }
 
-class RequestEngine(url: String, val threads: Int, val readFreq: Int, val requestsPerConnection: Int, val callback: (ByteArray, String) -> Boolean) {
+interface RequestEngine {
+    fun start()
+    fun getResult(requestCount: Int)
+    fun queue(req: String)
+}
 
-    companion object {
-        @JvmStatic
-        fun hello() {
-            println("hello")
-        }
-    }
+class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, val requestsPerConnection: Int, val callback: (String, String) -> Boolean): RequestEngine {
 
     private val statusMap = HashMap<Int,Int>()
-    private val requestQueue = ArrayBlockingQueue<ByteArray>(200005)
+    private val requestQueue = ArrayBlockingQueue<ByteArray>(8192)
     private val latch = CountDownLatch(threads)
     private val target = URL(url)
     private var start: Long = 0
 
-    fun start() {
+    override fun start() {
         val retryQueue = LinkedBlockingQueue<ByteArray>();
         val ipAddress = InetAddress.getByName(target.host)
         val port = if (target.port == -1) { target.defaultPort } else { target.port }
@@ -120,11 +154,11 @@ class RequestEngine(url: String, val threads: Int, val readFreq: Int, val reques
         start = System.nanoTime()
     }
 
-    fun queue(req: ByteArray) {
-        requestQueue.add(req) // todo should this be synchronised?
+    override fun queue(req: String) {
+        requestQueue.offer(req.toByteArray(Charsets.ISO_8859_1), 10, TimeUnit.SECONDS) // todo should this be synchronised?
     }
 
-    fun getResult(requests: Int) {
+    override fun getResult(requestCount: Int) {
 //        while(latch.count > 0) {
 //
 //        }
@@ -135,7 +169,7 @@ class RequestEngine(url: String, val threads: Int, val readFreq: Int, val reques
 //        println("Status ${status} count ${freq}")
 //    }
         println("Time: " + "%.2f".format(time.toFloat() / 1000000000))
-        println("RPS: %.0f".format(requests/(time.toFloat() / 1000000000)-1))
+        println("RPS: %.0f".format(requestCount/(time.toFloat() / 1000000000)-1))
     }
 
 
@@ -209,7 +243,7 @@ class RequestEngine(url: String, val threads: Int, val readFreq: Int, val reques
                         }
 
                         val req = inflight.removeFirst()
-                        callback(req, msg)
+                        callback(String(req), msg)
 
 //                        val status = msg.split(" ")[1].toInt()
 //                        synchronized(statusMap) {
@@ -248,3 +282,326 @@ class RequestEngine(url: String, val threads: Int, val readFreq: Int, val reques
 }
 
 
+
+class AsyncRequestEngine (val url: String, val threads: Int, val readFreq: Int, val requestsPerConnection: Int, val callback: (String, String) -> Boolean): RequestEngine {
+
+    private val requestQueue = ArrayBlockingQueue<HttpRequest>(1000000)
+    val config = IOReactorConfig.custom().setTcpNoDelay(true).setSoTimeout(10000).setConnectTimeout(10000).build()
+    val ioreactor = DefaultConnectingIOReactor(config)
+
+    val sslcontext = SSLContext.getInstance("Default")
+    val connectionFactory = BasicNIOConnFactory(sslcontext, null, ConnectionConfig.custom().build())
+    lateinit var poolThread: Thread
+    var start: Long = 0
+
+    override fun start() {
+
+        val connpool = BasicNIOConnPool(ioreactor, connectionFactory, 300000)
+        connpool.maxTotal = 100
+        connpool.defaultMaxPerRoute = 100
+
+        val pendingConnections = ArrayList<Future<BasicNIOPoolEntry>>()
+        val url = URL(url)
+        pendingConnections.add(connpool.lease(HttpHost(url.host, url.port, url.protocol), null))
+
+        val turboHandler = TurboHandler(requestQueue, callback)
+        val eventDispatch = DefaultHttpClientIODispatch(turboHandler, sslcontext, ConnectionConfig.DEFAULT)
+
+        // Run the I/O reactor in a separate thread
+        val reactorThread = Thread(Runnable {
+            try {
+                ioreactor.execute(eventDispatch)
+            } catch (ex: InterruptedIOException) {
+                System.err.println("Interrupted")
+            } catch (e: IOException) {
+                System.err.println("I/O error: " + e.message)
+                e.printStackTrace()
+                System.err.println("--------------")
+            }
+        })
+
+        poolThread = Thread(Runnable {
+            var it: MutableIterator<Future<BasicNIOPoolEntry>> = pendingConnections.iterator()
+            while (it.hasNext()) {
+                val future = it.next()
+                if (future.isDone) {
+                    val poolEntry = future.get(60, TimeUnit.SECONDS)
+                    if (poolEntry != null && poolEntry.isClosed) {
+                        connpool.release(poolEntry, false)
+                        it.remove()
+                    }
+                }
+
+                if (!it.hasNext()) {
+                    if (pendingConnections.isEmpty() && !requestQueue.isEmpty()) {
+                        // println("Adding extra lease")
+                        val queueSize = requestQueue.size
+                        for (i in 0..queueSize / 100) {
+                            pendingConnections.add(connpool.lease(HttpHost("hackxor.net", 443, "https"), null))
+                        }
+                    }
+                    it = pendingConnections.iterator()
+                }
+            }
+        })
+
+        start = System.nanoTime()
+        poolThread.start()
+        reactorThread.start()
+    }
+
+    override fun queue(req: String) {
+        requestQueue.add(stringToRequest(req));
+    }
+
+    override fun getResult(requestCount: Int) {
+//        println("Sent " + REQUESTS + " requests in " + duration / 1000000000 + " seconds")
+//        System.out.printf("RPS: %.0f\n", REQUESTS / (duration / 1000000000))
+//
+        poolThread.join()
+        val duration = System.nanoTime().toFloat() - start
+        println("Duration: "+duration / 1000000000)
+        val gracePeriod = 90000L // milliseconds
+        ioreactor.shutdown(gracePeriod)
+    }
+
+
+    companion object {
+        fun stringToRequest(req: String): HttpRequest? {
+            try {
+                val headers = req.split("\r\n\r\n".toRegex(), 2).toTypedArray()[0].split("\r\n".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+                val requestParts = headers[0].split(" ".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+                val output = BasicHttpEntityEnclosingRequest(requestParts[0], requestParts[1])
+
+                for (i in 1 until headers.size - 1) {
+                    val headerParts = headers[i].split(": ".toRegex(), 2).toTypedArray()
+                    output.addHeader(headerParts[0], headerParts[1])
+                }
+
+                val body = req.split("\r\n\r\n".toRegex(), 2).toTypedArray()[1]
+                if ("" != body) {
+                    output.entity = StringEntity(body)
+                }
+                return output
+            } catch (e: Exception) {
+                println("Errror creating request from input string. If the request is malformed, you may need to use the non-async approach")
+                e.printStackTrace()
+            }
+
+            return null
+        }
+
+        fun appendEntity(output: StringBuilder, entity: HttpEntity?) {
+            if (entity == null) {
+                return
+            }
+
+            val body = entity.content
+
+            val buff = ByteArray(256)
+            while (true) {
+                val length = body.read(buff)
+                if (length == -1) {
+                    break
+                }
+                output.append(String(buff, 0, length))
+            }
+
+        }
+
+        @Throws(IOException::class)
+        fun responseToString(resp: HttpResponse): String {
+            val output = StringBuilder()
+
+            val status = resp.statusLine
+            output.append(status.protocolVersion.toString())
+            output.append(" ")
+            output.append(status.statusCode)
+            output.append(" ")
+            output.append(status.reasonPhrase)
+            output.append("\r\n")
+
+            val headers = resp.headerIterator()
+            while (headers.hasNext()) {
+                val header = headers.nextHeader()
+                output.append(header.name)
+                output.append(": ")
+                output.append(header.value)
+                output.append("\r\n")
+            }
+            output.append("\r\n")
+
+            appendEntity(output, resp.entity)
+
+            return output.toString()
+        }
+
+        fun requestToString(req: HttpRequest): String {
+            val output = StringBuilder();
+
+            output.append(req.requestLine.method)
+            output.append(" ")
+            output.append(req.requestLine.uri)
+            output.append(" ")
+            output.append(req.requestLine.protocolVersion)
+            output.append("\r\n")
+
+            val headers = req.headerIterator()
+            while (headers.hasNext()) {
+                val header = headers.nextHeader()
+                output.append(header.name)
+                output.append(": ")
+                output.append(header.value)
+                output.append("\r\n")
+            }
+            output.append("\r\n")
+            if (req is HttpEntityEnclosingRequest) {
+                appendEntity(output, req.entity)
+            }
+
+            return output.toString()
+        }
+    }
+}
+
+
+
+class TurboHandler(var requestQueue: ArrayBlockingQueue<HttpRequest>, val callback: (String, String) -> Boolean) : NHttpClientEventHandler {
+
+    @Throws(IOException::class, HttpException::class)
+    override fun connected(nHttpClientConnection: NHttpClientConnection, o: Any) {
+        val inflight = ArrayDeque<HttpRequest>()
+        nHttpClientConnection.context.setAttribute("inflight", inflight)
+        nHttpClientConnection.context.setAttribute("total", 0)
+        nHttpClientConnection.requestOutput()
+        //System.out.println("Connected!");
+    }
+
+    @Throws(IOException::class, HttpException::class)
+    @Suppress("UNCHECKED_CAST")
+    override fun requestReady(nHttpClientConnection: NHttpClientConnection) {
+
+        val context = nHttpClientConnection.context
+
+        val inflight = context.getAttribute("inflight") as ArrayDeque<HttpRequest>
+
+        if (requestQueue.isEmpty()) {
+            //System.out.println("Queued everything - requesting responses now");
+            if (inflight.isEmpty()) {
+                nHttpClientConnection.close()
+            }
+        } else {
+            val total = context.getAttribute("total") as Int
+            if (total < 100) { // inflight.size() < 100
+                val req = requestQueue.poll()
+                if (req != null) {
+                    inflight.add(req)
+                    context.setAttribute("total", total + 1)
+                    nHttpClientConnection.submitRequest(req)
+                }
+            } else {
+                //System.out.println("Inflight queue full");
+            }
+        }
+    }
+
+    @Throws(IOException::class, HttpException::class)
+    override fun responseReceived(nHttpClientConnection: NHttpClientConnection) {
+
+    }
+
+    @Throws(IOException::class, HttpException::class)
+    @Suppress("UNCHECKED_CAST")
+    override fun inputReady(nHttpClientConnection: NHttpClientConnection, contentDecoder: ContentDecoder) {
+
+        val dst = ByteBuffer.allocate(nHttpClientConnection.httpResponse.getFirstHeader("Content-Length").value.toInt()+8)
+        val bytesRead = contentDecoder.read(dst)
+
+        // todo check contentDecoder.isCompleted - supported repeated calls with partial data
+
+        if (bytesRead != -1) {
+
+            val inflight = nHttpClientConnection.context.getAttribute("inflight") as ArrayDeque<HttpRequest>
+            val req = inflight.pop()
+            val resp = nHttpClientConnection.httpResponse
+
+            resp.entity = StringEntity(String(dst.array()))
+
+            callback(AsyncRequestEngine.requestToString(req), AsyncRequestEngine.responseToString(resp))
+            //System.out.println(inflight.size() + "| " +req.getRequestLine() + " -> " + resp.getStatusLine());
+            //System.out.println(httpcore.responseToString(resp));
+
+            //            // todo callback goes here
+            //            if (nHttpClientConnection.getHttpResponse().getStatusLine().getStatusCode() != 404) {
+            //                String body = new String(dst.array());
+            //                System.out.println(req.getRequestLine()+"\n\n"+body);
+            //            }
+
+            if (inflight.isEmpty()) {
+                nHttpClientConnection.close()
+            }
+        }
+    }
+
+    @Throws(IOException::class, HttpException::class)
+    @Suppress("UNCHECKED_CAST")
+    override fun outputReady(nHttpClientConnection: NHttpClientConnection, contentEncoder: ContentEncoder) {
+        if (nHttpClientConnection.isRequestSubmitted) {
+            val content = (nHttpClientConnection.httpRequest as BasicHttpEntityEnclosingRequest).entity.content
+            val expectedLength = nHttpClientConnection.httpRequest.getFirstHeader("Content-Length").value.toInt()
+            val dst = ByteArray(expectedLength+8)
+            val i = content.read(dst)
+            val buf = ByteBuffer.wrap(dst)
+            buf.flip()
+            contentEncoder.write(buf)
+
+            val buffering = buf.hasRemaining()
+            buf.compact()
+            if (i == -1 && !buffering) {
+                contentEncoder.complete()
+            }
+
+            // todo support repeated calls with partial data
+            //nHttpClientConnection.suspendOutput();
+            //nHttpClientConnection.requestInput();
+        }
+    }
+
+    @Throws(IOException::class)
+    @Suppress("UNCHECKED_CAST")
+    override fun endOfInput(nHttpClientConnection: NHttpClientConnection) {
+        val inflight = nHttpClientConnection.context.getAttribute("inflight") as ArrayDeque<HttpRequest>
+        if (inflight.size > 0) {
+            println("End of input lost " + inflight.size + " pending responses. Retry scheduled")
+        }
+        nHttpClientConnection.close()
+    }
+
+    @Throws(IOException::class, HttpException::class)
+    @Suppress("UNCHECKED_CAST")
+    override fun timeout(nHttpClientConnection: NHttpClientConnection) {
+        val inflight = nHttpClientConnection.context.getAttribute("inflight") as ArrayDeque<HttpRequest>
+        if (inflight.size > 0) {
+            println("Timeout lost " + inflight.size + " pending responses. Retry scheduled.")
+        }
+        nHttpClientConnection.close()
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    override fun closed(nHttpClientConnection: NHttpClientConnection) {
+        val inflight = nHttpClientConnection.context.getAttribute("inflight") as ArrayDeque<HttpRequest>
+
+        while (!inflight.isEmpty()) {
+            requestQueue.add(inflight.pop())
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    override fun exception(nHttpClientConnection: NHttpClientConnection, e: Exception) {
+        val inflight = nHttpClientConnection.context.getAttribute("inflight") as ArrayDeque<HttpRequest>
+        if (inflight.size > 0) {
+            println(e.message + " lost " + inflight.size + " pending responses. Retry scheduled.")
+        }
+        //e.printStackTrace();
+    }
+}
