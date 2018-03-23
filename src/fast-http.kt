@@ -57,9 +57,9 @@ fun main(args : Array<String>) {
     if (args.size > 4) {
         readFreq = args[4].toInt();
     }
-    javaSend(url, urlfile, threads, requestsPerConnection, readFreq)
+    //javaSend(url, urlfile, threads, requestsPerConnection, readFreq)
     //println("Starting jythonsend...")
-    //jythonSend(url, urlfile, threads, requestsPerConnection, readFreq)
+    jythonSend(url, urlfile, threads, requestsPerConnection, readFreq)
 }
 
 fun handlecallback(req: String, resp: String): Boolean {
@@ -98,29 +98,11 @@ fun jythonSend(url: String, urlfile: String, threads: Int, requestsPerConnection
         println("can't find engine")
     }
     else {
-        engine.eval("""import req.RequestEngine
-from urlparse import urlparse
-
-def handleResponse(req, resp):
-    code = resp.split(' ', 2)[1]
-    if code != '404':
-        print(code + ': '+req.split('\r', 1)[0])
-
-def queueRequests():
-    engine = req.AsyncRequestEngine('$url', $threads, $readFreq, $requestsPerConnection, handleResponse)
-    engine.start()
-    requests = 0
-    with open('$urlfile') as file:
-        for line in file:
-            requests+=1
-            url = urlparse(line.rstrip())
-            engine.queue('GET %s?%s HTTP/1.1\r\nHost: %s\r\nConnection: keep-alive\r\n\r\n' % (url.path, url.query, url.netloc))
-
-    engine.getResult(requests)
-
-queueRequests()
-""")
+        engine.eval(File("launch.py").readText())
+        // todo just pass in all command line args instead?
+        engine.eval("queueRequests('$url', '$urlfile', $threads, $readFreq, $requestsPerConnection)")
     }
+
 }
 
 interface RequestEngine {
