@@ -66,7 +66,7 @@ fun handlecallback(req: String, resp: String): Boolean {
     val status = resp.split(" ")[1].toInt()
     if (status != 404 && status != 401) {
         println("" + status + ": " + req.split("\n")[0])
-        println(resp)
+        // println(resp)
     }
 
     return true
@@ -107,7 +107,7 @@ def handleResponse(req, resp):
         print(code + ': '+req.split('\r', 1)[0])
 
 def queueRequests():
-    engine = req.RequestEngine('$url', $threads, $readFreq, $requestsPerConnection, handleResponse)
+    engine = req.AsyncRequestEngine('$url', $threads, $readFreq, $requestsPerConnection, handleResponse)
     engine.start()
     requests = 0
     with open('$urlfile') as file:
@@ -297,14 +297,14 @@ class AsyncRequestEngine (val url: String, val threads: Int, val readFreq: Int, 
     override fun start() {
 
         val connpool = BasicNIOConnPool(ioreactor, connectionFactory, 300000)
-        connpool.maxTotal = 100
-        connpool.defaultMaxPerRoute = 100
+        connpool.maxTotal = threads
+        connpool.defaultMaxPerRoute = threads
 
         val pendingConnections = ArrayList<Future<BasicNIOPoolEntry>>()
         val url = URL(url)
         pendingConnections.add(connpool.lease(HttpHost(url.host, url.port, url.protocol), null))
 
-        val turboHandler = TurboHandler(requestQueue, callback)
+        val turboHandler = TurboHandler(requestQueue, requestsPerConnection, readFreq, callback)
         val eventDispatch = DefaultHttpClientIODispatch(turboHandler, sslcontext, ConnectionConfig.DEFAULT)
 
         // Run the I/O reactor in a separate thread
@@ -466,13 +466,14 @@ class AsyncRequestEngine (val url: String, val threads: Int, val readFreq: Int, 
 
 
 
-class TurboHandler(var requestQueue: ArrayBlockingQueue<HttpRequest>, val callback: (String, String) -> Boolean) : NHttpClientEventHandler {
+class TurboHandler(var requestQueue: ArrayBlockingQueue<HttpRequest>, val requestsPerConnection: Int, val readFreq: Int, val callback: (String, String) -> Boolean) : NHttpClientEventHandler {
 
     @Throws(IOException::class, HttpException::class)
     override fun connected(nHttpClientConnection: NHttpClientConnection, o: Any) {
         val inflight = ArrayDeque<HttpRequest>()
         nHttpClientConnection.context.setAttribute("inflight", inflight)
         nHttpClientConnection.context.setAttribute("total", 0)
+        nHttpClientConnection.context.setAttribute("burst", 0)
         nHttpClientConnection.requestOutput()
         //System.out.println("Connected!");
     }
@@ -492,15 +493,21 @@ class TurboHandler(var requestQueue: ArrayBlockingQueue<HttpRequest>, val callba
             }
         } else {
             val total = context.getAttribute("total") as Int
-            if (total < 100) { // inflight.size() < 100
+            var burst = context.getAttribute("burst") as Int
+            if (inflight.isEmpty() && total < requestsPerConnection) {
+                burst = 0
+            }
+
+            if (burst < readFreq && total < requestsPerConnection) { // inflight.size() < 100
                 val req = requestQueue.poll()
                 if (req != null) {
                     inflight.add(req)
                     context.setAttribute("total", total + 1)
+                    context.setAttribute("burst", burst + 1)
                     nHttpClientConnection.submitRequest(req)
                 }
             } else {
-                //System.out.println("Inflight queue full");
+
             }
         }
     }
@@ -528,17 +535,12 @@ class TurboHandler(var requestQueue: ArrayBlockingQueue<HttpRequest>, val callba
             resp.entity = StringEntity(String(dst.array()))
 
             callback(AsyncRequestEngine.requestToString(req), AsyncRequestEngine.responseToString(resp))
-            //System.out.println(inflight.size() + "| " +req.getRequestLine() + " -> " + resp.getStatusLine());
-            //System.out.println(httpcore.responseToString(resp));
-
-            //            // todo callback goes here
-            //            if (nHttpClientConnection.getHttpResponse().getStatusLine().getStatusCode() != 404) {
-            //                String body = new String(dst.array());
-            //                System.out.println(req.getRequestLine()+"\n\n"+body);
-            //            }
 
             if (inflight.isEmpty()) {
-                nHttpClientConnection.close()
+                val total = nHttpClientConnection.context.getAttribute("total") as Int
+                if (total >= requestsPerConnection) {
+                    nHttpClientConnection.close()
+                }
             }
         }
     }
