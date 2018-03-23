@@ -1,4 +1,4 @@
-package req
+package burp
 import java.net.InetAddress
 import java.net.URL
 import java.security.cert.X509Certificate
@@ -9,8 +9,6 @@ import javax.net.ssl.SSLSocketFactory
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 import kotlin.concurrent.thread
-import java.io.File
-import java.io.InputStream
 
 import org.python.core.PyObject;
 import org.python.core.PyString;
@@ -20,8 +18,6 @@ import java.util.concurrent.*
 import javax.script.ScriptEngine
 import javax.script.ScriptEngineManager
 
-import java.io.IOException
-import java.io.InterruptedIOException
 import java.nio.ByteBuffer
 import java.util.*
 import java.util.concurrent.ArrayBlockingQueue
@@ -46,20 +42,94 @@ import org.apache.http.nio.NHttpClientConnection
 import org.apache.http.nio.NHttpClientEventHandler
 import org.apache.http.nio.reactor.*
 import org.apache.http.protocol.HttpContext
+import java.awt.Dimension
+import java.awt.Frame
+import java.awt.event.ActionEvent
+import java.awt.event.ActionListener
+import java.io.*
+import javax.swing.*
+
+
+class BurpExtender(): IBurpExtender {
+    companion object {
+        lateinit var callbacks: IBurpExtenderCallbacks
+    }
+
+    override fun registerExtenderCallbacks(callbacks: IBurpExtenderCallbacks?) {
+        callbacks!!.registerContextMenuFactory(OfferTurboIntruder())
+        Companion.callbacks = callbacks
+    }
+}
+
+class OfferTurboIntruder(): IContextMenuFactory {
+    override fun createMenuItems(invocation: IContextMenuInvocation?): MutableList<JMenuItem> {
+        val options = ArrayList<JMenuItem>()
+        if (invocation!!.selectedMessages[0] != null) {
+            val probeButton = JMenuItem("Send to turbo intruder")
+            probeButton.addActionListener(OpenTurboIntruder(invocation.selectedMessages[0]))
+            options.add(probeButton)
+        }
+        return options
+    }
+}
+
+class OpenTurboIntruder(val req: IHttpRequestResponse): ActionListener {
+    override fun actionPerformed(e: ActionEvent?) {
+        val frame = TurboIntruderFrame(req)
+        frame.setLocationRelativeTo(getBurpFrame())
+        frame.isVisible = true
+    }
+
+    fun getBurpFrame(): Frame? {
+        return Frame.getFrames().firstOrNull { it.isVisible && it.title.startsWith("Burp Suite") }
+    }
+}
+
+
+
+
+class TurboIntruderFrame(req: IHttpRequestResponse): JFrame("Turbo Intruder") {
+    init {
+        SwingUtilities.invokeLater{
+            val pane = JSplitPane(JSplitPane.VERTICAL_SPLIT)
+            //pane.setOneTouchExpandable(true);
+            //pane.setDividerLocation(150);
+
+            val textEditor = BurpExtender.callbacks.createTextEditor()
+            val messageEditor = BurpExtender.callbacks.createMessageEditor(null, true)
+            messageEditor.setMessage(req.request, true)
+            textEditor.setText("cow".toByteArray())
+            textEditor.setEditable(true)
+
+            pane.topComponent = messageEditor.component
+            pane.bottomComponent = textEditor.component
+
+            messageEditor.component.preferredSize = Dimension(1280, 200);
+            textEditor.component.preferredSize = Dimension(1280, 600);
+
+            add(pane)
+            pack()
+
+        }
+    }
+}
+
 
 
 fun main(args : Array<String>) {
-    val url = args[0]
-    val urlfile = args[1]
-    val threads = args[2].toInt()
-    val requestsPerConnection = args[3].toInt()
-    var readFreq = requestsPerConnection
-    if (args.size > 4) {
-        readFreq = args[4].toInt();
-    }
+    val scriptFile = args[0]
+    Args.args = args
+    jythonSend(scriptFile)
+
+    //    val url = args[0]
+//    val urlfile = args[1]
+//    val threads = args[2].toInt()
+//    val requestsPerConnection = args[3].toInt()
+//    var readFreq = requestsPerConnection
+//    if (args.size > 4) {
+//        readFreq = args[4].toInt();
+//    }
     //javaSend(url, urlfile, threads, requestsPerConnection, readFreq)
-    //println("Starting jythonsend...")
-    jythonSend(url, urlfile, threads, requestsPerConnection, readFreq)
 }
 
 fun handlecallback(req: String, resp: String): Boolean {
@@ -92,18 +162,65 @@ fun javaSend(url: String, urlfile: String, threads: Int, requestsPerConnection: 
     engine.getResult(requests)
 }
 
-fun jythonSend(url: String, urlfile: String, threads: Int, requestsPerConnection: Int, readFreq: Int) {
+fun jythonSend(scriptFile: String) {
     val engine = ScriptEngineManager().getEngineByName("python")
     if(engine == null) {
-        println("can't find engine")
+        println("Can't find engine")
     }
     else {
-        engine.eval(File("launch.py").readText())
-        // todo just pass in all command line args instead?
-        engine.eval("queueRequests('$url', '$urlfile', $threads, $readFreq, $requestsPerConnection)")
+        try {
+            engine.eval(File(scriptFile).readText())
+        }
+        catch (e: FileNotFoundException) {
+            val content = """import burp.RequestEngine
+import burp.Args
+from urlparse import urlparse
+
+def handleResponse(req, resp):
+    code = resp.split(' ', 2)[1]
+    if code != '404':
+        print(code + ': '+req.split('\r', 1)[0])
+
+def queueRequests():
+    args = burp.Args.args
+    targeturl = args[1]
+    urlfile = args[2]
+    threads = int(args[3])
+    readFreq = int(args[4])
+    requestsPerConnection = readFreq
+    engine = burp.AsyncRequestEngine(targeturl, threads, readFreq, requestsPerConnection, handleResponse)
+    engine.start()
+    requests = 0
+    with open(urlfile) as file:
+        for line in file:
+            requests+=1
+            url = urlparse(line.rstrip())
+            engine.queue('GET %s?%s HTTP/1.1\r\nHost: %s\r\nConnection: keep-alive\r\n\r\n' % (url.path, url.query, url.netloc))
+
+    engine.getResult(requests)
+
+
+queueRequests()"""
+
+            File(scriptFile).printWriter().use { out -> out.println(content) }
+            System.out.println("Wrote example script to "+scriptFile);
+        }
+
     }
 
 }
+
+class Args(inArgs: Array<String>) {
+
+    companion object {
+        lateinit var args: Array<String>
+    }
+
+    init {
+        args = inArgs
+    }
+}
+
 
 interface RequestEngine {
     fun start()
@@ -338,11 +455,10 @@ class AsyncRequestEngine (val url: String, val threads: Int, val readFreq: Int, 
 
     override fun getResult(requestCount: Int) {
 //        println("Sent " + REQUESTS + " requests in " + duration / 1000000000 + " seconds")
-//        System.out.printf("RPS: %.0f\n", REQUESTS / (duration / 1000000000))
-//
         poolThread.join()
         val duration = System.nanoTime().toFloat() - start
         println("Duration: "+duration / 1000000000)
+        System.out.printf("RPS: %.0f\n", requestCount / (duration / 1000000000))
         val gracePeriod = 90000L // milliseconds
         ioreactor.shutdown(gracePeriod)
     }
