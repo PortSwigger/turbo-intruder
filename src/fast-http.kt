@@ -38,8 +38,11 @@ import java.awt.*
 import java.awt.event.ActionEvent
 import java.awt.event.ActionListener
 import java.io.*
+import javax.script.ScriptEngine
+import javax.script.SimpleBindings
 import javax.swing.*
 
+import org.python.util.PythonInterpreter
 
 class BurpExtender(): IBurpExtender {
     companion object {
@@ -55,9 +58,8 @@ def handleResponse(req, resp):
         print(code + ': '+req.split('\r', 1)[0])
 
 def queueRequests():
-    baseRequest = burp.Env.request
     service = baseRequest.getHttpService()
-    targeturl = service.getProtocol() + "://" + service.getHost() + ":" + service.getPort()
+    targeturl = service.getProtocol() + "://" + service.getHost() + ":" + str(service.getPort())
     wordfile = 'payloads'
     concurrentConnections = 50
     readFreq = 100
@@ -69,7 +71,7 @@ def queueRequests():
     with open(wordfile) as file:
         for line in file:
             requests+=1
-            engine.queue(baseRequest.replace('INJECTION', line)
+            engine.queue(baseRequest.replace('INJECTION', line))
 
     engine.showStats(requests)
 
@@ -108,7 +110,7 @@ class TurboIntruderFrame(val req: IHttpRequestResponse): ActionListener, JFrame(
             val textEditor = BurpExtender.callbacks.createTextEditor()
             val messageEditor = BurpExtender.callbacks.createMessageEditor(null, true)
             messageEditor.setMessage(req.request, true)
-            textEditor.setText(BurpExtender.sampleScript.toByteArray())
+            textEditor.text = BurpExtender.sampleScript.toByteArray()
             textEditor.setEditable(true)
 
             pane.topComponent = messageEditor.component
@@ -118,6 +120,11 @@ class TurboIntruderFrame(val req: IHttpRequestResponse): ActionListener, JFrame(
             textEditor.component.preferredSize = Dimension(1280, 600);
 
             val button = JButton("Attack");
+
+            button.addActionListener {
+                evalJython(String(textEditor.text), req)
+            }
+
             val c =  GridBagConstraints();
             outerpane.add(pane, c)
             c.fill = GridBagConstraints.HORIZONTAL;
@@ -136,7 +143,6 @@ class TurboIntruderFrame(val req: IHttpRequestResponse): ActionListener, JFrame(
         return Frame.getFrames().firstOrNull { it.isVisible && it.title.startsWith("Burp Suite") }
     }
 }
-
 
 
 fun main(args : Array<String>) {
@@ -185,14 +191,16 @@ fun javaSend(url: String, urlfile: String, threads: Int, requestsPerConnection: 
     engine.showStats(requests)
 }
 
-fun evalJython(code: String) {
-    val engine = ScriptEngineManager().getEngineByName("python")
-    if(engine == null) {
-        println("Can't find Jython engine")
-    }
-    engine.eval(code)
+fun evalJython(code: String, request: IHttpRequestResponse) {
+    val pyInterp = PythonInterpreter()
+    pyInterp.set("baseRequest", request) // todo avoid concurrency issues
+    pyInterp.exec(code)
 }
 
+fun evalJython(code: String) {
+    val pyInterp = PythonInterpreter()
+    pyInterp.exec(code)
+}
 
 fun jythonSend(scriptFile: String) {
     try {
@@ -209,7 +217,7 @@ def handleResponse(req, resp):
         print(code + ': '+req.split('\r', 1)[0])
 
 def queueRequests():
-    args = burp.Args.args
+    args = request
     targeturl = args[1]
     urlfile = args[2]
     threads = int(args[3])
@@ -505,16 +513,27 @@ class AsyncRequestEngine (val url: String, val threads: Int, val readFreq: Int, 
             try {
                 val headers = req.split("\r\n\r\n".toRegex(), 2).toTypedArray()[0].split("\r\n".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
                 val requestParts = headers[0].split(" ".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+
+                if (requestParts.size < 2) {
+                    throw Exception("Bad request line")
+                }
+
                 val output = BasicHttpEntityEnclosingRequest(requestParts[0], requestParts[1])
+
 
                 for (i in 1 until headers.size - 1) {
                     val headerParts = headers[i].split(": ".toRegex(), 2).toTypedArray()
+
+                    if (headerParts.size < 2) {
+                        throw Exception("Bad header: "+headerParts)
+                    }
+
                     output.addHeader(headerParts[0], headerParts[1])
                 }
 
-                val body = req.split("\r\n\r\n".toRegex(), 2).toTypedArray()[1]
-                if ("" != body) {
-                    output.entity = StringEntity(body)
+                val body = req.split("\r\n\r\n".toRegex(), 2).toTypedArray()
+                if (body.size > 1 && "" != body[1]) {
+                    output.entity = StringEntity(body[1])
                 }
                 return output
             } catch (e: Exception) {
