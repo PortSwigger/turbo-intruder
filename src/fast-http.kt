@@ -63,6 +63,7 @@ def queueRequests():
     readFreq = 100
     requestsPerConnection = 100
     engine = burp.AsyncRequestEngine(targeturl, concurrentConnections, readFreq, requestsPerConnection, handleResponse)
+    # burp.ThreadedRequestEngine is an alternative option that's generally slower but may overcome some connection issues
     engine.start()
     requests = 0
     with open(wordfile) as file:
@@ -87,30 +88,20 @@ class OfferTurboIntruder(): IContextMenuFactory {
         val options = ArrayList<JMenuItem>()
         if (invocation!!.selectedMessages[0] != null) {
             val probeButton = JMenuItem("Send to turbo intruder")
-            probeButton.addActionListener(OpenTurboIntruder(invocation.selectedMessages[0]))
+            probeButton.addActionListener(TurboIntruderFrame(invocation.selectedMessages[0]))
             options.add(probeButton)
         }
         return options
     }
 }
 
-class OpenTurboIntruder(val req: IHttpRequestResponse): ActionListener {
-    override fun actionPerformed(e: ActionEvent?) {
-        val frame = TurboIntruderFrame(req)
-        //frame.setLocationRelativeTo(getBurpFrame())
-        frame.isVisible = true
-    }
 
-    fun getBurpFrame(): Frame? {
-        return Frame.getFrames().firstOrNull { it.isVisible && it.title.startsWith("Burp Suite") }
-    }
-}
-
-
-
-
-class TurboIntruderFrame(req: IHttpRequestResponse): JFrame("Turbo Intruder - " + req.httpService.host) {
+class TurboIntruderFrame(val req: IHttpRequestResponse): ActionListener, JFrame("Turbo Intruder - " + req.httpService.host)  {
     init {
+
+    }
+
+    override fun actionPerformed(e: ActionEvent?) {
         SwingUtilities.invokeLater{
             val outerpane = JPanel(GridBagLayout())
             val pane = JSplitPane(JSplitPane.VERTICAL_SPLIT)
@@ -136,8 +127,13 @@ class TurboIntruderFrame(req: IHttpRequestResponse): JFrame("Turbo Intruder - " 
 
             add(outerpane)
             pack()
-
+            setLocationRelativeTo(getBurpFrame())
+            isVisible = true
         }
+    }
+
+    fun getBurpFrame(): Frame? {
+        return Frame.getFrames().firstOrNull { it.isVisible && it.title.startsWith("Burp Suite") }
     }
 }
 
@@ -220,6 +216,7 @@ def queueRequests():
     readFreq = int(args[4])
     requestsPerConnection = readFreq
     engine = burp.AsyncRequestEngine(targeturl, threads, readFreq, requestsPerConnection, handleResponse)
+    # burp.ThreadedRequestEngine is an alternative option that's generally slower but may overcome some connection issues
     engine.start()
     requests = 0
     with open(urlfile) as file:
