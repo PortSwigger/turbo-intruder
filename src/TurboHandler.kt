@@ -9,6 +9,7 @@ import org.apache.http.nio.ContentDecoder
 import org.apache.http.nio.ContentEncoder
 import org.apache.http.nio.NHttpClientConnection
 import org.apache.http.nio.NHttpClientEventHandler
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.util.*
@@ -77,19 +78,28 @@ class TurboHandler(var requestQueue: ArrayBlockingQueue<HttpRequest>, val reques
 
         var contentLengthHeader: Header? = nHttpClientConnection.httpResponse.getFirstHeader("Content-Length")
         val contentLength: Int
+        var dst: ByteBuffer
         if (contentLengthHeader == null) {
-            // System.out.println("No content length") // probably chunked encoding
-            contentLength = 2048
+            System.out.println("No content length") // probably chunked encoding
+            //val resp =  ByteArrayOutputStream()
+            dst = ByteBuffer.allocate(8192)
+            while(!contentDecoder.isCompleted) {
+                val read = contentDecoder.read(dst)
+                if (read < 1) {
+                    break
+                }
+                // resp.write(buf, 0, read)
+            }
         }
         else {
             contentLength = contentLengthHeader.value.toInt()+8
+            dst = ByteBuffer.allocate(contentLength)
+            val bytesRead = contentDecoder.read(dst)
         }
-        val dst = ByteBuffer.allocate(contentLength)
-        val bytesRead = contentDecoder.read(dst)
 
-        // todo check contentDecoder.isCompleted - supported repeated calls with partial data
+        // todo supported repeated calls with partial data
 
-        if (bytesRead != -1 || contentDecoder.isCompleted) {
+        if (contentDecoder.isCompleted) { // bytesRead != -1 ||
 
             val inflight = nHttpClientConnection.context.getAttribute("inflight") as ArrayDeque<HttpRequest>
             val req = inflight.pop()
@@ -125,6 +135,7 @@ class TurboHandler(var requestQueue: ArrayBlockingQueue<HttpRequest>, val reques
             }
             else {
                 expectedLength = contentLengthHeader.value.toInt()
+                System.out.println("Sending content length: "+expectedLength)
             }
             val dst = ByteArray(expectedLength+8)
             val i = content.read(dst)
