@@ -1,8 +1,8 @@
 package burp
 
-import burp.AsyncRequestEngine
 import org.apache.http.HttpException
 import org.apache.http.HttpRequest
+import org.apache.http.Header
 import org.apache.http.entity.StringEntity
 import org.apache.http.message.BasicHttpEntityEnclosingRequest
 import org.apache.http.nio.ContentDecoder
@@ -74,7 +74,8 @@ class TurboHandler(var requestQueue: ArrayBlockingQueue<HttpRequest>, val reques
             return
         }
 
-        var contentLengthHeader = nHttpClientConnection.httpResponse.getFirstHeader("Content-Length")
+
+        var contentLengthHeader: Header? = nHttpClientConnection.httpResponse.getFirstHeader("Content-Length")
         val contentLength: Int
         if (contentLengthHeader == null) {
             // System.out.println("No content length") // probably chunked encoding
@@ -116,7 +117,15 @@ class TurboHandler(var requestQueue: ArrayBlockingQueue<HttpRequest>, val reques
     override fun outputReady(nHttpClientConnection: NHttpClientConnection, contentEncoder: ContentEncoder) {
         if (nHttpClientConnection.isRequestSubmitted) {
             val content = (nHttpClientConnection.httpRequest as BasicHttpEntityEnclosingRequest).entity.content
-            val expectedLength = nHttpClientConnection.httpRequest.getFirstHeader("Content-Length").value.toInt()
+
+            val contentLengthHeader: Header? = nHttpClientConnection.httpRequest.getFirstHeader("Content-Length")
+            val expectedLength: Int
+            if (contentLengthHeader == null) {
+                expectedLength = 0
+            }
+            else {
+                expectedLength = contentLengthHeader.value.toInt()
+            }
             val dst = ByteArray(expectedLength+8)
             val i = content.read(dst)
             val buf = ByteBuffer.wrap(dst)
