@@ -57,6 +57,7 @@ import java.nio.ByteBuffer
 import java.nio.CharBuffer
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
@@ -99,6 +100,7 @@ class HTTP2Engine(val url: String, val threads: Int, val readFreq: Int, val requ
     var requester: HttpAsyncRequester
     lateinit var latch: CountDownLatch
     var parsed = URL(url)
+    val fullyQueued = AtomicBoolean(false)
 
     init {
         //requester = createPipe();
@@ -116,9 +118,6 @@ class HTTP2Engine(val url: String, val threads: Int, val readFreq: Int, val requ
 
 
     override fun start() {
-
-        //val target = HttpHost(url.host, url.port, url.protocol)
-        println(parsed.protocol)
         val target = HttpHost(parsed.host, parsed.port, parsed.protocol)
         start = System.nanoTime()
         latch = CountDownLatch(threads)
@@ -127,7 +126,7 @@ class HTTP2Engine(val url: String, val threads: Int, val readFreq: Int, val requ
             try {
                 println("Starting...")
                 for (i in 0 until threads) {
-                    Connection(requester, target, requestQueue, requestsPerConnection, readFreq, successfulRequests, latch, callback)
+                    Connection(requester, target, requestQueue, requestsPerConnection, readFreq, successfulRequests, latch, fullyQueued, callback)
                 }
 
             } catch (e: Exception) {
@@ -140,7 +139,15 @@ class HTTP2Engine(val url: String, val threads: Int, val readFreq: Int, val requ
     }
 
     override fun showStats() {
-        latch.await(15, TimeUnit.SECONDS)
+        fullyQueued.set(true)
+        latch.await(10, TimeUnit.SECONDS)
+
+        if (0L != latch.count) {
+            println("Timed out with " + latch.count + " threads still running")
+        }
+        else {
+            println("Completed.")
+        }
 
         val requests = successfulRequests.get().toFloat()
         val duration = System.nanoTime().toFloat() - start
@@ -270,7 +277,7 @@ internal class Request(var base: String, var url: URL) {
 
 }
 
-internal class Connection(private val requester: HttpAsyncRequester, private val target: HttpHost, private val requestQueue: ArrayBlockingQueue<Request>, private val requestsPerConnection: Int, private val readFreq: Int, private val successfulRequests: AtomicInteger, val latch: CountDownLatch, val callback: ((String, String) -> Boolean)?) : FutureCallback<Message<HttpResponse, String>> {
+internal class Connection(private val requester: HttpAsyncRequester, private val target: HttpHost, private val requestQueue: ArrayBlockingQueue<Request>, private val requestsPerConnection: Int, private val readFreq: Int, private val successfulRequests: AtomicInteger, val latch: CountDownLatch, val fullyQueued: AtomicBoolean, val callback: ((String, String) -> Boolean)?) : FutureCallback<Message<HttpResponse, String>> {
     private var clientEndpoint: AsyncClientEndpoint? = null
     private val inFlight = ArrayDeque<Request>()
     private val connectionCallbackHandler: FutureCallback<AsyncClientEndpoint>
@@ -282,11 +289,16 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
         createCon()
     }
 
-    fun createCon() {
-        if (inFlight.isEmpty() && requestQueue.isEmpty() && successfulRequests.get() != 0) {
+    internal fun closeIfComplete(): Boolean {
+        if (inFlight.isEmpty() && requestQueue.isEmpty() && fullyQueued.get()) {
             conclude()
-            return
+            return true
         }
+        return false
+    }
+
+    fun createCon() {
+        if (closeIfComplete()) return
 
         // does this establish a new connection, or just a new channel?
         requester.connect(target, Timeout.ofSeconds(5), null, connectionCallbackHandler)
@@ -300,10 +312,7 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
     }
 
     private fun triggerRequests() {
-        if (inFlight.isEmpty() && requestQueue.isEmpty() && successfulRequests.get() != 0) {
-            conclude()
-            return
-        }
+        if (closeIfComplete()) return
 
         if (total >= requestsPerConnection) {
             createCon()
@@ -314,12 +323,22 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
             burst = 0
         }
 
+
         while(burst < readFreq && total < requestsPerConnection) {
-            val target = requestQueue.poll() ?: break
+            val target = requestQueue.poll(100, TimeUnit.MILLISECONDS)
+            if (target == null) {
+                if(inFlight.isEmpty()) {
+                    triggerRequests()
+                }
+                break
+            }
+
             request(target)
             burst++
             total++
         }
+
+
         //println("queued "+burst+ " requests")
     }
 
@@ -373,14 +392,14 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
     }
 
     override fun cancelled() {
-        System.out.println("Cancelled! " +inFlight.peek());
+        if (closeIfComplete()) return
+        System.out.println("Cancelled: " +inFlight.size);
         conclude()
     }
 
     private fun conclude() {
         clientEndpoint?.releaseAndDiscard()
         latch.countDown()
-        //print("Closing thread")
     }
 
 
