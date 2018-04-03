@@ -222,6 +222,6 @@ class Args(args: Array<String>) {
 
 interface RequestEngine {
     fun start()
-    fun showStats()
+    fun showStats(timeout: Int = -1)
     fun queue(req: String)
 }

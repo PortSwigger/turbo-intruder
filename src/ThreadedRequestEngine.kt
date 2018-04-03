@@ -51,7 +51,7 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
         requestQueue.offer(req, 10, TimeUnit.SECONDS) // todo should this be synchronised?
     }
 
-    override fun showStats() {
+    override fun showStats(timeout: Int) {
         latch.await()
         val duration = System.nanoTime() - start
         val requests = successfulRequests.get().toFloat()

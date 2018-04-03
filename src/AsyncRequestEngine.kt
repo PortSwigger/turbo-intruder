@@ -94,7 +94,7 @@ class AsyncRequestEngine (val url: String, val threads: Int, val readFreq: Int, 
         requestQueue.add(stringToRequest(req));
     }
 
-    override fun showStats() {
+    override fun showStats(timeout: Int) {
 //        println("Sent " + REQUESTS + " requests in " + duration / 1000000000 + " seconds")
         poolThread.join()
         val duration = System.nanoTime().toFloat() - start

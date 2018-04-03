@@ -103,8 +103,8 @@ class HTTP2Engine(val url: String, val threads: Int, val readFreq: Int, val requ
     val fullyQueued = AtomicBoolean(false)
 
     init {
-        //requester = createPipe();
-        requester = createHTTP2()
+        requester = createPipe();
+        //requester = createHTTP2()
 
         Runtime.getRuntime().addShutdownHook(object : Thread() {
             override fun run() {
@@ -138,9 +138,14 @@ class HTTP2Engine(val url: String, val threads: Int, val readFreq: Int, val requ
 
     }
 
-    override fun showStats() {
+    override fun showStats(timeout: Int) {
         fullyQueued.set(true)
-        latch.await(10, TimeUnit.SECONDS)
+
+        if (timeout != -1) {
+            latch.await(timeout.toLong(), TimeUnit.SECONDS)
+        } else {
+            latch.await()
+        }
 
         if (0L != latch.count) {
             println("Timed out with " + latch.count + " threads still running")
@@ -300,6 +305,7 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
     fun createCon() {
         if (closeIfComplete()) return
 
+        println("connecting")
         // does this establish a new connection, or just a new channel?
         requester.connect(target, Timeout.ofSeconds(5), null, connectionCallbackHandler)
         //clientEndpoint = future.get();
@@ -323,23 +329,21 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
             burst = 0
         }
 
-
         while(burst < readFreq && total < requestsPerConnection) {
+
             val target = requestQueue.poll(100, TimeUnit.MILLISECONDS)
             if (target == null) {
-                if(inFlight.isEmpty()) {
-                    triggerRequests()
+                if (closeIfComplete()) {
+                    return
                 }
-                break
+
+                break // todo should be continue
             }
 
             request(target)
             burst++
             total++
         }
-
-
-        //println("queued "+burst+ " requests")
     }
 
     private fun request(req: Request): Future<*> {
@@ -348,7 +352,6 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
 
         //val requestProducer = BasicRequestProducer("POST", URI("https://hackxor.net/static/cow"), null) // proves the dataProducer is the problem
 
-        //val requestProducer = BasicRequestProducer("GET", HttpHost("research1.hackxor.net", 443, "http2"), "/static/cow")
         val consumer =  BasicResponseConsumer(StringAsyncEntityConsumer()) // StringAsyncEntityConsumer vs BasicAsyncEntityConsumer
 
         val future = clientEndpoint!!.execute(
@@ -361,13 +364,13 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
     }
 
     private fun connectionDropped() {
-        println("Connection dropped. Resetting")
+        println("Connection dropped. Reconnecting")
         if (!inFlight.isEmpty()) {
             println("Re-queuing dropped requests")
             requestQueue.addAll(inFlight)
             inFlight.clear()
         }
-        clientEndpoint!!.releaseAndDiscard();
+        //clientEndpoint!!.releaseAndDiscard();
         createCon()
     }
 
@@ -375,9 +378,9 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
     override fun completed(message: Message<HttpResponse, String>) {
         successfulRequests.getAndIncrement()
         val request = inFlight.pop()
-        if (callback != null) {
-            // todo convert these arguments into correct strings
+        println("Got resp")
 
+        if (callback != null) {
             callback.invoke(request.base, responseToString(message.head, message.body))
         }
 
@@ -398,6 +401,7 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
     }
 
     private fun conclude() {
+        print("done!")
         clientEndpoint?.releaseAndDiscard()
         latch.countDown()
     }
