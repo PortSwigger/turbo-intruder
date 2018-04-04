@@ -91,6 +91,7 @@ class HTTP2Engine(val url: String, val threads: Int, val readFreq: Int, val requ
     lateinit var latch: CountDownLatch
     var parsed = URL(url)
     val fullyQueued = AtomicBoolean(false)
+    var queuedRequestCount = 0
     private val threadPool = ArrayList<Connection>()
 
     init {
@@ -117,7 +118,7 @@ class HTTP2Engine(val url: String, val threads: Int, val readFreq: Int, val requ
         try {
             println("Starting...")
             for (i in 0 until threads) {
-                threadPool.add(Connection(requester, target, requestQueue, requestsPerConnection, readFreq, successfulRequests, latch, fullyQueued, callback))
+                threadPool.add(Connection(requester, target, requestQueue, requestsPerConnection, readFreq, successfulRequests, latch, fullyQueued, i, callback))
             }
 
         } catch (e: Exception) {
@@ -127,20 +128,44 @@ class HTTP2Engine(val url: String, val threads: Int, val readFreq: Int, val requ
     }
 
     override fun showStats(timeout: Int) {
+        println("Wrapping up")
         fullyQueued.set(true)
+        requester.closeExpired()
 
         for(thread in threadPool) {
             thread.murder()
         }
 
-        if (timeout != -1) {
-            latch.await(timeout.toLong(), TimeUnit.SECONDS)
-        } else {
-            latch.await()
+        val stopAt = System.currentTimeMillis() + timeout*1000
+
+
+//        Thread.sleep(timeout*1000L)
+        while (System.currentTimeMillis() < stopAt) {
+            if (successfulRequests.get() >= queuedRequestCount || latch.count == 0L) {
+                break
+            }
+
+            Thread.sleep(100)
+
+//            for (thread in threadPool) {
+//
+//                if (thread.connectionFuture != null && !thread.connectionFuture!!.isDone && thread.connectionFuture!!.isDone) {
+//                    try {
+//                        thread.connectionFuture?.get(1000, TimeUnit.MILLISECONDS)
+//                    } catch (e: TimeoutException) {
+//                        thread.connectionFuture?.cancel(true)
+//                    } catch (e: CancellationException) {
+//
+//                    }
+//                }
+//            }
         }
 
         if (0L != latch.count) {
             println("Timed out with " + latch.count + " threads still running")
+            for(thread in threadPool) {
+                thread.cancelled()
+            }
         }
         else {
             println("Completed.")
@@ -154,6 +179,7 @@ class HTTP2Engine(val url: String, val threads: Int, val readFreq: Int, val requ
     }
 
     override fun queue(req: String) {
+        queuedRequestCount += 1
         if (requestQueue.isEmpty()) {
             requestQueue.add(Request(req, parsed))
             threadPool.get(0).wake()
@@ -280,13 +306,15 @@ internal class Request(var base: String, var url: URL) {
 
 }
 
-internal class Connection(private val requester: HttpAsyncRequester, private val target: HttpHost, private val requestQueue: ArrayBlockingQueue<Request>, private val requestsPerConnection: Int, private val readFreq: Int, private val successfulRequests: AtomicInteger, val latch: CountDownLatch, val fullyQueued: AtomicBoolean, val callback: ((String, String) -> Boolean)?) : FutureCallback<Message<HttpResponse, String>> {
+internal class Connection(private val requester: HttpAsyncRequester, private val target: HttpHost, private val requestQueue: ArrayBlockingQueue<Request>, private val requestsPerConnection: Int, private val readFreq: Int, private val successfulRequests: AtomicInteger, val latch: CountDownLatch, val fullyQueued: AtomicBoolean, val id: Int, val callback: ((String, String) -> Boolean)?) : FutureCallback<Message<HttpResponse, String>> {
     private var clientEndpoint: AsyncClientEndpoint? = null
     private val inFlight = ArrayDeque<Request>()
     private val connectionCallbackHandler: FutureCallback<AsyncClientEndpoint>
+    var connectionFuture: Future<AsyncClientEndpoint>? = null
     private var total = 0
     private var burst = 0
     private var asleep = false
+    private var abort = false
 
     init {
         connectionCallbackHandler = ConnectionCallback(this)
@@ -294,7 +322,7 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
     }
 
     internal fun closeIfComplete(): Boolean {
-        if (inFlight.isEmpty() && requestQueue.isEmpty() && fullyQueued.get()) {
+        if (abort || (inFlight.isEmpty() && requestQueue.isEmpty() && fullyQueued.get())) {
             conclude()
             return true
         }
@@ -302,21 +330,29 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
     }
 
     fun createCon() {
-        if (closeIfComplete()) return
+        if (closeIfComplete()) {
+            println("Abandoning reconnection - no longer necessary "+id)
+            return
+        }
+        clientEndpoint?.releaseAndDiscard()
 
         // does this establish a new connection, or just a new channel?
-        requester.connect(target, Timeout.ofSeconds(5), null, connectionCallbackHandler)
-        //clientEndpoint = future.get();
+        connectionFuture = requester.connect(target, Timeout.ofSeconds(1), null, connectionCallbackHandler)
+        //println("Initiated connection request "+id)
     }
 
     fun connected(clientEndpoint: AsyncClientEndpoint) {
         this.clientEndpoint = clientEndpoint
+        connectionFuture = null
         total = 0
+        burst = 0
+        //println("Connected: "+id)
         triggerRequests()
     }
 
     fun wake() {
         if (asleep) {
+            //println("waking up")
             if (this.clientEndpoint == null) {
                 createCon()
             }
@@ -328,6 +364,7 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
 
     fun murder() {
         if (asleep) {
+            //println("dying in sleep")
             conclude()
         }
     }
@@ -352,6 +389,9 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
         }
 
         asleep = burst == 0
+        if (asleep) {
+            //println("going to sleep")
+        }
     }
 
     private fun request(req: Request): Future<*> {
@@ -371,17 +411,6 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
         return future
     }
 
-    private fun connectionDropped() {
-        println("Connection dropped. Reconnecting")
-        if (!inFlight.isEmpty()) {
-            println("Re-queuing dropped requests")
-            requestQueue.addAll(inFlight)
-            inFlight.clear()
-        }
-        //clientEndpoint!!.releaseAndDiscard();
-        createCon()
-    }
-
 
     override fun completed(message: Message<HttpResponse, String>) {
         successfulRequests.getAndIncrement()
@@ -397,18 +426,26 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
     }
 
     override fun failed(ex: Exception) {
-        println("Failed!: " + inFlight.peek().request.requestUri + "->" + ex)
-        connectionDropped()
+        if (!abort) {
+            println("Failed!: " + id + " |||" + inFlight.peek().request.requestUri + "->" + ex)
+
+            if (!inFlight.isEmpty()) {
+                println("Re-queuing "+inFlight.size +" dropped requests "+id)
+                requestQueue.addAll(inFlight)
+                inFlight.clear()
+            }
+            createCon()
+        }
     }
 
     override fun cancelled() {
-        if (closeIfComplete()) return
-        System.out.println("Cancelled: " +inFlight.size);
+        //System.out.println("Cancelled " +inFlight.size + " pending requests "+id);
+        abort = true
         conclude()
     }
 
     private fun conclude() {
-        print("done!")
+        //println("done "+id)
         clientEndpoint?.releaseAndDiscard()
         latch.countDown()
     }
@@ -446,16 +483,17 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
 internal class ConnectionCallback(private val con: Connection) : FutureCallback<AsyncClientEndpoint> {
 
     override fun completed(endpoint: AsyncClientEndpoint) {
-        //System.out.println("Connection established");
+        //println("connection established " + con.id)
         con.connected(endpoint)
     }
 
     override fun failed(e: Exception) {
-        println("Attempt to establish new connection failed. Retrying.")
+        //println("Attempt to establish new connection failed. Retrying. " + con.id)
         con.createCon()
     }
 
     override fun cancelled() {
-
+        //println("Connection attempted cancelled " + con.id)
+        con.cancelled()
     }
 }
