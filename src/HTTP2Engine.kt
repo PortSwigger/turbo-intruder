@@ -129,6 +129,10 @@ class HTTP2Engine(val url: String, val threads: Int, val readFreq: Int, val requ
     override fun showStats(timeout: Int) {
         fullyQueued.set(true)
 
+        for(thread in threadPool) {
+            thread.murder()
+        }
+
         if (timeout != -1) {
             latch.await(timeout.toLong(), TimeUnit.SECONDS)
         } else {
@@ -319,6 +323,12 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
             else {
                 triggerRequests()
             }
+        }
+    }
+
+    fun murder() {
+        if (asleep) {
+            conclude()
         }
     }
 
