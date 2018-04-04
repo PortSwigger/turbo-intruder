@@ -36,10 +36,7 @@ import org.apache.hc.core5.http.impl.bootstrap.AsyncRequesterBootstrap
 import org.apache.hc.core5.http.impl.bootstrap.HttpAsyncRequester
 import org.apache.hc.core5.http.io.entity.StringEntity
 import org.apache.hc.core5.http.message.BasicClassicHttpRequest
-import org.apache.hc.core5.http.message.BasicHttpRequest
 import org.apache.hc.core5.http.nio.*
-import org.apache.hc.core5.http.nio.entity.BasicAsyncEntityConsumer
-import org.apache.hc.core5.http.nio.entity.BasicAsyncEntityProducer
 import org.apache.hc.core5.http.nio.entity.StringAsyncEntityConsumer
 import org.apache.hc.core5.http.nio.entity.StringAsyncEntityProducer
 import org.apache.hc.core5.http2.config.H2Config
@@ -48,18 +45,11 @@ import org.apache.hc.core5.http2.impl.nio.Http2StreamListener
 import org.apache.hc.core5.http2.impl.nio.bootstrap.H2RequesterBootstrap
 import org.apache.hc.core5.io.ShutdownType
 import org.apache.hc.core5.reactor.IOReactorConfig
-import org.apache.hc.core5.util.Args
 import org.apache.hc.core5.util.Timeout
 import java.io.IOException
-import java.net.URI
 import java.net.URL
-import java.nio.ByteBuffer
-import java.nio.CharBuffer
-import java.nio.charset.Charset
-import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicReference
 
 
 object Http2MultiStreamExecutionExample {
@@ -101,6 +91,7 @@ class HTTP2Engine(val url: String, val threads: Int, val readFreq: Int, val requ
     lateinit var latch: CountDownLatch
     var parsed = URL(url)
     val fullyQueued = AtomicBoolean(false)
+    private val threadPool = ArrayList<Connection>()
 
     init {
         requester = createPipe();
@@ -122,19 +113,16 @@ class HTTP2Engine(val url: String, val threads: Int, val readFreq: Int, val requ
         start = System.nanoTime()
         latch = CountDownLatch(threads)
 
-        Thread {
-            try {
-                println("Starting...")
-                for (i in 0 until threads) {
-                    Connection(requester, target, requestQueue, requestsPerConnection, readFreq, successfulRequests, latch, fullyQueued, callback)
-                }
 
-            } catch (e: Exception) {
-                e.printStackTrace()
+        try {
+            println("Starting...")
+            for (i in 0 until threads) {
+                threadPool.add(Connection(requester, target, requestQueue, requestsPerConnection, readFreq, successfulRequests, latch, fullyQueued, callback))
             }
 
-
-        }.start()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
     }
 
@@ -162,7 +150,13 @@ class HTTP2Engine(val url: String, val threads: Int, val readFreq: Int, val requ
     }
 
     override fun queue(req: String) {
-        requestQueue.add(Request(req, parsed))
+        if (requestQueue.isEmpty()) {
+            requestQueue.add(Request(req, parsed))
+            threadPool.get(0).wake()
+        }
+        else {
+            requestQueue.add(Request(req, parsed))
+        }
     }
 
     private fun createHTTP2(): HttpAsyncRequester {
@@ -288,6 +282,7 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
     private val connectionCallbackHandler: FutureCallback<AsyncClientEndpoint>
     private var total = 0
     private var burst = 0
+    private var asleep = false
 
     init {
         connectionCallbackHandler = ConnectionCallback(this)
@@ -305,7 +300,6 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
     fun createCon() {
         if (closeIfComplete()) return
 
-        println("connecting")
         // does this establish a new connection, or just a new channel?
         requester.connect(target, Timeout.ofSeconds(5), null, connectionCallbackHandler)
         //clientEndpoint = future.get();
@@ -315,6 +309,17 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
         this.clientEndpoint = clientEndpoint
         total = 0
         triggerRequests()
+    }
+
+    fun wake() {
+        if (asleep) {
+            if (this.clientEndpoint == null) {
+                createCon()
+            }
+            else {
+                triggerRequests()
+            }
+        }
     }
 
     private fun triggerRequests() {
@@ -330,20 +335,13 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
         }
 
         while(burst < readFreq && total < requestsPerConnection) {
-
-            val target = requestQueue.poll(100, TimeUnit.MILLISECONDS)
-            if (target == null) {
-                if (closeIfComplete()) {
-                    return
-                }
-
-                break // todo should be continue
-            }
-
+            val target = requestQueue.poll() ?: break
             request(target)
             burst++
             total++
         }
+
+        asleep = burst == 0
     }
 
     private fun request(req: Request): Future<*> {
@@ -378,7 +376,6 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
     override fun completed(message: Message<HttpResponse, String>) {
         successfulRequests.getAndIncrement()
         val request = inFlight.pop()
-        println("Got resp")
 
         if (callback != null) {
             callback.invoke(request.base, responseToString(message.head, message.body))
@@ -390,7 +387,7 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
     }
 
     override fun failed(ex: Exception) {
-        println("Failed!: " + inFlight.peek() + "->" + ex)
+        println("Failed!: " + inFlight.peek().request.requestUri + "->" + ex)
         connectionDropped()
     }
 
