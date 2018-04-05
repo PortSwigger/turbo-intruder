@@ -37,6 +37,7 @@ import org.apache.hc.core5.http.impl.bootstrap.HttpAsyncRequester
 import org.apache.hc.core5.http.io.entity.StringEntity
 import org.apache.hc.core5.http.message.BasicClassicHttpRequest
 import org.apache.hc.core5.http.nio.*
+import org.apache.hc.core5.http.nio.entity.BasicAsyncEntityConsumer
 import org.apache.hc.core5.http.nio.entity.StringAsyncEntityConsumer
 import org.apache.hc.core5.http.nio.entity.StringAsyncEntityProducer
 import org.apache.hc.core5.http2.config.H2Config
@@ -128,7 +129,6 @@ class HTTP2Engine(val url: String, val threads: Int, val readFreq: Int, val requ
     }
 
     override fun showStats(timeout: Int) {
-        println("Wrapping up")
         fullyQueued.set(true)
         requester.closeExpired()
 
@@ -306,7 +306,7 @@ internal class Request(var base: String, var url: URL) {
 
 }
 
-internal class Connection(private val requester: HttpAsyncRequester, private val target: HttpHost, private val requestQueue: ArrayBlockingQueue<Request>, private val requestsPerConnection: Int, private val readFreq: Int, private val successfulRequests: AtomicInteger, val latch: CountDownLatch, val fullyQueued: AtomicBoolean, val id: Int, val callback: ((String, String) -> Boolean)?) : FutureCallback<Message<HttpResponse, String>> {
+internal class Connection(private val requester: HttpAsyncRequester, private val target: HttpHost, private val requestQueue: ArrayBlockingQueue<Request>, private val requestsPerConnection: Int, private val readFreq: Int, private val successfulRequests: AtomicInteger, val latch: CountDownLatch, val fullyQueued: AtomicBoolean, val id: Int, val callback: ((String, String) -> Boolean)?) : FutureCallback<Message<HttpResponse, ByteArray>> {
     private var clientEndpoint: AsyncClientEndpoint? = null
     private val inFlight = ArrayDeque<Request>()
     private val connectionCallbackHandler: FutureCallback<AsyncClientEndpoint>
@@ -400,7 +400,7 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
 
         //val requestProducer = BasicRequestProducer("POST", URI("https://hackxor.net/static/cow"), null) // proves the dataProducer is the problem
 
-        val consumer =  BasicResponseConsumer(StringAsyncEntityConsumer()) // StringAsyncEntityConsumer vs BasicAsyncEntityConsumer
+        val consumer =  BasicResponseConsumer(BasicAsyncEntityConsumer()) // StringAsyncEntityConsumer vs BasicAsyncEntityConsumer
 
         val future = clientEndpoint!!.execute(
                 requestProducer,
@@ -412,12 +412,12 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
     }
 
 
-    override fun completed(message: Message<HttpResponse, String>) {
+    override fun completed(message: Message<HttpResponse, ByteArray>) {
         successfulRequests.getAndIncrement()
         val request = inFlight.pop()
 
         if (callback != null) {
-            callback.invoke(request.base, responseToString(message.head, message.body))
+            callback.invoke(request.base, responseToString(message.head, String(message.body)))
         }
 
         if (inFlight.isEmpty()) {
@@ -428,6 +428,7 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
     override fun failed(ex: Exception) {
         if (!abort) {
             println("Failed!: " + id + " |||" + inFlight.peek().request.requestUri + "->" + ex)
+            ex.printStackTrace()
 
             if (!inFlight.isEmpty()) {
                 println("Re-queuing "+inFlight.size +" dropped requests "+id)
