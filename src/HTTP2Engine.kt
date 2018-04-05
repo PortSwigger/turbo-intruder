@@ -91,7 +91,7 @@ class HTTP2Engine(val url: String, val threads: Int, val readFreq: Int, val requ
     var requester: HttpAsyncRequester
     lateinit var latch: CountDownLatch
     var parsed = URL(url)
-    val fullyQueued = AtomicBoolean(false)
+    val attackState = AtomicInteger(0) // 0 = connecting, 1 = live, 2 = fully queued
     var queuedRequestCount = 0
     private val threadPool = ArrayList<Connection>()
 
@@ -107,29 +107,32 @@ class HTTP2Engine(val url: String, val threads: Int, val readFreq: Int, val requ
         })
         requester.start()
 
-    }
-
-
-    override fun start() {
         val target = HttpHost(parsed.host, parsed.port, parsed.protocol)
-        start = System.nanoTime()
+
         latch = CountDownLatch(threads)
 
-
         try {
-            println("Starting...")
+            println("Warming up...")
             for (i in 0 until threads) {
-                threadPool.add(Connection(requester, target, requestQueue, requestsPerConnection, readFreq, successfulRequests, latch, fullyQueued, i, callback))
+                threadPool.add(Connection(requester, target, requestQueue, requestsPerConnection, readFreq, successfulRequests, latch, attackState, i, callback))
             }
 
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
 
+
+    override fun start() {
+        start = System.nanoTime()
+        attackState.set(1)
+        for(thread in threadPool) {
+            thread.wake()
+        }
     }
 
     override fun showStats(timeout: Int) {
-        fullyQueued.set(true)
+        attackState.set(2)
         requester.closeExpired()
 
         for(thread in threadPool) {
@@ -166,9 +169,6 @@ class HTTP2Engine(val url: String, val threads: Int, val readFreq: Int, val requ
             for(thread in threadPool) {
                 thread.cancelled()
             }
-        }
-        else {
-            println("Completed.")
         }
 
         val requests = successfulRequests.get().toFloat()
@@ -306,7 +306,7 @@ internal class Request(var base: String, var url: URL) {
 
 }
 
-internal class Connection(private val requester: HttpAsyncRequester, private val target: HttpHost, private val requestQueue: ArrayBlockingQueue<Request>, private val requestsPerConnection: Int, private val readFreq: Int, private val successfulRequests: AtomicInteger, val latch: CountDownLatch, val fullyQueued: AtomicBoolean, val id: Int, val callback: ((String, String) -> Boolean)?) : FutureCallback<Message<HttpResponse, ByteArray>> {
+internal class Connection(private val requester: HttpAsyncRequester, private val target: HttpHost, private val requestQueue: ArrayBlockingQueue<Request>, private val requestsPerConnection: Int, private val readFreq: Int, private val successfulRequests: AtomicInteger, val latch: CountDownLatch, val attackState: AtomicInteger, val id: Int, val callback: ((String, String) -> Boolean)?) : FutureCallback<Message<HttpResponse, ByteArray>> {
     private var clientEndpoint: AsyncClientEndpoint? = null
     private val inFlight = ArrayDeque<Request>()
     private val connectionCallbackHandler: FutureCallback<AsyncClientEndpoint>
@@ -322,7 +322,7 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
     }
 
     internal fun closeIfComplete(): Boolean {
-        if (abort || (inFlight.isEmpty() && requestQueue.isEmpty() && fullyQueued.get())) {
+        if (abort || (inFlight.isEmpty() && requestQueue.isEmpty() && attackState.get() == 2)) {
             conclude()
             return true
         }
@@ -347,7 +347,12 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
         total = 0
         burst = 0
         //println("Connected: "+id)
-        triggerRequests()
+        if (attackState.get() == 0) {
+            asleep = true
+        }
+        else {
+            triggerRequests()
+        }
     }
 
     fun wake() {
