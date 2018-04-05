@@ -411,7 +411,6 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
         return future
     }
 
-
     override fun completed(message: Message<HttpResponse, ByteArray>) {
         successfulRequests.getAndIncrement()
         val request = inFlight.pop()

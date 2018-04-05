@@ -23,6 +23,8 @@ def handleResponse(req, resp):
 def queueRequests():
     service = baseRequest.getHttpService()
     req = helpers.bytesToString(baseRequest.getRequest())
+    req = req.replace('Connection: close', 'Connection: keep-alive')
+    # req = req.replace('Accept-Encoding: gzip, deflate', 'Accept-Encoding: identity') # disable compression
     targeturl = service.getProtocol() + "://" + service.getHost() + ":" + str(service.getPort())
     concurrentConnections = 50
     readFreq = 100
