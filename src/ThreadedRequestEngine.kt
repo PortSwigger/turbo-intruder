@@ -21,12 +21,16 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
 
     private val statusMap = HashMap<Int, Int>()
     private val requestQueue = ArrayBlockingQueue<ByteArray>(8192)
-    private val latch = CountDownLatch(threads)
+    private val completedLatch = CountDownLatch(threads)
+    private val connectedLatch = CountDownLatch(threads)
     private val target = URL(url)
     private var start: Long = 0
+    val attackState = AtomicInteger(0) // 0 = connecting, 1 = live, 2 = fully queued
     var successfulRequests = AtomicInteger(0)
+    private val threadPool = ArrayList<Thread>()
 
-    override fun start(timeout: Int) {
+
+    init {
         val retryQueue = LinkedBlockingQueue<ByteArray>();
         val ipAddress = InetAddress.getByName(target.host)
         val port = if (target.port == -1) { target.defaultPort } else { target.port }
@@ -36,10 +40,18 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
         val trustingSslSocketFactory = trustingSslContext.socketFactory
 
         for(j in 1..threads) {
-            thread {
-                sendRequests(target, trustingSslSocketFactory, ipAddress, port, requestQueue, retryQueue, latch, readFreq, requestsPerConnection)
-            }
+            threadPool.add(
+                thread {
+                    sendRequests(target, trustingSslSocketFactory, ipAddress, port, requestQueue, retryQueue, completedLatch, readFreq, requestsPerConnection, connectedLatch)
+                }
+            )
         }
+
+    }
+
+    override fun start(timeout: Int) {
+        connectedLatch.await(timeout.toLong(), TimeUnit.SECONDS)
+        attackState.set(1)
         start = System.nanoTime()
     }
 
@@ -52,19 +64,20 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
     }
 
     override fun showStats(timeout: Int) {
-        latch.await()
+        attackState.set(2)
+        completedLatch.await(timeout.toLong(), TimeUnit.SECONDS)
         val duration = System.nanoTime() - start
         val requests = successfulRequests.get().toFloat()
-        println("Sent " + requests + " requests over "+duration / 1000000000)
+        println("Sent " + requests.toInt() + " requests in "+duration / 1000000000 + " seconds")
         System.out.printf("RPS: %.0f\n", requests / (duration / 1000000000))
     }
 
 
-    private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, requestQueue: ArrayBlockingQueue<ByteArray>, retryQueue: LinkedBlockingQueue<ByteArray>, latch: CountDownLatch, baseReadFreq: Int, baseRequestsPerConnection: Int) {
+    private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, requestQueue: ArrayBlockingQueue<ByteArray>, retryQueue: LinkedBlockingQueue<ByteArray>, completedLatch: CountDownLatch, baseReadFreq: Int, baseRequestsPerConnection: Int, connectedLatch: CountDownLatch) {
         var readFreq = baseReadFreq
         val inflight = ArrayDeque<ByteArray>()
-
         var requestsPerConnection = baseRequestsPerConnection
+        var connected = false
 
         while (true) {
 
@@ -77,6 +90,14 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
                 socket.soTimeout = 10000
                 // todo tweak other TCP options for max performance
 
+                if(!connected) {
+                    connected = true
+                    connectedLatch.countDown()
+                    while(attackState.get() == 0) {
+                        Thread.sleep(10)
+                    }
+                }
+
                 var requestsSent = 0
                 while (requestsSent < requestsPerConnection) {
 
@@ -87,11 +108,10 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
                         }
 
                         var req = retryQueue.poll()
-                        if (req == null) {
-                            req = requestQueue.poll(1, TimeUnit.SECONDS);
-                            if(req == null) {
-                                //println("Timeout - completed!")
-                                latch.countDown()
+                        while (req == null) {
+                            req = requestQueue.poll(100, TimeUnit.MILLISECONDS);
+                            if (req == null && attackState.get() == 2) {
+                                completedLatch.countDown()
                                 return
                             }
                         }
@@ -116,7 +136,6 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
                             delimOffset = buffer.indexOf("\r\n\r\n")
                         }
 
-                        // val contentLength = Regex("Content-Length: (\\d+)").find(buffer)!!.groups[1]!!.value.toInt()
                         val contentLength = getContentLength(buffer)
                         val responseLength = delimOffset + contentLength + 4
 
