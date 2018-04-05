@@ -115,10 +115,8 @@ class OfferTurboIntruder(): IContextMenuFactory {
 }
 
 
-class TurboIntruderFrame(val req: IHttpRequestResponse): ActionListener, JFrame("Turbo Intruder - " + req.httpService.host)  {
-    init {
-
-    }
+class TurboIntruderFrame(inputRequest: IHttpRequestResponse): ActionListener, JFrame("Turbo Intruder - " + inputRequest.httpService.host)  {
+    private val req = BurpExtender.callbacks.saveBuffersToTempFiles(inputRequest)
 
     override fun actionPerformed(e: ActionEvent?) {
         SwingUtilities.invokeLater {
@@ -150,8 +148,11 @@ class TurboIntruderFrame(val req: IHttpRequestResponse): ActionListener, JFrame(
                 thread {
                     val script = String(textEditor.text)
                     BurpExtender.callbacks.saveExtensionSetting("defaultScript", script)
-                    req.request = messageEditor.message
-                    evalJython(script, req)
+                    BurpExtender.callbacks.helpers
+                    val baseRequest = BurpExtender.callbacks.helpers.bytesToString(messageEditor.message)
+                    val service = req.httpService
+                    val target = service.protocol + "://" + service.host + ":" + service.port
+                    evalJython(script, baseRequest, target)
                 }
             }
 
@@ -221,9 +222,10 @@ fun javaSend(url: String, urlfile: String, threads: Int, requestsPerConnection: 
     engine.showStats()
 }
 
-fun evalJython(code: String, request: IHttpRequestResponse) {
+fun evalJython(code: String, baseRequest: String, target: String) {
     val pyInterp = PythonInterpreter()
-    pyInterp.set("baseRequest", request) // todo avoid concurrency issues
+    pyInterp.set("baseRequest", baseRequest) // todo avoid concurrency issues
+    pyInterp.set("target", target)
     pyInterp.set("helpers", BurpExtender.callbacks.helpers)
     pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
     pyInterp.exec(code)

@@ -158,7 +158,11 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
     fun getContentLength(buf: String): Int {
         val cstart = buf.indexOf("Content-Length: ")+16
         val cend = buf.indexOf("\r", cstart)
-        return buf.substring(cstart, cend).toInt()
+        try {
+            return buf.substring(cstart, cend).toInt()
+        } catch (e: NumberFormatException) {
+            throw RuntimeException("Can't find content-length in "+buf)
+        }
     }
 
     private class TrustingTrustManager : X509TrustManager {
