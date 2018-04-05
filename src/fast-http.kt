@@ -9,11 +9,57 @@ import java.io.*
 import javax.swing.*
 import org.python.util.PythonInterpreter
 
-class BurpExtender(): IBurpExtender {
+class Scripts() {
     companion object {
-        lateinit var callbacks: IBurpExtenderCallbacks
+        val SCRIPTENVIRONMENT = """import burp.RequestEngine, burp.Args
+class RequestEngine:
 
-        val sampleScript = """import burp.RequestEngine
+    def __init__(self, target, callback, async=True, concurrentConnections=50, readFreq=100, requestsPerConnection=100):
+        if async:
+            self.engine = burp.AsyncRequestEngine(target, int(concurrentConnections), int(readFreq), int(requestsPerConnection), callback)
+        else:
+            self.engine = burp.ThreadedRequestEngine(target, int(concurrentConnections), int(readFreq), int(requestsPerConnection), callback)
+
+    def queue(self, req):
+        self.engine.queue(req)
+
+    def start(self, timeout=5):
+        self.engine.start(timeout)
+
+    def complete(self, timeout=-1):
+        self.engine.showStats(timeout)
+"""
+
+        val SAMPLEBURPSCRIPT = """def queueRequests():
+    service = baseRequest.getHttpService()
+    engine = RequestEngine(target=service.getProtocol() + "://" + service.getHost() + ":" + str(service.getPort()),
+                           callback=handleResponse,
+                           async=True,
+                           concurrentConnections=50,
+                           readFreq=100,
+                           requestsPerConnection=100)
+
+    req = helpers.bytesToString(baseRequest.getRequest())
+    req = req.replace('Connection: close', 'Connection: keep-alive')
+    # req = req.replace('Accept-Encoding: gzip, deflate', 'Accept-Encoding: identity') # disable compression
+
+    for i in range(1000):
+        engine.queue(req)
+
+    engine.start(timeout=10)
+    engine.complete(timeout=10)
+
+
+def handleResponse(req, resp):
+    code = resp.split(' ', 2)[1]
+    if code != '404':
+        print(code + ': '+req.split('\r', 1)[0])
+
+
+queueRequests()"""
+
+        val SAMPLECOMMANDSCRIPT = """
+from urlparse import urlparse
 
 def handleResponse(req, resp):
     code = resp.split(' ', 2)[1]
@@ -21,24 +67,33 @@ def handleResponse(req, resp):
         print(code + ': '+req.split('\r', 1)[0])
 
 def queueRequests():
-    service = baseRequest.getHttpService()
-    req = helpers.bytesToString(baseRequest.getRequest())
-    req = req.replace('Connection: close', 'Connection: keep-alive')
-    # req = req.replace('Accept-Encoding: gzip, deflate', 'Accept-Encoding: identity') # disable compression
-    targeturl = service.getProtocol() + "://" + service.getHost() + ":" + str(service.getPort())
-    concurrentConnections = 50
-    readFreq = 100
-    requestsPerConnection = 100
-    engine = burp.AsyncRequestEngine(targeturl, concurrentConnections, readFreq, requestsPerConnection, handleResponse)
-    engine.start()
+    args = burp.Args.args
 
-    for i in range(100):
-        engine.queue(req)
+    engine = RequestEngine(target=args[2],
+                           callback=handleResponse,
+                           async=True,
+                           concurrentConnections=args[4],
+                           readFreq=args[5],
+                           requestsPerConnection=args[5])
 
-    engine.showStats()
+    engine.start(timeout=10)
+
+    with open(urlfile) as file:
+        for line in file:
+            url = urlparse(line.rstrip())
+            engine.queue('GET %s?%s HTTP/1.1\r\nHost: %s\r\nConnection: keep-alive\r\n\r\n' % (url.path, url.query, url.netloc))
+
+    engine.complete(timeout=60)
 
 
-queueRequests()"""
+queueRequests()
+"""
+    }
+}
+
+class BurpExtender(): IBurpExtender {
+    companion object {
+        lateinit var callbacks: IBurpExtenderCallbacks
     }
 
     override fun registerExtenderCallbacks(callbacks: IBurpExtenderCallbacks?) {
@@ -75,7 +130,7 @@ class TurboIntruderFrame(val req: IHttpRequestResponse): ActionListener, JFrame(
 
             val defaultScript = BurpExtender.callbacks.loadExtensionSetting("defaultScript")
             if (defaultScript == null){
-                textEditor.text = BurpExtender.sampleScript.toByteArray()
+                textEditor.text = Scripts.SAMPLEBURPSCRIPT.toByteArray()
             }
             else {
                 textEditor.text = defaultScript.toByteArray()
@@ -170,43 +225,18 @@ fun evalJython(code: String, request: IHttpRequestResponse) {
     val pyInterp = PythonInterpreter()
     pyInterp.set("baseRequest", request) // todo avoid concurrency issues
     pyInterp.set("helpers", BurpExtender.callbacks.helpers)
+    pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
     pyInterp.exec(code)
 }
 
 fun jythonSend(scriptFile: String) {
     try {
         val pyInterp = PythonInterpreter()
+        pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
         pyInterp.exec(File(scriptFile).readText())
     }
     catch (e: FileNotFoundException) {
-        val content = """import burp.RequestEngine, burp.Args
-from urlparse import urlparse
-
-def handleResponse(req, resp):
-    code = resp.split(' ', 2)[1]
-    if code != '404':
-        print(code + ': '+req.split('\r', 1)[0])
-
-def queueRequests():
-    args = burp.Args.args
-    targeturl = args[1]
-    urlfile = args[2]
-    threads = int(args[3])
-    readFreq = int(args[4])
-    requestsPerConnection = readFreq
-    engine = AsyncRequestEngine(targeturl, threads, readFreq, requestsPerConnection, handleResponse)
-    engine.start()
-
-    with open(urlfile) as file:
-        for line in file:
-            requests+=1
-            url = urlparse(line.rstrip())
-            engine.queue('GET %s?%s HTTP/1.1\r\nHost: %s\r\nConnection: keep-alive\r\n\r\n' % (url.path, url.query, url.netloc))
-
-    engine.getResult()
-"""
-
-        File(scriptFile).printWriter().use { out -> out.println(content) }
+        File(scriptFile).printWriter().use { out -> out.println(Scripts.SAMPLECOMMANDSCRIPT) }
         System.out.println("Wrote example script to "+scriptFile);
     }
 }
@@ -223,7 +253,7 @@ class Args(args: Array<String>) {
 }
 
 interface RequestEngine {
-    fun start()
+    fun start(timeout: Int = 10)
     fun showStats(timeout: Int = -1)
     fun queue(req: String)
 }

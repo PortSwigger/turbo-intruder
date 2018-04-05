@@ -26,7 +26,7 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
     private var start: Long = 0
     var successfulRequests = AtomicInteger(0)
 
-    override fun start() {
+    override fun start(timeout: Int) {
         val retryQueue = LinkedBlockingQueue<ByteArray>();
         val ipAddress = InetAddress.getByName(target.host)
         val port = if (target.port == -1) { target.defaultPort } else { target.port }
