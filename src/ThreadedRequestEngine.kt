@@ -65,7 +65,11 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
 
     override fun showStats(timeout: Int) {
         attackState.set(2)
-        completedLatch.await(timeout.toLong(), TimeUnit.SECONDS)
+        val success = completedLatch.await(timeout.toLong(), TimeUnit.SECONDS)
+        if (!success) {
+            println("Aborting attack due to timeout")
+            attackState.set(3)
+        }
         val duration = System.nanoTime() - start
         val requests = successfulRequests.get().toFloat()
         println("Sent " + requests.toInt() + " requests in "+duration / 1000000000 + " seconds")
@@ -100,6 +104,10 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
 
                 var requestsSent = 0
                 while (requestsSent < requestsPerConnection) {
+
+                    if(attackState.get() == 3) {
+                        return
+                    }
 
                     var readCount = 0
                     for (j in 1..readFreq) {
