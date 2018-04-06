@@ -66,8 +66,8 @@ class AsyncRequestEngine(val url: String, val threads: Int, val readFreq: Int, v
     private val threadPool = ArrayList<Connection>()
 
     init {
-        requester = createPipe();
-        //requester = createHTTP2()
+        //requester = createPipe();
+        requester = createHTTP2()
 
         Runtime.getRuntime().addShutdownHook(object : Thread() {
             override fun run() {
