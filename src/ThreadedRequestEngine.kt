@@ -135,7 +135,7 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
 
                     for (k in 1..readCount) {
                         var delimOffset = buffer.indexOf("\r\n\r\n")
-                        while (delimOffset == -1) {
+                        while (delimOffset == -1) { // assumes that \r\n\r\n indicates the end of the response. not true!
                             val len = socket.getInputStream().read(read)
                             if(len == -1) {
                                 break
@@ -158,7 +158,6 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
                             buffer = buffer.substring(responseLength)
                         }
                         else {
-                            // chunked!
                             msg += buffer.substring(0, delimOffset+4)
                             buffer = buffer.substring(delimOffset+4)
 
@@ -222,20 +221,6 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
         }
     }
 
-    fun getFirstChunkLength(buf: String): Int {
-        val headerStart = buf.indexOf("Transfer-Encoding: chunked")
-        if (headerStart == -1) {
-            throw RuntimeException("Not chunked? "+buf)
-        }
-        val chunkLengthStart = buf.indexOf("\r\n\r\n", headerStart)+4
-        val chunkLengthEnd = buf.indexOf("\r\n", chunkLengthStart)
-        try {
-            return Integer.parseInt(buf.substring(chunkLengthStart, chunkLengthEnd), 16)
-        } catch (e: NumberFormatException) {
-            throw RuntimeException("Can't parse first chunk length '"+buf.substring(chunkLengthStart, chunkLengthEnd)+"' in "+buf)
-        }
-    }
-
     data class Result(val skip: Int, val length: Int)
 
     fun getNextChunkLength(buf: String): Result {
@@ -245,7 +230,6 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
             chunkLengthEnd == buf.length
         }
         try {
-            println(">"+chunkLengthStart +" to "+chunkLengthEnd + " total length " + buf.length)
             val skip = 2+chunkLengthEnd-chunkLengthStart
             return Result(skip, Integer.parseInt(buf.substring(chunkLengthStart, chunkLengthEnd), 16)+skip)
         } catch (e: NumberFormatException) {
