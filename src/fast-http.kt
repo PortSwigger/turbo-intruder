@@ -14,9 +14,9 @@ class Scripts() {
         val SCRIPTENVIRONMENT = """import burp.RequestEngine, burp.Args
 class RequestEngine:
 
-    def __init__(self, target, callback, async=True, concurrentConnections=50, readFreq=100, requestsPerConnection=100):
+    def __init__(self, target, callback, async=True, http2=False, concurrentConnections=50, readFreq=100, requestsPerConnection=100):
         if async:
-            self.engine = burp.AsyncRequestEngine(target, int(concurrentConnections), int(readFreq), int(requestsPerConnection), callback)
+            self.engine = burp.AsyncRequestEngine(target, int(concurrentConnections), int(readFreq), int(requestsPerConnection), http2, callback)
         else:
             self.engine = burp.ThreadedRequestEngine(target, int(concurrentConnections), int(readFreq), int(requestsPerConnection), callback)
 
@@ -204,7 +204,7 @@ fun handlecallback(req: String, resp: String): Boolean {
 
 fun javaSend(url: String, urlfile: String, threads: Int, requestsPerConnection: Int, readFreq: Int) {
     var target: URL
-    val engine = AsyncRequestEngine(url, threads, readFreq, requestsPerConnection, ::handlecallback)
+    val engine = ThreadedRequestEngine(url, threads, readFreq, requestsPerConnection, ::handlecallback)
     engine.start()
 
     val inputStream: InputStream = File(urlfile).inputStream()

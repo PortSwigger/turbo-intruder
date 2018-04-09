@@ -39,6 +39,7 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
         trustingSslContext.init(null, arrayOf<TrustManager>(TrustingTrustManager()), null)
         val trustingSslSocketFactory = trustingSslContext.socketFactory
 
+        println("Warming up...")
         for(j in 1..threads) {
             threadPool.add(
                 thread {
@@ -70,7 +71,7 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
             println("Aborting attack due to timeout")
             attackState.set(3)
         }
-        val duration = System.nanoTime() - start
+        val duration = System.nanoTime().toFloat() - start
         val requests = successfulRequests.get().toFloat()
         println("Sent " + requests.toInt() + " requests in "+duration / 1000000000 + " seconds")
         System.out.printf("RPS: %.0f\n", requests / (duration / 1000000000))
@@ -134,20 +135,20 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
                     var buffer = ""
 
                     for (k in 1..readCount) {
-                        var delimOffset = buffer.indexOf("\r\n\r\n")
-                        while (delimOffset == -1) { // assumes that \r\n\r\n indicates the end of the response. not true!
+                        var bodyStart = buffer.indexOf("\r\n\r\n")
+                        while (bodyStart == -1) {
                             val len = socket.getInputStream().read(read)
                             if(len == -1) {
                                 break
                             }
                             buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
-                            delimOffset = buffer.indexOf("\r\n\r\n")
+                            bodyStart = buffer.indexOf("\r\n\r\n")
                         }
 
                         val contentLength = getContentLength(buffer)
-                        var msg: String = ""
+                        var msg = ""
                         if (contentLength != -1) {
-                            val responseLength = delimOffset + contentLength + 4
+                            val responseLength = bodyStart + contentLength + 4
 
                             while (buffer.length < responseLength) {
                                 val len = socket.getInputStream().read(read)
@@ -158,25 +159,29 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
                             buffer = buffer.substring(responseLength)
                         }
                         else {
-                            msg += buffer.substring(0, delimOffset+4)
-                            buffer = buffer.substring(delimOffset+4)
+                            msg += buffer.substring(0, bodyStart+4)
+                            buffer = buffer.substring(bodyStart+4)
 
                             var chunk = getNextChunkLength(buffer)
 
                             while (chunk.length != 3) {
-                                println("Chunk length: "+chunk.length)
+                                //println("Chunk length: "+chunk.length)
                                 while (buffer.length < chunk.length) {
                                     val len = socket.getInputStream().read(read)
                                     buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
                                 }
 
-                                println("Got chunk: "+buffer.substring(chunk.skip, chunk.length))
+                                //println("Got chunk: "+buffer.substring(chunk.skip, chunk.length))
                                 msg += buffer.substring(chunk.skip, chunk.length)
                                 buffer = buffer.substring(chunk.length+2)
+
                                 chunk = getNextChunkLength(buffer)
+                                if (chunk.length == -1) {
+                                    val len = socket.getInputStream().read(read)
+                                    buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
+                                    chunk = getNextChunkLength(buffer)
+                                }
                             }
-
-
                         }
 
 
@@ -224,11 +229,13 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
     data class Result(val skip: Int, val length: Int)
 
     fun getNextChunkLength(buf: String): Result {
+        if (buf.length == 0) {
+            return Result(-1, -1)
+        }
+
         val chunkLengthStart = 0
         val chunkLengthEnd = buf.indexOf("\r\n")
-        if (chunkLengthEnd == -1) {
-            chunkLengthEnd == buf.length
-        }
+
         try {
             val skip = 2+chunkLengthEnd-chunkLengthStart
             return Result(skip, Integer.parseInt(buf.substring(chunkLengthStart, chunkLengthEnd), 16)+skip)

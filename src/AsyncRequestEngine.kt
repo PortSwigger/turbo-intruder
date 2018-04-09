@@ -52,7 +52,7 @@ import java.net.URL
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
-class AsyncRequestEngine(val url: String, val threads: Int, val readFreq: Int, val requestsPerConnection: Int, val callback: ((String, String) -> Boolean)?): RequestEngine {
+class AsyncRequestEngine(url: String, threads: Int, readFreq: Int, requestsPerConnection: Int, http2: Boolean, callback: ((String, String) -> Boolean)?): RequestEngine {
 
 
     private val requestQueue = ArrayBlockingQueue<Request>(1000000)
@@ -66,8 +66,12 @@ class AsyncRequestEngine(val url: String, val threads: Int, val readFreq: Int, v
     private val threadPool = ArrayList<Connection>()
 
     init {
-        //requester = createPipe();
-        requester = createHTTP2()
+        if (http2) {
+            requester = createHTTP2()
+        }
+        else {
+            requester = createPipe()
+        }
 
         Runtime.getRuntime().addShutdownHook(object : Thread() {
             override fun run() {
