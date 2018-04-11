@@ -473,7 +473,7 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
         output.append("\r\n")
 
         if(decompress) {
-            output.append(decompress(body))
+            output.append(Utilities.decompress(body))
         }
         else {
             output.append(String(body))
@@ -481,28 +481,6 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
 
 
         return output.toString()
-    }
-
-    fun decompress(compressed: ByteArray): String {
-        try {
-            val bis = ByteArrayInputStream(compressed)
-            val gis = GZIPInputStream(bis)
-            val br = BufferedReader(InputStreamReader(gis, "UTF-8"))
-            val sb = StringBuilder()
-            var line = br.readLine()
-            while (line != null) {
-                sb.append(line)
-                line = br.readLine()
-            }
-            br.close()
-            gis.close()
-            bis.close()
-            return sb.toString()
-        }
-        catch (e: IOException) {
-            println("GZIP decompression failed")
-            return "GZIP decompression failed"
-        }
     }
 
 }

@@ -8,6 +8,7 @@ import java.awt.event.ActionListener
 import java.io.*
 import javax.swing.*
 import org.python.util.PythonInterpreter
+import java.util.zip.GZIPInputStream
 
 class Scripts() {
     companion object {
@@ -88,6 +89,33 @@ def queueRequests():
 
 queueRequests()
 """
+    }
+}
+
+
+class Utilities() {
+    companion object {
+        fun decompress(compressed: ByteArray): String {
+            try {
+                val bis = ByteArrayInputStream(compressed)
+                val gis = GZIPInputStream(bis)
+                val br = BufferedReader(InputStreamReader(gis, "UTF-8"))
+                val sb = StringBuilder()
+                var line = br.readLine()
+                while (line != null) {
+                    sb.append(line)
+                    line = br.readLine()
+                }
+                br.close()
+                gis.close()
+                bis.close()
+                return sb.toString()
+            }
+            catch (e: IOException) {
+                println("GZIP decompression failed")
+                return "GZIP decompression failed"
+            }
+        }
     }
 }
 
