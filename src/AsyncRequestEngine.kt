@@ -47,10 +47,15 @@ import org.apache.hc.core5.http2.impl.nio.bootstrap.H2RequesterBootstrap
 import org.apache.hc.core5.io.ShutdownType
 import org.apache.hc.core5.reactor.IOReactorConfig
 import org.apache.hc.core5.util.Timeout
+import java.io.BufferedReader
 import java.io.IOException
 import java.net.URL
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.zip.GZIPInputStream
+import java.io.ByteArrayInputStream
+import java.io.InputStreamReader
+
 
 class AsyncRequestEngine(url: String, threads: Int, readFreq: Int, requestsPerConnection: Int, http2: Boolean, callback: ((String, String) -> Boolean)?): RequestEngine {
 
@@ -405,7 +410,7 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
         val request = inFlight.pop()
 
         if (callback != null) {
-            callback.invoke(request.base, responseToString(message.head, String(message.body)))
+            callback.invoke(request.base, responseToString(message.head, message.body))
         }
 
         if (inFlight.isEmpty()) {
@@ -441,7 +446,7 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
 
 
     @Throws(IOException::class)
-    fun responseToString(resp: HttpResponse, body: String): String {
+    fun responseToString(resp: HttpResponse, body: ByteArray): String {
         val output = StringBuilder()
 
 
@@ -452,6 +457,7 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
         output.append(resp.reasonPhrase)
         output.append("\r\n")
 
+        var decompress = false
         val headers = resp.headerIterator()
         while (headers.hasNext()) {
             val header = headers.next()
@@ -459,12 +465,44 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
             output.append(": ")
             output.append(header.value)
             output.append("\r\n")
+
+            if (header.name == "Content-Encoding" && header.value == "gzip") {
+                decompress = true
+            }
         }
         output.append("\r\n")
 
-        output.append(body)
+        if(decompress) {
+            output.append(decompress(body))
+        }
+        else {
+            output.append(String(body))
+        }
+
 
         return output.toString()
+    }
+
+    fun decompress(compressed: ByteArray): String {
+        try {
+            val bis = ByteArrayInputStream(compressed)
+            val gis = GZIPInputStream(bis)
+            val br = BufferedReader(InputStreamReader(gis, "UTF-8"))
+            val sb = StringBuilder()
+            var line = br.readLine()
+            while (line != null) {
+                sb.append(line)
+                line = br.readLine()
+            }
+            br.close()
+            gis.close()
+            bis.close()
+            return sb.toString()
+        }
+        catch (e: IOException) {
+            println("GZIP decompression failed")
+            return "GZIP decompression failed"
+        }
     }
 
 }
