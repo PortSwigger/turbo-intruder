@@ -269,6 +269,10 @@ internal class Request(var base: String, var url: URL) {
                     throw Exception("Bad header: "+headerParts)
                 }
 
+                if(headerParts[0] == "Content-Length") {
+                    continue
+                }
+
                 request.addHeader(headerParts[0], headerParts[1])
             }
 

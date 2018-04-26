@@ -32,19 +32,18 @@ class RequestEngine:
 """
 
         val SAMPLEBURPSCRIPT = """def queueRequests():
-    service = baseRequest.getHttpService()
-    engine = RequestEngine(target=service.getProtocol() + "://" + service.getHost() + ":" + str(service.getPort()),
+    engine = RequestEngine(target=target,
                            callback=handleResponse,
                            async=True,
-                           concurrentConnections=50,
-                           readFreq=100,
-                           requestsPerConnection=100)
+                           http2=False,
+                           concurrentConnections=5,
+                           readFreq=5,
+                           requestsPerConnection=5)
 
-    req = helpers.bytesToString(baseRequest.getRequest())
+    req = helpers.bytesToString(baseRequest)
     req = req.replace('Connection: close', 'Connection: keep-alive')
-    # req = req.replace('Accept-Encoding: gzip, deflate', 'Accept-Encoding: identity') # disable compression
 
-    for i in range(1000):
+    for i in range(25):
         engine.queue(req)
 
     engine.start(timeout=10)
