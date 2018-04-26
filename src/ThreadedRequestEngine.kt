@@ -146,7 +146,9 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
                         }
 
                         val contentLength = getContentLength(buffer)
-                        var msg = ""
+                        val shouldGzip = shouldGzip(buffer)
+                        val headers = buffer.substring(0, bodyStart+4)
+                        var body = ""
                         if (contentLength != -1) {
                             val responseLength = bodyStart + contentLength + 4
 
@@ -155,11 +157,11 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
                                 buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
                             }
 
-                            msg = buffer.substring(0, responseLength)
+                            body = buffer.substring(bodyStart+4, responseLength)
                             buffer = buffer.substring(responseLength)
                         }
                         else {
-                            msg += buffer.substring(0, bodyStart+4)
+                            body += buffer.substring(0, bodyStart+4)
                             buffer = buffer.substring(bodyStart+4)
 
                             var chunk = getNextChunkLength(buffer)
@@ -172,7 +174,7 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
                                 }
 
                                 //println("Got chunk: "+buffer.substring(chunk.skip, chunk.length))
-                                msg += buffer.substring(chunk.skip, chunk.length)
+                                body += buffer.substring(chunk.skip, chunk.length)
                                 buffer = buffer.substring(chunk.length+2)
 
                                 chunk = getNextChunkLength(buffer)
@@ -185,8 +187,16 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
                         }
 
 
-                        if (!msg.startsWith("HTTP")) {
+                        if (!headers.startsWith("HTTP")) {
                             throw Exception("no http")
+                        }
+
+                        var msg = headers
+                        if(shouldGzip) {
+                            msg += Utilities.decompress(body.toByteArray(Charsets.ISO_8859_1))
+                        }
+                        else {
+                            msg += body
                         }
 
                         val req = inflight.removeFirst()
@@ -224,6 +234,10 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
         } catch (e: NumberFormatException) {
             throw RuntimeException("Can't parse content length in "+buf)
         }
+    }
+
+    fun shouldGzip(buf: String): Boolean {
+        return buf.indexOf("Content-Encoding: gzip") != -1
     }
 
     data class Result(val skip: Int, val length: Int)

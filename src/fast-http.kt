@@ -126,6 +126,7 @@ class BurpExtender(): IBurpExtender {
 
     override fun registerExtenderCallbacks(callbacks: IBurpExtenderCallbacks?) {
         callbacks!!.registerContextMenuFactory(OfferTurboIntruder())
+        callbacks.setExtensionName("Turbo Intruder")
         Companion.callbacks = callbacks
     }
 }
