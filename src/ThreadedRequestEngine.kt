@@ -17,20 +17,15 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 import kotlin.concurrent.thread
 
-class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, val requestsPerConnection: Int, val callback: (String, String) -> Boolean): RequestEngine {
+open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, val requestsPerConnection: Int, val callback: (String, String) -> Boolean): RequestEngine() {
 
-    private val statusMap = HashMap<Int, Int>()
     private val requestQueue = ArrayBlockingQueue<ByteArray>(8192)
-    private val completedLatch = CountDownLatch(threads)
     private val connectedLatch = CountDownLatch(threads)
     private val target = URL(url)
-    private var start: Long = 0
-    val attackState = AtomicInteger(0) // 0 = connecting, 1 = live, 2 = fully queued
-    var successfulRequests = AtomicInteger(0)
     private val threadPool = ArrayList<Thread>()
 
-
     init {
+        completedLatch = CountDownLatch(threads)
         val retryQueue = LinkedBlockingQueue<ByteArray>();
         val ipAddress = InetAddress.getByName(target.host)
         val port = if (target.port == -1) { target.defaultPort } else { target.port }
@@ -63,20 +58,6 @@ class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, va
     fun queue(req: ByteArray) {
         requestQueue.offer(req, 10, TimeUnit.SECONDS) // todo should this be synchronised?
     }
-
-    override fun showStats(timeout: Int) {
-        attackState.set(2)
-        val success = completedLatch.await(timeout.toLong(), TimeUnit.SECONDS)
-        if (!success) {
-            println("Aborting attack due to timeout")
-            attackState.set(3)
-        }
-        val duration = System.nanoTime().toFloat() - start
-        val requests = successfulRequests.get().toFloat()
-        println("Sent " + requests.toInt() + " requests in "+duration / 1000000000 + " seconds")
-        System.out.printf("RPS: %.0f\n", requests / (duration / 1000000000))
-    }
-
 
     private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, requestQueue: ArrayBlockingQueue<ByteArray>, retryQueue: LinkedBlockingQueue<ByteArray>, completedLatch: CountDownLatch, baseReadFreq: Int, baseRequestsPerConnection: Int, connectedLatch: CountDownLatch) {
         var readFreq = baseReadFreq

@@ -8,6 +8,9 @@ import java.awt.event.ActionListener
 import java.io.*
 import javax.swing.*
 import org.python.util.PythonInterpreter
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.GZIPInputStream
 
 class Scripts() {
@@ -34,7 +37,7 @@ class RequestEngine:
         val SAMPLEBURPSCRIPT = """def queueRequests():
     engine = RequestEngine(target=target,
                            callback=handleResponse,
-                           async=True,
+                           async=True,  # {Burp, Threaded, Async, HTTP2}
                            http2=False,
                            concurrentConnections=5,
                            readFreq=5,
@@ -282,8 +285,29 @@ class Args(args: Array<String>) {
     }
 }
 
-interface RequestEngine {
-    fun start(timeout: Int = 10)
-    fun showStats(timeout: Int = -1)
-    fun queue(req: String)
+abstract class RequestEngine {
+    var start: Long = 0
+    var successfulRequests = AtomicInteger(0)
+    val attackState = AtomicInteger(0) // 0 = connecting, 1 = live, 2 = fully queued
+    lateinit var completedLatch: CountDownLatch
+
+    abstract fun start(timeout: Int = 10)
+    abstract fun queue(req: String)
+
+    open fun showStats(timeout: Int = -1) {
+        attackState.set(2)
+        val success = completedLatch.await(timeout.toLong(), TimeUnit.SECONDS)
+        if (!success) {
+            println("Aborting attack due to timeout")
+            attackState.set(3)
+        }
+        showSummary()
+    }
+
+    fun showSummary() {
+        val duration = System.nanoTime().toFloat() - start
+        val requests = successfulRequests.get().toFloat()
+        println("Sent " + requests.toInt() + " requests in "+duration / 1000000000 + " seconds")
+        System.out.printf("RPS: %.0f\n", requests / (duration / 1000000000))
+    }
 }

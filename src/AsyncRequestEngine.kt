@@ -57,16 +57,15 @@ import java.io.ByteArrayInputStream
 import java.io.InputStreamReader
 
 
-class AsyncRequestEngine(url: String, threads: Int, readFreq: Int, requestsPerConnection: Int, http2: Boolean, callback: ((String, String) -> Boolean)?): RequestEngine {
+class AsyncRequestEngine(url: String, threads: Int, readFreq: Int, requestsPerConnection: Int, http2: Boolean, callback: ((String, String) -> Boolean)?): RequestEngine() {
 
 
     private val requestQueue = ArrayBlockingQueue<Request>(1000000)
-    var start: Long = 0
-    var successfulRequests = AtomicInteger(0)
+
+
     var requester: HttpAsyncRequester
     var latch: CountDownLatch
     var parsed = URL(url)
-    val attackState = AtomicInteger(0) // 0 = connecting, 1 = live, 2 = fully queued
     var queuedRequestCount = 0
     private val threadPool = ArrayList<Connection>()
 
@@ -160,10 +159,8 @@ class AsyncRequestEngine(url: String, threads: Int, readFreq: Int, requestsPerCo
             }
         }
 
-        val requests = successfulRequests.get().toFloat()
-        val duration = System.nanoTime().toFloat() - start
-        println("Sent " + requests + " requests in " + duration / 1000000000 + " seconds")
-        System.out.printf("RPS: %.0f\n", requests / (duration / 1000000000))
+        showSummary()
+
         requester.initiateShutdown()
     }
 
