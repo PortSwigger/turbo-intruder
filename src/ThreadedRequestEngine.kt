@@ -52,7 +52,12 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
     }
 
     override fun queue(req: String) {
-        queue(req.toByteArray(Charsets.ISO_8859_1))
+        if(requestsPerConnection > 1) {
+            queue(req.replace("Connection: close", "Connection: keep-alive").toByteArray(Charsets.ISO_8859_1))
+        }
+        else {
+            queue(req.replace("Connection: keep-alive", "Connection: close").toByteArray(Charsets.ISO_8859_1))
+        }
     }
 
     fun queue(req: ByteArray) {

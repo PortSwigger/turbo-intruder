@@ -16,13 +16,41 @@ import java.util.zip.GZIPInputStream
 class Scripts() {
     companion object {
         val SCRIPTENVIRONMENT = """import burp.RequestEngine, burp.Args
+
+class Engine:
+    BURP = 1
+    THREADED = 2
+    ASYNC = 3
+    HTTP2 = 4
+
+
 class RequestEngine:
 
-    def __init__(self, target, callback, async=True, http2=False, concurrentConnections=50, readFreq=100, requestsPerConnection=100):
-        if async:
-            self.engine = burp.AsyncRequestEngine(target, int(concurrentConnections), int(readFreq), int(requestsPerConnection), http2, callback)
+    def __init__(self, target, callback, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False):
+        concurrentConnections = int(concurrentConnections)
+        requestsPerConnection = int(requestsPerConnection)
+
+        if pipeline > 1:
+            readFreq = int(pipeline)
+        elif pipeline:
+            readFreq = requestsPerConnection
         else:
-            self.engine = burp.ThreadedRequestEngine(target, int(concurrentConnections), int(readFreq), int(requestsPerConnection), callback)
+            readFreq = 1
+
+        if(engine == Engine.BURP):
+            if(requestsPerConnection > 1 or pipeline):
+                print('requestsPerConnection has been forced to 1 and pipelining has been disabled due to Burp engine limitations')
+
+            self.engine = burp.BurpRequestEngine(target, concurrentConnections, callback)
+        elif(engine == Engine.THREADED):
+            self.engine = burp.ThreadedRequestEngine(target, concurrentConnections, readFreq, requestsPerConnection, callback)
+        elif(engine == Engine.ASYNC):
+            self.engine = burp.AsyncRequestEngine(target, concurrentConnections, readFreq, requestsPerConnection, False, callback)
+        elif(engine == Engine.HTTP2):
+            self.engine = burp.AsyncRequestEngine(target, concurrentConnections, readFreq, requestsPerConnection, True, callback)
+        else:
+            print('Unrecognised engine. Valid engines are Engine.BURP, Engine.THREADED, Engine.ASYNC, Engine.HTTP2')
+
 
     def queue(self, req):
         self.engine.queue(req)
@@ -37,16 +65,15 @@ class RequestEngine:
         val SAMPLEBURPSCRIPT = """def queueRequests():
     engine = RequestEngine(target=target,
                            callback=handleResponse,
-                           async=True,  # {Burp, Threaded, Async, HTTP2}
-                           http2=False,
-                           concurrentConnections=5,
-                           readFreq=5,
-                           requestsPerConnection=5)
+                           engine=Engine.BURP,  # {BURP, THREADED, ASYNC, HTTP2}
+                           concurrentConnections=100,
+                           requestsPerConnection=100,
+                           pipeline=True
+                           )
 
     req = helpers.bytesToString(baseRequest)
-    req = req.replace('Connection: close', 'Connection: keep-alive')
 
-    for i in range(25):
+    for i in range(2000):
         engine.queue(req)
 
     engine.start(timeout=10)

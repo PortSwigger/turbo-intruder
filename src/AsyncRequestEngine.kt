@@ -270,6 +270,10 @@ internal class Request(var base: String, var url: URL) {
                     continue
                 }
 
+                if(headerParts[0] == "Connection") {
+                    headerParts[1] = "keep-alive"
+                }
+
                 request.addHeader(headerParts[0], headerParts[1])
             }
 
