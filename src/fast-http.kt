@@ -148,13 +148,19 @@ class Utilities() {
     }
 }
 
-class BurpExtender(): IBurpExtender {
+class BurpExtender(): IBurpExtender, IExtensionStateListener {
+    override fun extensionUnloaded() {
+        unloaded = true
+    }
+
     companion object {
         lateinit var callbacks: IBurpExtenderCallbacks
+        var unloaded = false
     }
 
     override fun registerExtenderCallbacks(callbacks: IBurpExtenderCallbacks?) {
         callbacks!!.registerContextMenuFactory(OfferTurboIntruder())
+        callbacks.registerExtensionStateListener(this)
         callbacks.setExtensionName("Turbo Intruder")
         Companion.callbacks = callbacks
     }
@@ -309,6 +315,20 @@ class Args(args: Array<String>) {
 
     init {
         Companion.args = args
+    }
+}
+
+
+class Request(val template: String, val word: String?) {
+
+    constructor(template: String): this(template, null)
+
+    fun getRequest(): String {
+        if (word == null) {
+            return template
+        }
+
+        return template.replace("%s", word)
     }
 }
 

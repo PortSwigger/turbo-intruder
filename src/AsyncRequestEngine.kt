@@ -38,7 +38,6 @@ import org.apache.hc.core5.http.io.entity.StringEntity
 import org.apache.hc.core5.http.message.BasicClassicHttpRequest
 import org.apache.hc.core5.http.nio.*
 import org.apache.hc.core5.http.nio.entity.BasicAsyncEntityConsumer
-import org.apache.hc.core5.http.nio.entity.StringAsyncEntityConsumer
 import org.apache.hc.core5.http.nio.entity.StringAsyncEntityProducer
 import org.apache.hc.core5.http2.config.H2Config
 import org.apache.hc.core5.http2.frame.RawFrame
@@ -47,20 +46,15 @@ import org.apache.hc.core5.http2.impl.nio.bootstrap.H2RequesterBootstrap
 import org.apache.hc.core5.io.ShutdownType
 import org.apache.hc.core5.reactor.IOReactorConfig
 import org.apache.hc.core5.util.Timeout
-import java.io.BufferedReader
 import java.io.IOException
 import java.net.URL
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.zip.GZIPInputStream
-import java.io.ByteArrayInputStream
-import java.io.InputStreamReader
 
 
 class AsyncRequestEngine(url: String, threads: Int, readFreq: Int, requestsPerConnection: Int, http2: Boolean, callback: ((String, String) -> Boolean)?): RequestEngine() {
 
 
-    private val requestQueue = ArrayBlockingQueue<Request>(1000000)
+    private val requestQueue = ArrayBlockingQueue<AsyncRequest>(1000000)
 
 
     var requester: HttpAsyncRequester
@@ -167,11 +161,11 @@ class AsyncRequestEngine(url: String, threads: Int, readFreq: Int, requestsPerCo
     override fun queue(req: String) {
         queuedRequestCount += 1
         if (requestQueue.isEmpty()) {
-            requestQueue.add(Request(req, parsed))
+            requestQueue.add(AsyncRequest(req, parsed))
             threadPool.get(0).wake()
         }
         else {
-            requestQueue.add(Request(req, parsed))
+            requestQueue.add(AsyncRequest(req, parsed))
         }
     }
 
@@ -243,7 +237,7 @@ class AsyncRequestEngine(url: String, threads: Int, readFreq: Int, requestsPerCo
     }
 }
 
-internal class Request(var base: String, var url: URL) {
+internal class AsyncRequest(var base: String, var url: URL) {
     lateinit var request: BasicClassicHttpRequest
     var dataProducer: AsyncEntityProducer? = null
 
@@ -300,9 +294,9 @@ internal class Request(var base: String, var url: URL) {
 
 }
 
-internal class Connection(private val requester: HttpAsyncRequester, private val target: HttpHost, private val requestQueue: ArrayBlockingQueue<Request>, private val requestsPerConnection: Int, private val readFreq: Int, private val successfulRequests: AtomicInteger, val latch: CountDownLatch, val attackState: AtomicInteger, val id: Int, val callback: ((String, String) -> Boolean)?) : FutureCallback<Message<HttpResponse, ByteArray>> {
+internal class Connection(private val requester: HttpAsyncRequester, private val target: HttpHost, private val requestQueue: ArrayBlockingQueue<AsyncRequest>, private val requestsPerConnection: Int, private val readFreq: Int, private val successfulRequests: AtomicInteger, val latch: CountDownLatch, val attackState: AtomicInteger, val id: Int, val callback: ((String, String) -> Boolean)?) : FutureCallback<Message<HttpResponse, ByteArray>> {
     private var clientEndpoint: AsyncClientEndpoint? = null
-    private val inFlight = ArrayDeque<Request>()
+    private val inFlight = ArrayDeque<AsyncRequest>()
     private val connectionCallbackHandler: FutureCallback<AsyncClientEndpoint>
     var connectionFuture: Future<AsyncClientEndpoint>? = null
     private var total = 0
@@ -324,6 +318,11 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
     }
 
     fun createCon() {
+        if (BurpExtender.unloaded) {
+            abort = true
+            conclude()
+        }
+
         if (closeIfComplete()) {
             println("Abandoning reconnection - no longer necessary "+id)
             return
@@ -393,7 +392,7 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
         }
     }
 
-    private fun request(req: Request): Future<*> {
+    private fun request(req: AsyncRequest): Future<*> {
 
         val requestProducer = BasicRequestProducer(req.request, req.dataProducer)
 

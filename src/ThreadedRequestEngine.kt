@@ -19,7 +19,7 @@ import kotlin.concurrent.thread
 
 open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, val requestsPerConnection: Int, val callback: (String, String) -> Boolean): RequestEngine() {
 
-    private val requestQueue = ArrayBlockingQueue<ByteArray>(8192)
+    private val requestQueue = ArrayBlockingQueue<ByteArray>(1000000)
     private val connectedLatch = CountDownLatch(threads)
     private val target = URL(url)
     private val threadPool = ArrayList<Thread>()
@@ -61,7 +61,11 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
     }
 
     fun queue(req: ByteArray) {
-        requestQueue.offer(req, 10, TimeUnit.SECONDS) // todo should this be synchronised?
+        val queued = requestQueue.offer(req, 10, TimeUnit.SECONDS) // todo should this be synchronised?
+        if (!queued) {
+            println("Timeout queuing request. Aborting.")
+            this.showStats(1)
+        }
     }
 
     private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, requestQueue: ArrayBlockingQueue<ByteArray>, retryQueue: LinkedBlockingQueue<ByteArray>, completedLatch: CountDownLatch, baseReadFreq: Int, baseRequestsPerConnection: Int, connectedLatch: CountDownLatch) {
@@ -70,7 +74,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
         var requestsPerConnection = baseRequestsPerConnection
         var connected = false
 
-        while (true) {
+        while (!BurpExtender.unloaded) {
 
             try {
                 val socket = if (url.protocol.equals("https")) {

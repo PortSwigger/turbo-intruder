@@ -9,7 +9,7 @@ import kotlin.concurrent.thread
 class BurpRequestEngine(url: String, threads: Int, val callback: (String, String) -> Boolean): RequestEngine() {
 
     private val threadPool = ArrayList<Thread>()
-    private val requestQueue = ArrayBlockingQueue<ByteArray>(8192)
+    private val requestQueue = ArrayBlockingQueue<ByteArray>(1000000)
 
     init {
         completedLatch = CountDownLatch(threads)
@@ -36,7 +36,11 @@ class BurpRequestEngine(url: String, threads: Int, val callback: (String, String
     }
 
     fun queue(req: ByteArray) {
-        requestQueue.offer(req, 10, TimeUnit.SECONDS) // todo should this be synchronised?
+        val queued = requestQueue.offer(req, 10, TimeUnit.SECONDS) // todo should this be synchronised?
+        if (!queued) {
+            println("Timeout queuing request. Aborting.")
+            this.showStats(1)
+        }
     }
 
     private fun sendRequests(service: IHttpService) {
@@ -44,7 +48,7 @@ class BurpRequestEngine(url: String, threads: Int, val callback: (String, String
             Thread.sleep(10)
         }
 
-        while(true) {
+        while(!BurpExtender.unloaded) {
             val req = requestQueue.poll(100, TimeUnit.MILLISECONDS);
 
             if(req == null) {
