@@ -61,7 +61,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
     }
 
     fun queue(req: ByteArray) {
-        val queued = requestQueue.offer(req, 10, TimeUnit.SECONDS) // todo should this be synchronised?
+        val queued = requestQueue.offer(req, 10, TimeUnit.SECONDS)
         if (!queued) {
             println("Timeout queuing request. Aborting.")
             this.showStats(1)

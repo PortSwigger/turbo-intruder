@@ -1,15 +1,22 @@
 package burp
 import java.net.URL
-import java.util.ArrayList
+import java.util.*
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.ReadWriteLock
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
 import kotlin.concurrent.thread
+import kotlin.concurrent.write
 
 class BurpRequestEngine(url: String, threads: Int, val callback: (String, String) -> Boolean): RequestEngine() {
 
     private val threadPool = ArrayList<Thread>()
-    private val requestQueue = ArrayBlockingQueue<ByteArray>(1000000)
+    private val requestQueue = ArrayBlockingQueue<Request>(1000000)
+    private val baseline = BurpExtender.callbacks.helpers.analyzeResponseVariations()
+    private val baselinelock = ReentrantReadWriteLock()
+
 
     init {
         completedLatch = CountDownLatch(threads)
@@ -32,11 +39,18 @@ class BurpRequestEngine(url: String, threads: Int, val callback: (String, String
     }
 
     override fun queue(req: String) {
-        queue(req.replace("Connection: keep-alive", "Connection: close").toByteArray(Charsets.ISO_8859_1))
+        queue(req, null, false)
     }
 
-    fun queue(req: ByteArray) {
-        val queued = requestQueue.offer(req, 10, TimeUnit.SECONDS) // todo should this be synchronised?
+    fun queue(template: String, payload: String?) {
+        queue(template, payload, false)
+    }
+
+    fun queue(template: String, payload: String?, learnBoring: Boolean?) {
+
+        val request = Request(template.replace("Connection: keep-alive", "Connection: close"), payload, learnBoring ?: false)
+
+        val queued = requestQueue.offer(request, 10, TimeUnit.SECONDS)
         if (!queued) {
             println("Timeout queuing request. Aborting.")
             this.showStats(1)
@@ -61,15 +75,42 @@ class BurpRequestEngine(url: String, threads: Int, val callback: (String, String
                 }
             }
 
-            val resp = BurpExtender.callbacks.makeHttpRequest(service, req)
+            val resp = BurpExtender.callbacks.makeHttpRequest(service, req.getRequest().toByteArray(Charsets.ISO_8859_1))
             if (resp.response != null) {
                 successfulRequests.getAndIncrement()
-                callback(String(req), String(resp.response))
+                processResponse(req, resp.response)
+                callback(req.getRequest(), String(resp.response))
             }
             else {
                 print("null response :(")
             }
         }
+    }
+
+    // todo move this into the parent class
+    private fun processResponse(req: Request, response: ByteArray): Boolean {
+        if (req.learnBoring) {
+
+            baselinelock.writeLock().lock()
+            baseline.updateWith(response)
+            baselinelock.writeLock().unlock()
+        }
+        else {
+            val resp = BurpExtender.callbacks.helpers.analyzeResponseVariations(response)
+
+            baselinelock.readLock().lock()
+            val invariants = baseline.invariantAttributes
+            baselinelock.readLock().unlock()
+
+            for(attribute in invariants) {
+                if (baseline.getAttributeValue(attribute, 0) != resp.getAttributeValue(attribute, 0)) {
+                    println("Interesting: "+req.word)
+                    return true
+                }
+            }
+        }
+
+        return false
     }
 
 }

@@ -55,6 +55,9 @@ class RequestEngine:
     def queue(self, req):
         self.engine.queue(req)
 
+    def queue(self, template, payload, learn=False):
+        self.engine.queue(template, payload, learn)
+
     def start(self, timeout=5):
         self.engine.start(timeout)
 
@@ -124,6 +127,10 @@ queueRequests()
 
 class Utilities() {
     companion object {
+        private val CHARSET = "0123456789abcdefghijklmnopqrstuvwxyz" // ABCDEFGHIJKLMNOPQRSTUVWXYZ
+        private val START_CHARSET = "ghijklmnopqrstuvwxyz"
+        private val rnd = Random()
+
         fun decompress(compressed: ByteArray): String {
             try {
                 val bis = ByteArrayInputStream(compressed)
@@ -144,6 +151,15 @@ class Utilities() {
                 println("GZIP decompression failed")
                 return "GZIP decompression failed"
             }
+        }
+
+
+        fun randomString(len: Int): String {
+            val sb = StringBuilder(len)
+            sb.append(START_CHARSET.get(rnd.nextInt(START_CHARSET.length)))
+            for (i in 1 until len)
+                sb.append(CHARSET.get(rnd.nextInt(CHARSET.length)))
+            return sb.toString()
         }
     }
 }
@@ -319,13 +335,23 @@ class Args(args: Array<String>) {
 }
 
 
-class Request(val template: String, val word: String?) {
+class Request(val template: String, val word: String?, val learnBoring: Boolean) {
 
-    constructor(template: String): this(template, null)
+    constructor(template: String): this(template, null, false)
 
     fun getRequest(): String {
         if (word == null) {
             return template
+        }
+
+        if (!template.contains("%s")) {
+            println("Bad base request - nowhere to inject payload")
+        }
+
+        val req = template.replace("%s", word)
+
+        if (req.contains("%s")) {
+            println("Bad base request - contains too many %s")
         }
 
         return template.replace("%s", word)
@@ -340,6 +366,7 @@ abstract class RequestEngine {
 
     abstract fun start(timeout: Int = 10)
     abstract fun queue(req: String)
+    //abstract fun queue(template: String, payload: String?)
 
     open fun showStats(timeout: Int = -1) {
         attackState.set(2)
