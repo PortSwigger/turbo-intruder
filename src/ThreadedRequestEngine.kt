@@ -19,14 +19,14 @@ import kotlin.concurrent.thread
 
 open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, val requestsPerConnection: Int, val callback: (String, String) -> Boolean): RequestEngine() {
 
-    private val requestQueue = ArrayBlockingQueue<ByteArray>(1000000)
+    private val requestQueue = ArrayBlockingQueue<Request>(1000000)
     private val connectedLatch = CountDownLatch(threads)
     private val target = URL(url)
     private val threadPool = ArrayList<Thread>()
 
     init {
         completedLatch = CountDownLatch(threads)
-        val retryQueue = LinkedBlockingQueue<ByteArray>();
+        val retryQueue = LinkedBlockingQueue<Request>();
         val ipAddress = InetAddress.getByName(target.host)
         val port = if (target.port == -1) { target.defaultPort } else { target.port }
 
@@ -38,7 +38,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
         for(j in 1..threads) {
             threadPool.add(
                 thread {
-                    sendRequests(target, trustingSslSocketFactory, ipAddress, port, requestQueue, retryQueue, completedLatch, readFreq, requestsPerConnection, connectedLatch)
+                    sendRequests(target, trustingSslSocketFactory, ipAddress, port, retryQueue, completedLatch, readFreq, requestsPerConnection, connectedLatch)
                 }
             )
         }
@@ -52,25 +52,27 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
     }
 
     override fun queue(req: String) {
-        if(requestsPerConnection > 1) {
-            queue(req.replace("Connection: close", "Connection: keep-alive").toByteArray(Charsets.ISO_8859_1))
-        }
-        else {
-            queue(req.replace("Connection: keep-alive", "Connection: close").toByteArray(Charsets.ISO_8859_1))
-        }
+        queue(req, null, false)
     }
 
-    fun queue(req: ByteArray) {
-        val queued = requestQueue.offer(req, 10, TimeUnit.SECONDS)
+    fun queue(template: String, payload: String?) {
+        queue(template, payload, false)
+    }
+
+    fun queue(template: String, payload: String?, learnBoring: Boolean?) {
+
+        val request = Request(template.replace("Connection: keep-alive", "Connection: close"), payload, learnBoring ?: false)
+
+        val queued = requestQueue.offer(request, 10, TimeUnit.SECONDS)
         if (!queued) {
             println("Timeout queuing request. Aborting.")
             this.showStats(1)
         }
     }
 
-    private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, requestQueue: ArrayBlockingQueue<ByteArray>, retryQueue: LinkedBlockingQueue<ByteArray>, completedLatch: CountDownLatch, baseReadFreq: Int, baseRequestsPerConnection: Int, connectedLatch: CountDownLatch) {
+    private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, retryQueue: LinkedBlockingQueue<Request>, completedLatch: CountDownLatch, baseReadFreq: Int, baseRequestsPerConnection: Int, connectedLatch: CountDownLatch) {
         var readFreq = baseReadFreq
-        val inflight = ArrayDeque<ByteArray>()
+        val inflight = ArrayDeque<Request>()
         var requestsPerConnection = baseRequestsPerConnection
         var connected = false
 
@@ -116,7 +118,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
                         }
 
                         inflight.addLast(req)
-                        socket.getOutputStream().write(req)
+                        socket.getOutputStream().write(req.getRawRequest())
                         readCount++
                         requestsSent++
                     }
@@ -151,7 +153,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
                             buffer = buffer.substring(responseLength)
                         }
                         else {
-                            body += buffer.substring(0, bodyStart+4)
+                            //body += buffer.substring(0, bodyStart+4)
                             buffer = buffer.substring(bodyStart+4)
 
                             var chunk = getNextChunkLength(buffer)
@@ -174,6 +176,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
                                     chunk = getNextChunkLength(buffer)
                                 }
                             }
+
+
                         }
 
 
@@ -183,6 +187,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
 
                         var msg = headers
                         if(shouldGzip) {
+                            println("headers:'"+msg+"'")
                             msg += Utilities.decompress(body.toByteArray(Charsets.ISO_8859_1))
                         }
                         else {
@@ -191,13 +196,9 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
 
                         val req = inflight.removeFirst()
                         successfulRequests.getAndIncrement()
+                        processResponse(req, msg.toByteArray(Charsets.ISO_8859_1))
+                        callback(req.getRequest(), msg)
 
-                        callback(String(req), msg)
-
-//                        val status = msg.split(" ")[1].toInt()
-//                        synchronized(statusMap) {
-//                            statusMap.put(status, statusMap.getOrDefault(status, 0) + 1)
-//                        }
                     }
                 }
             } catch (ex: Exception) {

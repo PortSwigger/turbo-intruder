@@ -72,7 +72,7 @@ class BurpRequestEngine(url: String, threads: Int, val callback: (String, String
                 }
             }
 
-            val resp = BurpExtender.callbacks.makeHttpRequest(service, req.getRequest().toByteArray(Charsets.ISO_8859_1))
+            val resp = BurpExtender.callbacks.makeHttpRequest(service, req.getRawRequest())
             if (resp.response != null) {
                 successfulRequests.getAndIncrement()
                 processResponse(req, resp.response)

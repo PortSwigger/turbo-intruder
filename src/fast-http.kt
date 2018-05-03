@@ -149,7 +149,8 @@ class Utilities() {
                 return sb.toString()
             }
             catch (e: IOException) {
-                println("GZIP decompression failed")
+                println("GZIP decompression failed: "+e)
+                println("'"+String(compressed)+"'")
                 return "GZIP decompression failed"
             }
         }
@@ -356,6 +357,10 @@ class Request(val template: String, val word: String?, val learnBoring: Boolean)
         }
 
         return template.replace("%s", word)
+    }
+
+    fun getRawRequest(): ByteArray {
+        return getRequest().toByteArray(Charsets.ISO_8859_1)
     }
 }
 
