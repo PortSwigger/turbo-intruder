@@ -61,7 +61,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
 
     fun queue(template: String, payload: String?, learnBoring: Boolean?) {
 
-        val request = Request(template.replace("Connection: keep-alive", "Connection: close"), payload, learnBoring ?: false)
+        val request = Request(template.replace("Connection: close", "Connection: keep-alive"), payload, learnBoring ?: false)
 
         val queued = requestQueue.offer(request, 10, TimeUnit.SECONDS)
         if (!queued) {
@@ -111,16 +111,25 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
                         var req = retryQueue.poll()
                         while (req == null) {
                             req = requestQueue.poll(100, TimeUnit.MILLISECONDS);
-                            if (req == null && attackState.get() == 2) {
-                                completedLatch.countDown()
-                                return
+
+                            if (req == null) {
+                                if (readCount > 0) {
+                                    break
+                                }
+                                if(attackState.get() == 2) {
+                                    completedLatch.countDown()
+                                    return
+                                }
                             }
                         }
+
+                        if (req == null) break
 
                         inflight.addLast(req)
                         socket.getOutputStream().write(req.getRawRequest())
                         readCount++
                         requestsSent++
+
                     }
 
                     val read = ByteArray(1024)
@@ -131,6 +140,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
                         while (bodyStart == -1) {
                             val len = socket.getInputStream().read(read)
                             if(len == -1) {
+                                println("socket closed hmm")
                                 break
                             }
                             buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
@@ -187,7 +197,6 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
 
                         var msg = headers
                         if(shouldGzip) {
-                            println("headers:'"+msg+"'")
                             msg += Utilities.decompress(body.toByteArray(Charsets.ISO_8859_1))
                         }
                         else {
