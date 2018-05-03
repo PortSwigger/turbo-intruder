@@ -11,6 +11,7 @@ import org.python.util.PythonInterpreter
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.zip.GZIPInputStream
 
 class Scripts() {
@@ -363,6 +364,8 @@ abstract class RequestEngine {
     var successfulRequests = AtomicInteger(0)
     val attackState = AtomicInteger(0) // 0 = connecting, 1 = live, 2 = fully queued
     lateinit var completedLatch: CountDownLatch
+    private val baseline = BurpExtender.callbacks.helpers.analyzeResponseVariations()
+    private val baselinelock = ReentrantReadWriteLock()
 
     abstract fun start(timeout: Int = 10)
     abstract fun queue(req: String)
@@ -383,5 +386,30 @@ abstract class RequestEngine {
         val requests = successfulRequests.get().toFloat()
         println("Sent " + requests.toInt() + " requests in "+duration / 1000000000 + " seconds")
         System.out.printf("RPS: %.0f\n", requests / (duration / 1000000000))
+    }
+
+    fun processResponse(req: Request, response: ByteArray): Boolean {
+        if (req.learnBoring) {
+
+            baselinelock.writeLock().lock()
+            baseline.updateWith(response)
+            baselinelock.writeLock().unlock()
+        }
+        else {
+            val resp = BurpExtender.callbacks.helpers.analyzeResponseVariations(response)
+
+            baselinelock.readLock().lock()
+            val invariants = baseline.invariantAttributes
+            baselinelock.readLock().unlock()
+
+            for(attribute in invariants) {
+                if (baseline.getAttributeValue(attribute, 0) != resp.getAttributeValue(attribute, 0)) {
+                    println("Interesting: "+req.word)
+                    return true
+                }
+            }
+        }
+
+        return false
     }
 }

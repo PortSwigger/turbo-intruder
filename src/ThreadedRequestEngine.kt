@@ -191,6 +191,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
 
                         val req = inflight.removeFirst()
                         successfulRequests.getAndIncrement()
+
                         callback(String(req), msg)
 
 //                        val status = msg.split(" ")[1].toInt()

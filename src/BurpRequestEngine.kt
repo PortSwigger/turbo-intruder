@@ -14,9 +14,6 @@ class BurpRequestEngine(url: String, threads: Int, val callback: (String, String
 
     private val threadPool = ArrayList<Thread>()
     private val requestQueue = ArrayBlockingQueue<Request>(1000000)
-    private val baseline = BurpExtender.callbacks.helpers.analyzeResponseVariations()
-    private val baselinelock = ReentrantReadWriteLock()
-
 
     init {
         completedLatch = CountDownLatch(threads)
@@ -85,32 +82,6 @@ class BurpRequestEngine(url: String, threads: Int, val callback: (String, String
                 print("null response :(")
             }
         }
-    }
-
-    // todo move this into the parent class
-    private fun processResponse(req: Request, response: ByteArray): Boolean {
-        if (req.learnBoring) {
-
-            baselinelock.writeLock().lock()
-            baseline.updateWith(response)
-            baselinelock.writeLock().unlock()
-        }
-        else {
-            val resp = BurpExtender.callbacks.helpers.analyzeResponseVariations(response)
-
-            baselinelock.readLock().lock()
-            val invariants = baseline.invariantAttributes
-            baselinelock.readLock().unlock()
-
-            for(attribute in invariants) {
-                if (baseline.getAttributeValue(attribute, 0) != resp.getAttributeValue(attribute, 0)) {
-                    println("Interesting: "+req.word)
-                    return true
-                }
-            }
-        }
-
-        return false
     }
 
 }
