@@ -140,7 +140,6 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
                         while (bodyStart == -1) {
                             val len = socket.getInputStream().read(read)
                             if(len == -1) {
-                                println("socket closed hmm")
                                 break
                             }
                             buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
@@ -212,6 +211,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
                 }
             } catch (ex: Exception) {
 
+                println("Controlled error: ")
                 ex.printStackTrace()
                 // do callback here (allow user code change
                 //readFreq = max(1, readFreq / 2)
