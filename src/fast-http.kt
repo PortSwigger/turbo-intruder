@@ -189,7 +189,7 @@ class OfferTurboIntruder(): IContextMenuFactory {
         val options = ArrayList<JMenuItem>()
         if (invocation!!.selectedMessages[0] != null) {
             val probeButton = JMenuItem("Send to turbo intruder")
-            probeButton.addActionListener(TurboIntruderFrame(invocation.selectedMessages[0]))
+            probeButton.addActionListener(TurboIntruderFrame(invocation.selectedMessages[0], invocation.selectionBounds))
             options.add(probeButton)
         }
         return options
@@ -197,7 +197,7 @@ class OfferTurboIntruder(): IContextMenuFactory {
 }
 
 
-class TurboIntruderFrame(inputRequest: IHttpRequestResponse): ActionListener, JFrame("Turbo Intruder - " + inputRequest.httpService.host)  {
+class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds: IntArray): ActionListener, JFrame("Turbo Intruder - " + inputRequest.httpService.host)  {
     private val req = BurpExtender.callbacks.saveBuffersToTempFiles(inputRequest)
 
     override fun actionPerformed(e: ActionEvent?) {
@@ -206,7 +206,14 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse): ActionListener, JF
             val pane = JSplitPane(JSplitPane.VERTICAL_SPLIT)
             val textEditor = BurpExtender.callbacks.createTextEditor()
             val messageEditor = BurpExtender.callbacks.createMessageEditor(null, true)
-            messageEditor.setMessage(req.request, true)
+
+            if(!selectionBounds.isEmpty()) {
+                messageEditor.setMessage(req.request.copyOfRange(0, selectionBounds[0]) + ("%s".toByteArray()) + req.request.copyOfRange(selectionBounds[1], req.request.size), true)
+            } else {
+                messageEditor.setMessage(req.request, true)
+            }
+
+
 
             val defaultScript = BurpExtender.callbacks.loadExtensionSetting("defaultScript")
             if (defaultScript == null){
