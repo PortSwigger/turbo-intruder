@@ -17,7 +17,7 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 import kotlin.concurrent.thread
 
-open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, val requestsPerConnection: Int, val callback: (String, String) -> Boolean): RequestEngine() {
+open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, val requestsPerConnection: Int, val callback: (String, String, Boolean, String?) -> Boolean): RequestEngine() {
 
     private val requestQueue = ArrayBlockingQueue<Request>(1000000)
     private val connectedLatch = CountDownLatch(threads)
@@ -204,8 +204,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
 
                         val req = inflight.removeFirst()
                         successfulRequests.getAndIncrement()
-                        processResponse(req, msg.toByteArray(Charsets.ISO_8859_1))
-                        callback(req.getRequest(), msg)
+                        val interesting = processResponse(req, msg.toByteArray(Charsets.ISO_8859_1))
+                        callback(req.getRequest(), msg, interesting, req.word)
 
                     }
                 }

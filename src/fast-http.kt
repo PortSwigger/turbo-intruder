@@ -281,35 +281,35 @@ fun main(args : Array<String>) {
     //javaSend(url, urlfile, threads, requestsPerConnection, readFreq)
 }
 
-fun handlecallback(req: String, resp: String): Boolean {
-    val status = resp.split(" ")[1].toInt()
-    if (status != 404 && status != 401) {
-        println("" + status + ": " + req.split("\n")[0])
-        // println(resp)
-    }
-
-    return true
-}
-
-fun javaSend(url: String, urlfile: String, threads: Int, requestsPerConnection: Int, readFreq: Int) {
-    var target: URL
-    val engine = ThreadedRequestEngine(url, threads, readFreq, requestsPerConnection, ::handlecallback)
-    engine.start()
-
-    val inputStream: InputStream = File(urlfile).inputStream()
-    val lines = inputStream.bufferedReader().readLines()
-    var requests = 0
-    for(line in lines) {
-        requests++
-        target = URL(line);
-        engine.queue("GET ${target.path}?${target.query} HTTP/1.1\r\n"
-                +"Host: ${target.host}\r\n"
-                +"Connection: keep-alive\r\n"
-                +"\r\n")
-    }
-
-    engine.showStats()
-}
+//fun handlecallback(req: String, resp: String, word: String?): Boolean {
+//    val status = resp.split(" ")[1].toInt()
+//    if (status != 404 && status != 401) {
+//        println("" + status + ": " + req.split("\n")[0])
+//        // println(resp)
+//    }
+//
+//    return true
+//}
+//
+//fun javaSend(url: String, urlfile: String, threads: Int, requestsPerConnection: Int, readFreq: Int) {
+//    var target: URL
+//    val engine = ThreadedRequestEngine(url, threads, readFreq, requestsPerConnection, ::handlecallback)
+//    engine.start()
+//
+//    val inputStream: InputStream = File(urlfile).inputStream()
+//    val lines = inputStream.bufferedReader().readLines()
+//    var requests = 0
+//    for(line in lines) {
+//        requests++
+//        target = URL(line);
+//        engine.queue("GET ${target.path}?${target.query} HTTP/1.1\r\n"
+//                +"Host: ${target.host}\r\n"
+//                +"Connection: keep-alive\r\n"
+//                +"\r\n")
+//    }
+//
+//    engine.showStats()
+//}
 
 fun evalJython(code: String, baseRequest: String, target: String) {
     val pyInterp = PythonInterpreter()
@@ -432,19 +432,18 @@ abstract class RequestEngine {
                 baselines.add(base)
             }
             base.updateWith(response)
+            return false
         }
-        else {
-            val resp = BurpExtender.callbacks.helpers.analyzeResponseVariations(response)
 
-            for(base in baselines) {
-                if (invariantsMatch(base, resp)) {
-                    return true
-                }
+        val resp = BurpExtender.callbacks.helpers.analyzeResponseVariations(response)
+
+        for(base in baselines) {
+            if (invariantsMatch(base, resp)) {
+                return false
             }
-
-            println(req.word)
         }
-        return false
+
+        return true
     }
 
     private fun invariantsMatch(base: SafeResponseVariations, resp: IResponseVariations): Boolean {
