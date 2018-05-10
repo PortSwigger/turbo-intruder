@@ -53,11 +53,11 @@ class RequestEngine:
             print('Unrecognised engine. Valid engines are Engine.BURP, Engine.THREADED, Engine.ASYNC, Engine.HTTP2')
 
 
-    def queue(self, req):
-        self.engine.queue(req)
-
-    def queue(self, template, payload, learn=False):
-        self.engine.queue(template, payload, learn)
+    def queue(self, template, payload=0, learn=0):
+        if payload != 0:
+            self.engine.queue(template, payload, learn)
+        else:
+            self.engine.queue(template)
 
     def start(self, timeout=5):
         self.engine.start(timeout)
