@@ -334,6 +334,7 @@ fun evalJython(code: String, baseRequest: String, target: String, baseInput: Str
     pyInterp.set("observedWords", BurpExtender.witnessedWords.savedWords)
     pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
     pyInterp.exec(code)
+    pyInterp.exec("queueRequests()")
 }
 
 fun jythonSend(scriptFile: String) {
