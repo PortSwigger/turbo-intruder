@@ -36,16 +36,16 @@ class BurpRequestEngine(url: String, threads: Int, val callback: (String, String
     }
 
     override fun queue(req: String) {
-        queue(req, null, false)
+        queue(req, null, 0)
     }
 
     fun queue(template: String, payload: String?) {
-        queue(template, payload, false)
+        queue(template, payload, 0)
     }
 
-    fun queue(template: String, payload: String?, learnBoring: Boolean?) {
+    fun queue(template: String, payload: String?, learnBoring: Int?) {
 
-        val request = Request(template.replace("Connection: keep-alive", "Connection: close"), payload, learnBoring ?: false)
+        val request = Request(template.replace("Connection: keep-alive", "Connection: close"), payload, learnBoring ?: 0)
 
         val queued = requestQueue.offer(request, 10, TimeUnit.SECONDS)
         if (!queued) {

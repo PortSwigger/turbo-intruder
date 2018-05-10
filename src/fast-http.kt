@@ -344,9 +344,9 @@ class Args(args: Array<String>) {
 }
 
 
-class Request(val template: String, val word: String?, val learnBoring: Boolean) {
+class Request(val template: String, val word: String?, val learnBoring: Int) {
 
-    constructor(template: String): this(template, null, false)
+    constructor(template: String): this(template, null, 0)
 
     fun getRequest(): String {
         if (word == null) {
@@ -371,13 +371,37 @@ class Request(val template: String, val word: String?, val learnBoring: Boolean)
     }
 }
 
+
+class SafeResponseVariations {
+    private val lock = ReentrantReadWriteLock()
+    private val variations = BurpExtender.callbacks.helpers.analyzeResponseVariations()
+
+    fun updateWith(response: ByteArray) {
+        val writelock = lock.writeLock()
+        writelock.lock()
+        variations.updateWith(response)
+        writelock.unlock()
+    }
+
+    fun getInvariantAttributes(): List<String> {
+        val readlock = lock.readLock()
+        readlock.lock()
+        val invariants = variations.invariantAttributes
+        readlock.unlock()
+        return invariants
+    }
+
+    fun getAttributeValue(attribute: String): Int {
+        return variations.getAttributeValue(attribute, 0)
+    }
+}
+
 abstract class RequestEngine {
     var start: Long = 0
     var successfulRequests = AtomicInteger(0)
     val attackState = AtomicInteger(0) // 0 = connecting, 1 = live, 2 = fully queued
     lateinit var completedLatch: CountDownLatch
-    private val baseline = BurpExtender.callbacks.helpers.analyzeResponseVariations()
-    private val baselinelock = ReentrantReadWriteLock()
+    private val baselines = LinkedList<SafeResponseVariations>()
 
     abstract fun start(timeout: Int = 10)
     abstract fun queue(req: String)
@@ -401,27 +425,38 @@ abstract class RequestEngine {
     }
 
     fun processResponse(req: Request, response: ByteArray): Boolean {
-        if (req.learnBoring) {
-
-            baselinelock.writeLock().lock()
-            baseline.updateWith(response)
-            baselinelock.writeLock().unlock()
+        if (req.learnBoring != 0) {
+            var base = baselines.getOrNull(req.learnBoring-1)
+            if (base == null) {
+                base = SafeResponseVariations()
+                baselines.add(base)
+            }
+            base.updateWith(response)
         }
         else {
             val resp = BurpExtender.callbacks.helpers.analyzeResponseVariations(response)
 
-            baselinelock.readLock().lock()
-            val invariants = baseline.invariantAttributes
-            baselinelock.readLock().unlock()
-
-            for(attribute in invariants) {
-                if (baseline.getAttributeValue(attribute, 0) != resp.getAttributeValue(attribute, 0)) {
-                    println(req.word)
+            for(base in baselines) {
+                if (invariantsMatch(base, resp)) {
                     return true
                 }
             }
-        }
 
+            println(req.word)
+        }
         return false
     }
+
+    private fun invariantsMatch(base: SafeResponseVariations, resp: IResponseVariations): Boolean {
+        val invariants = base.getInvariantAttributes()
+
+        for(attribute in invariants) {
+            if (base.getAttributeValue(attribute) != resp.getAttributeValue(attribute, 0)) {
+                return false
+            }
+        }
+
+        return true
+    }
+
 }
