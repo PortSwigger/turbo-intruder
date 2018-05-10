@@ -416,7 +416,7 @@ abstract class RequestEngine {
 
             for(attribute in invariants) {
                 if (baseline.getAttributeValue(attribute, 0) != resp.getAttributeValue(attribute, 0)) {
-                    println("Interesting: "+req.word)
+                    println(req.word)
                     return true
                 }
             }
