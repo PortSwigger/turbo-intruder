@@ -16,7 +16,13 @@ import java.util.zip.GZIPInputStream
 
 class Scripts() {
     companion object {
-        val SCRIPTENVIRONMENT = """import burp.RequestEngine, burp.Args
+        val SCRIPTENVIRONMENT = """import burp.RequestEngine, burp.Args, string, random
+
+def randstr(length=12, allow_digits=True):
+    candidates = string.ascii_lowercase
+    if allow_digits:
+        candidates += string.digits
+    return ''.join(random.choice(candidates) for x in range(length))
 
 class Engine:
     BURP = 1
@@ -69,25 +75,29 @@ class RequestEngine:
         val SAMPLEBURPSCRIPT = """def queueRequests():
     engine = RequestEngine(target=target,
                            callback=handleResponse,
-                           engine=Engine.BURP,  # {BURP, THREADED, ASYNC, HTTP2}
-                           concurrentConnections=100,
+                           engine=Engine.THREADED,  # {BURP, THREADED, ASYNC, HTTP2}
+                           concurrentConnections=1,
                            requestsPerConnection=100,
                            pipeline=True
                            )
 
     req = helpers.bytesToString(baseRequest)
 
-    for i in range(2000):
-        engine.queue(req)
+    for i in range(3):
+        engine.queue(req, randstr(4+i), learn=1)
+        engine.queue(req, baseInput, learn=2)
 
-    engine.start(timeout=10)
-    engine.complete(timeout=10)
+    with open('/Users/james/Dropbox/lists/discovery/PredictableRes/raft-large-words-lowercase.txt') as f:
+        for line in f:
+            engine.queue(req, line.rstrip())
+
+    engine.start(timeout=5)
+    engine.complete(timeout=5)
 
 
-def handleResponse(req, resp):
-    code = resp.split(' ', 2)[1]
-    if code != '404':
-        print(code + ': '+req.split('\r', 1)[0])
+def handleResponse(req, resp, interesting, word):
+    if interesting:
+        print(word)
 
 
 queueRequests()"""
@@ -207,8 +217,10 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             val textEditor = BurpExtender.callbacks.createTextEditor()
             val messageEditor = BurpExtender.callbacks.createMessageEditor(null, true)
 
+            var baseInput = ""
             if(!selectionBounds.isEmpty()) {
                 messageEditor.setMessage(req.request.copyOfRange(0, selectionBounds[0]) + ("%s".toByteArray()) + req.request.copyOfRange(selectionBounds[1], req.request.size), true)
+                baseInput = String(req.request.copyOfRange(selectionBounds[0], selectionBounds[1]), Charsets.ISO_8859_1)
             } else {
                 messageEditor.setMessage(req.request, true)
             }
@@ -241,7 +253,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                     val baseRequest = BurpExtender.callbacks.helpers.bytesToString(messageEditor.message)
                     val service = req.httpService
                     val target = service.protocol + "://" + service.host + ":" + service.port
-                    evalJython(script, baseRequest, target)
+                    evalJython(script, baseRequest, target, baseInput)
                 }
             }
 
@@ -311,11 +323,12 @@ fun main(args : Array<String>) {
 //    engine.showStats()
 //}
 
-fun evalJython(code: String, baseRequest: String, target: String) {
+fun evalJython(code: String, baseRequest: String, target: String, baseInput: String) {
     val pyInterp = PythonInterpreter()
     pyInterp.set("baseRequest", baseRequest) // todo avoid concurrency issues
     pyInterp.set("target", target)
     pyInterp.set("helpers", BurpExtender.callbacks.helpers)
+    pyInterp.set("baseInput", baseInput)
     pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
     pyInterp.exec(code)
 }
