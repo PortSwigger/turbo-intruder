@@ -183,11 +183,13 @@ class BurpExtender(): IBurpExtender, IExtensionStateListener {
 
     companion object {
         lateinit var callbacks: IBurpExtenderCallbacks
+        var witnessedWords = WordRecorder()
         var unloaded = false
     }
 
     override fun registerExtenderCallbacks(callbacks: IBurpExtenderCallbacks?) {
         callbacks!!.registerContextMenuFactory(OfferTurboIntruder())
+        callbacks.registerScannerCheck(witnessedWords)
         callbacks.registerExtensionStateListener(this)
         callbacks.setExtensionName("Turbo Intruder")
         Companion.callbacks = callbacks
@@ -329,6 +331,7 @@ fun evalJython(code: String, baseRequest: String, target: String, baseInput: Str
     pyInterp.set("target", target)
     pyInterp.set("helpers", BurpExtender.callbacks.helpers)
     pyInterp.set("baseInput", baseInput)
+    pyInterp.set("observedWords", BurpExtender.witnessedWords.savedWords)
     pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
     pyInterp.exec(code)
 }
