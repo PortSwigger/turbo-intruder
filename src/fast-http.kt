@@ -227,8 +227,6 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                 messageEditor.setMessage(req.request, true)
             }
 
-
-
             val defaultScript = BurpExtender.callbacks.loadExtensionSetting("defaultScript")
             if (defaultScript == null){
                 textEditor.text = Scripts.SAMPLEBURPSCRIPT.toByteArray()
@@ -249,13 +247,16 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
             button.addActionListener {
                 thread {
+                    val requestTable = RequestTable(req.httpService)
+                    pane.bottomComponent = requestTable
                     val script = String(textEditor.text)
                     BurpExtender.callbacks.saveExtensionSetting("defaultScript", script)
                     BurpExtender.callbacks.helpers
                     val baseRequest = BurpExtender.callbacks.helpers.bytesToString(messageEditor.message)
                     val service = req.httpService
                     val target = service.protocol + "://" + service.host + ":" + service.port
-                    evalJython(script, baseRequest, target, baseInput)
+                    evalJython(script, baseRequest, target, baseInput, requestTable)
+                    pane.bottomComponent = textEditor.component
                 }
             }
 
@@ -325,13 +326,14 @@ fun main(args : Array<String>) {
 //    engine.showStats()
 //}
 
-fun evalJython(code: String, baseRequest: String, target: String, baseInput: String) {
+fun evalJython(code: String, baseRequest: String, target: String, baseInput: String, outputTable: RequestTable) {
     val pyInterp = PythonInterpreter()
     pyInterp.set("baseRequest", baseRequest) // todo avoid concurrency issues
     pyInterp.set("target", target)
     pyInterp.set("helpers", BurpExtender.callbacks.helpers)
     pyInterp.set("baseInput", baseInput)
     pyInterp.set("observedWords", BurpExtender.witnessedWords.savedWords)
+    pyInterp.set("table", outputTable)
     pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
     pyInterp.exec(code)
     pyInterp.exec("queueRequests()")
@@ -363,6 +365,8 @@ class Args(args: Array<String>) {
 
 class Request(val template: String, val word: String?, val learnBoring: Int) {
 
+    var response: String? = null
+
     constructor(template: String): this(template, null, 0)
 
     fun getRequest(): String {
@@ -385,6 +389,10 @@ class Request(val template: String, val word: String?, val learnBoring: Int) {
 
     fun getRawRequest(): ByteArray {
         return getRequest().toByteArray(Charsets.ISO_8859_1)
+    }
+
+    fun getRawResponse(): ByteArray? {
+        return response?.toByteArray(Charsets.ISO_8859_1)
     }
 }
 
