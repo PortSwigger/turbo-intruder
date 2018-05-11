@@ -50,10 +50,10 @@ class RequestTable(val service: IHttpService): JPanel() {
 
         val splitPane = JSplitPane(JSplitPane.VERTICAL_SPLIT, requestListView, bottomSplit)
 
-        requestListView.preferredSize = Dimension(300, 400)
+        requestListView.preferredSize = Dimension(1280, 400)
         splitPane.setDividerLocation(0.2)
         splitPane.resizeWeight = 0.2
-        splitPane.preferredSize = Dimension(300, 800)
+        splitPane.preferredSize = Dimension(1280, 880)
 
         this.layout = BorderLayout()
         this.add(splitPane, BorderLayout.CENTER)

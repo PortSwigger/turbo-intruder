@@ -10,7 +10,7 @@ import kotlin.concurrent.read
 import kotlin.concurrent.thread
 import kotlin.concurrent.write
 
-class BurpRequestEngine(url: String, threads: Int, val callback: (String, String, Boolean, String?) -> Boolean): RequestEngine() {
+class BurpRequestEngine(url: String, threads: Int, val callback: (Request, Boolean) -> Boolean): RequestEngine() {
 
     private val threadPool = ArrayList<Thread>()
     private val requestQueue = ArrayBlockingQueue<Request>(1000000)
@@ -76,7 +76,8 @@ class BurpRequestEngine(url: String, threads: Int, val callback: (String, String
             if (resp.response != null) {
                 successfulRequests.getAndIncrement()
                 val interesting = processResponse(req, resp.response)
-                callback(req.getRequest(), String(resp.response), interesting, req.word)
+                req.response = String(resp.response)
+                callback(req, interesting)
             }
             else {
                 print("null response :(")

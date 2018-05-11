@@ -247,16 +247,23 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
             button.addActionListener {
                 thread {
-                    val requestTable = RequestTable(req.httpService)
-                    pane.bottomComponent = requestTable
-                    val script = String(textEditor.text)
-                    BurpExtender.callbacks.saveExtensionSetting("defaultScript", script)
-                    BurpExtender.callbacks.helpers
-                    val baseRequest = BurpExtender.callbacks.helpers.bytesToString(messageEditor.message)
-                    val service = req.httpService
-                    val target = service.protocol + "://" + service.host + ":" + service.port
-                    evalJython(script, baseRequest, target, baseInput, requestTable)
-                    pane.bottomComponent = textEditor.component
+                    if (button.text == "Configure") {
+                        // todo cancel attack here maybe
+                        pane.bottomComponent = textEditor.component
+                        button.text = "Attack"
+                    }
+                    else {
+                        button.text = "Configure"
+                        val requestTable = RequestTable(req.httpService)
+                        pane.bottomComponent = requestTable
+                        val script = String(textEditor.text)
+                        BurpExtender.callbacks.saveExtensionSetting("defaultScript", script)
+                        BurpExtender.callbacks.helpers
+                        val baseRequest = BurpExtender.callbacks.helpers.bytesToString(messageEditor.message)
+                        val service = req.httpService
+                        val target = service.protocol + "://" + service.host + ":" + service.port
+                        evalJython(script, baseRequest, target, baseInput, requestTable)
+                    }
                 }
             }
 
