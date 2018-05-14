@@ -52,11 +52,13 @@ class RequestTable(val service: IHttpService): JPanel() {
 
         requestListView.preferredSize = Dimension(1280, 400)
         splitPane.setDividerLocation(0.2)
-        splitPane.resizeWeight = 0.2
-        splitPane.preferredSize = Dimension(1280, 880)
+        splitPane.preferredSize = Dimension(1280, 800)
 
         this.layout = BorderLayout()
         this.add(splitPane, BorderLayout.CENTER)
+
+
+        splitPane.resizeWeight = 0.5
 
 
         BurpExtender.callbacks.customizeUiComponent(this)

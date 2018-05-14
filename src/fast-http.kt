@@ -304,7 +304,8 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             c.gridx = 0
             c.gridy = 1
             outerpane.add(button, c)
-
+            c.weightx = 1.0
+            c.weighty = 1.0
             add(outerpane)
             pack()
             setLocationRelativeTo(getBurpFrame())
