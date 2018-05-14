@@ -75,6 +75,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
         val inflight = ArrayDeque<Request>()
         var requestsPerConnection = baseRequestsPerConnection
         var connected = false
+        var reqWithResponse: Request? = null
+        var answeredRequests = 0
 
         while (!BurpExtender.unloaded) {
 
@@ -96,6 +98,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
                 }
 
                 var requestsSent = 0
+                answeredRequests = 0
                 while (requestsSent < requestsPerConnection) {
 
                     if(attackState.get() == 3) {
@@ -148,7 +151,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
 
                         val contentLength = getContentLength(buffer)
                         val shouldGzip = shouldGzip(buffer)
-                        val headers = buffer.substring(0, bodyStart+4)
+                        val headers = buffer.substring(0, bodyStart+4) // fixme java.lang.StringIndexOutOfBoundsException: begin 0, end 3, length 0
                         var body = ""
                         if (contentLength != -1) {
                             val responseLength = bodyStart + contentLength + 4
@@ -202,18 +205,26 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
                             msg += body
                         }
 
-                        val req = inflight.removeFirst()
+                        reqWithResponse = inflight.removeFirst()
                         successfulRequests.getAndIncrement()
-                        val interesting = processResponse(req, msg.toByteArray(Charsets.ISO_8859_1))
-                        req.response = msg
-                        callback(req, interesting)
+                        answeredRequests += 1
+                        val interesting = processResponse(reqWithResponse, msg.toByteArray(Charsets.ISO_8859_1))
+                        reqWithResponse.response = msg
+                        callback(reqWithResponse, interesting)
 
                     }
                 }
             } catch (ex: Exception) {
 
-                println("Controlled error: ")
-                ex.printStackTrace()
+                if (reqWithResponse != null) {
+                    println("Controlled error after "+answeredRequests+" answered requests. After '" + reqWithResponse.word + "' during '" + inflight.pop().word + "'")
+                }
+
+                if (answeredRequests == 0) {
+                    println("Error on first request :(  '"+inflight.pop().word+"'")
+                    ex.printStackTrace()
+                }
+
                 // do callback here (allow user code change
                 //readFreq = max(1, readFreq / 2)
                 //requestsPerConnection = max(1, requestsPerConnection/2)
