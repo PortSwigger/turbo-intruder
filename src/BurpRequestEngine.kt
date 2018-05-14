@@ -59,7 +59,7 @@ class BurpRequestEngine(url: String, threads: Int, val callback: (Request, Boole
             Thread.sleep(10)
         }
 
-        while(!BurpExtender.unloaded) {
+        while(attackState.get() < 3 && !BurpExtender.unloaded) {
             val req = requestQueue.poll(100, TimeUnit.MILLISECONDS);
 
             if(req == null) {

@@ -58,6 +58,8 @@ class RequestEngine:
         else:
             print('Unrecognised engine. Valid engines are Engine.BURP, Engine.THREADED, Engine.ASYNC, Engine.HTTP2')
 
+        handler.setRequestEngine(self.engine)
+
 
     def queue(self, template, payload=0, learn=0):
         if payload != 0:
@@ -75,7 +77,7 @@ class RequestEngine:
         val SAMPLEBURPSCRIPT = """def queueRequests():
     engine = RequestEngine(target=target,
                            callback=handleResponse,
-                           engine=Engine.THREADED,  # {BURP, THREADED, ASYNC, HTTP2}
+                           engine=Engine.BURP,  # {BURP, THREADED, ASYNC, HTTP2}
                            concurrentConnections=1,
                            requestsPerConnection=100,
                            pipeline=True
@@ -86,21 +88,23 @@ class RequestEngine:
     for i in range(3):
         engine.queue(req, randstr(4+i), learn=1)
         engine.queue(req, baseInput, learn=2)
+        engine.queue(req, "."+randstr(4), learn=3)
 
-    with open('/Users/james/Dropbox/lists/discovery/PredictableRes/raft-large-words-lowercase.txt') as f:
-        for line in f:
+    for word in observedWords:
+        engine.queue(req, word)
+
+    for line in open('/Users/james/Dropbox/lists/discovery/PredictableRes/raft-large-words-lowercase.txt'):
+        if line not in observedWords:
             engine.queue(req, line.rstrip())
 
     engine.start(timeout=5)
-    engine.complete(timeout=5)
+    engine.complete(timeout=60)
 
 
-def handleResponse(req, resp, interesting, word):
+def handleResponse(req, interesting):
     if interesting:
-        print(word)
-
-
-queueRequests()"""
+        table.add(req)
+"""
 
         val SAMPLECOMMANDSCRIPT = """
 from urlparse import urlparse
@@ -132,6 +136,32 @@ def queueRequests():
 
 queueRequests()
 """
+    }
+}
+
+fun evalJython(code: String, baseRequest: String, target: String, baseInput: String, outputTable: RequestTable, handler: AttackHandler) {
+    val pyInterp = PythonInterpreter()
+    pyInterp.set("baseRequest", baseRequest) // todo avoid concurrency issues
+    pyInterp.set("handler", handler)
+    pyInterp.set("target", target)
+    pyInterp.set("helpers", BurpExtender.callbacks.helpers)
+    pyInterp.set("baseInput", baseInput)
+    pyInterp.set("observedWords", BurpExtender.witnessedWords.savedWords)
+    pyInterp.set("table", outputTable)
+    pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
+    pyInterp.exec(code)
+    pyInterp.exec("queueRequests()")
+}
+
+fun jythonSend(scriptFile: String) {
+    try {
+        val pyInterp = PythonInterpreter()
+        pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
+        pyInterp.exec(File(scriptFile).readText())
+    }
+    catch (e: FileNotFoundException) {
+        File(scriptFile).printWriter().use { out -> out.println(Scripts.SAMPLECOMMANDSCRIPT) }
+        System.out.println("Wrote example script to "+scriptFile);
     }
 }
 
@@ -244,11 +274,12 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             textEditor.component.preferredSize = Dimension(1280, 600);
 
             val button = JButton("Attack");
+            val handler = AttackHandler()
 
             button.addActionListener {
                 thread {
-                    if (button.text == "Configure") {
-                        // todo cancel attack here maybe
+                    if (handler.isRunning()) {
+                        handler.abort()
                         pane.bottomComponent = textEditor.component
                         button.text = "Attack"
                     }
@@ -262,7 +293,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                         val baseRequest = BurpExtender.callbacks.helpers.bytesToString(messageEditor.message)
                         val service = req.httpService
                         val target = service.protocol + "://" + service.host + ":" + service.port
-                        evalJython(script, baseRequest, target, baseInput, requestTable)
+                        evalJython(script, baseRequest, target, baseInput, requestTable, handler)
                     }
                 }
             }
@@ -291,71 +322,6 @@ fun main(args : Array<String>) {
     val scriptFile = args[0]
     Args.args = args
     jythonSend(scriptFile)
-
-    //    val url = args[0]
-//    val urlfile = args[1]
-//    val threads = args[2].toInt()
-//    val requestsPerConnection = args[3].toInt()
-//    var readFreq = requestsPerConnection
-//    if (args.size > 4) {
-//        readFreq = args[4].toInt();
-//    }
-    //javaSend(url, urlfile, threads, requestsPerConnection, readFreq)
-}
-
-//fun handlecallback(req: String, resp: String, word: String?): Boolean {
-//    val status = resp.split(" ")[1].toInt()
-//    if (status != 404 && status != 401) {
-//        println("" + status + ": " + req.split("\n")[0])
-//        // println(resp)
-//    }
-//
-//    return true
-//}
-//
-//fun javaSend(url: String, urlfile: String, threads: Int, requestsPerConnection: Int, readFreq: Int) {
-//    var target: URL
-//    val engine = ThreadedRequestEngine(url, threads, readFreq, requestsPerConnection, ::handlecallback)
-//    engine.start()
-//
-//    val inputStream: InputStream = File(urlfile).inputStream()
-//    val lines = inputStream.bufferedReader().readLines()
-//    var requests = 0
-//    for(line in lines) {
-//        requests++
-//        target = URL(line);
-//        engine.queue("GET ${target.path}?${target.query} HTTP/1.1\r\n"
-//                +"Host: ${target.host}\r\n"
-//                +"Connection: keep-alive\r\n"
-//                +"\r\n")
-//    }
-//
-//    engine.showStats()
-//}
-
-fun evalJython(code: String, baseRequest: String, target: String, baseInput: String, outputTable: RequestTable) {
-    val pyInterp = PythonInterpreter()
-    pyInterp.set("baseRequest", baseRequest) // todo avoid concurrency issues
-    pyInterp.set("target", target)
-    pyInterp.set("helpers", BurpExtender.callbacks.helpers)
-    pyInterp.set("baseInput", baseInput)
-    pyInterp.set("observedWords", BurpExtender.witnessedWords.savedWords)
-    pyInterp.set("table", outputTable)
-    pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
-    pyInterp.exec(code)
-    pyInterp.exec("queueRequests()")
-}
-
-fun jythonSend(scriptFile: String) {
-    try {
-        val pyInterp = PythonInterpreter()
-        pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
-        pyInterp.exec(File(scriptFile).readText())
-    }
-    catch (e: FileNotFoundException) {
-        File(scriptFile).printWriter().use { out -> out.println(Scripts.SAMPLECOMMANDSCRIPT) }
-        System.out.println("Wrote example script to "+scriptFile);
-    }
 }
 
 class Args(args: Array<String>) {
@@ -367,127 +333,4 @@ class Args(args: Array<String>) {
     init {
         Companion.args = args
     }
-}
-
-
-class Request(val template: String, val word: String?, val learnBoring: Int) {
-
-    var response: String? = null
-
-    constructor(template: String): this(template, null, 0)
-
-    fun getRequest(): String {
-        if (word == null) {
-            return template
-        }
-
-        if (!template.contains("%s")) {
-            println("Bad base request - nowhere to inject payload")
-        }
-
-        val req = template.replace("%s", word)
-
-        if (req.contains("%s")) {
-            println("Bad base request - contains too many %s")
-        }
-
-        return template.replace("%s", word)
-    }
-
-    fun getRawRequest(): ByteArray {
-        return getRequest().toByteArray(Charsets.ISO_8859_1)
-    }
-
-    fun getRawResponse(): ByteArray? {
-        return response?.toByteArray(Charsets.ISO_8859_1)
-    }
-}
-
-
-class SafeResponseVariations {
-    private val lock = ReentrantReadWriteLock()
-    private val variations = BurpExtender.callbacks.helpers.analyzeResponseVariations()
-
-    fun updateWith(response: ByteArray) {
-        val writelock = lock.writeLock()
-        writelock.lock()
-        variations.updateWith(response)
-        writelock.unlock()
-    }
-
-    fun getInvariantAttributes(): List<String> {
-        val readlock = lock.readLock()
-        readlock.lock()
-        val invariants = variations.invariantAttributes
-        readlock.unlock()
-        return invariants
-    }
-
-    fun getAttributeValue(attribute: String): Int {
-        return variations.getAttributeValue(attribute, 0)
-    }
-}
-
-abstract class RequestEngine {
-    var start: Long = 0
-    var successfulRequests = AtomicInteger(0)
-    val attackState = AtomicInteger(0) // 0 = connecting, 1 = live, 2 = fully queued
-    lateinit var completedLatch: CountDownLatch
-    private val baselines = LinkedList<SafeResponseVariations>()
-
-    abstract fun start(timeout: Int = 10)
-    abstract fun queue(req: String)
-    //abstract fun queue(template: String, payload: String?)
-
-    open fun showStats(timeout: Int = -1) {
-        attackState.set(2)
-        val success = completedLatch.await(timeout.toLong(), TimeUnit.SECONDS)
-        if (!success) {
-            println("Aborting attack due to timeout")
-            attackState.set(3)
-        }
-        showSummary()
-    }
-
-    fun showSummary() {
-        val duration = System.nanoTime().toFloat() - start
-        val requests = successfulRequests.get().toFloat()
-        println("Sent " + requests.toInt() + " requests in "+duration / 1000000000 + " seconds")
-        System.out.printf("RPS: %.0f\n", requests / (duration / 1000000000))
-    }
-
-    fun processResponse(req: Request, response: ByteArray): Boolean {
-        if (req.learnBoring != 0) {
-            var base = baselines.getOrNull(req.learnBoring-1)
-            if (base == null) {
-                base = SafeResponseVariations()
-                baselines.add(base)
-            }
-            base.updateWith(response)
-            return false
-        }
-
-        val resp = BurpExtender.callbacks.helpers.analyzeResponseVariations(response)
-
-        for(base in baselines) {
-            if (invariantsMatch(base, resp)) {
-                return false
-            }
-        }
-
-        return true
-    }
-
-    private fun invariantsMatch(base: SafeResponseVariations, resp: IResponseVariations): Boolean {
-        val invariants = base.getInvariantAttributes()
-
-        for(attribute in invariants) {
-            if (base.getAttributeValue(attribute) != resp.getAttributeValue(attribute, 0)) {
-                return false
-            }
-        }
-
-        return true
-    }
-
 }

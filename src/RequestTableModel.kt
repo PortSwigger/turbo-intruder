@@ -7,7 +7,6 @@ import javax.swing.table.AbstractTableModel
 import java.*
 import java.util.*
 
-import jnr.posix.WString.path
 
 
 class RequestTableModel : AbstractTableModel() {

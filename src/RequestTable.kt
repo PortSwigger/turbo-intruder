@@ -24,8 +24,8 @@ class RequestTable(val service: IHttpService): JPanel() {
     private var currentRequest: Request? = null
 
     fun setCurrentRequest(req: Request?) {
-        println("Setting current request to "+req!!.word)
-        currentRequest = req
+        //println("Setting current request to "+req!!.word)
+        currentRequest = req!!
         requestEditor.setMessage(req.getRawRequest(), true)
         responseEditor.setMessage(req.getRawResponse(), false)
     }
