@@ -245,7 +245,9 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
     override fun actionPerformed(e: ActionEvent?) {
         SwingUtilities.invokeLater {
             val outerpane = JPanel(GridBagLayout())
+            outerpane.layout = BorderLayout()
             val pane = JSplitPane(JSplitPane.VERTICAL_SPLIT)
+            pane.setDividerLocation(0.25)
             val textEditor = BurpExtender.callbacks.createTextEditor()
             val messageEditor = BurpExtender.callbacks.createMessageEditor(null, true)
 
@@ -270,8 +272,8 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             pane.topComponent = messageEditor.component
             pane.bottomComponent = textEditor.component
 
-            messageEditor.component.preferredSize = Dimension(1280, 200);
-            textEditor.component.preferredSize = Dimension(1280, 600);
+            messageEditor.component.preferredSize = Dimension(1000, 150)
+            textEditor.component.preferredSize = Dimension(1000, 400)
 
             val button = JButton("Attack");
             val handler = AttackHandler()
@@ -298,14 +300,10 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                 }
             }
 
-            val c =  GridBagConstraints();
-            outerpane.add(pane, c)
-            c.fill = GridBagConstraints.HORIZONTAL;
-            c.gridx = 0
-            c.gridy = 1
-            outerpane.add(button, c)
-            c.weightx = 1.0
-            c.weighty = 1.0
+
+            outerpane.add(pane, BorderLayout.CENTER)
+            outerpane.add(button, BorderLayout.SOUTH)
+
             add(outerpane)
             pack()
             setLocationRelativeTo(getBurpFrame())

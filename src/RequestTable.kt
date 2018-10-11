@@ -3,7 +3,6 @@ package burp
 import javax.swing.JPanel
 import javax.swing.event.ListSelectionEvent
 import javax.swing.event.ListSelectionListener
-import com.sun.java.accessibility.util.SwingEventMonitor.addListSelectionListener
 import javax.swing.JTable
 import java.awt.BorderLayout
 import javax.swing.JSplitPane
