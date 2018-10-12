@@ -1,16 +1,32 @@
 package burp
 
-import javax.swing.JPanel
 import javax.swing.event.ListSelectionEvent
 import javax.swing.event.ListSelectionListener
-import javax.swing.JTable
 import java.awt.BorderLayout
-import javax.swing.JSplitPane
 import javax.swing.text.StyleConstants.getComponent
-import javax.swing.JScrollPane
 import com.sun.corba.se.spi.presentation.rmi.StubAdapter.request
 import java.awt.Dimension
+import java.awt.event.ActionEvent
+import java.awt.event.ActionListener
+import java.util.*
+import javax.swing.*
+import javax.swing.Timer
+import javax.swing.border.BevelBorder
 
+
+class UpdateStatusbar(val message: JLabel): ActionListener {
+    lateinit var timer: Timer
+
+    override fun actionPerformed(e: ActionEvent?) {
+        if (SwingUtilities.getWindowAncestor(message) == null){
+            Utilities.out("Aborting!")
+            timer.stop()
+        }
+        Utilities.out("updating label!")
+        message.text = "Running"
+    }
+
+}
 
 class RequestTable(val service: IHttpService): JPanel() {
     val model = RequestTableModel()
@@ -59,6 +75,20 @@ class RequestTable(val service: IHttpService): JPanel() {
 
         splitPane.resizeWeight = 0.5
 
+
+        val statusPanel = JPanel()
+        statusPanel.border = BevelBorder(BevelBorder.LOWERED)
+        this.add(statusPanel, BorderLayout.SOUTH) //
+        statusPanel.preferredSize = Dimension(this.getWidth(), 30)
+        statusPanel.layout = BoxLayout(statusPanel, BoxLayout.X_AXIS)
+        val statusLabel = JLabel("Starting")
+        statusLabel.setHorizontalAlignment(SwingConstants.LEFT)
+        statusPanel.add(statusLabel)
+
+        val updateStatusbar = UpdateStatusbar(statusLabel)
+        val panelUpdater = Timer(1000, updateStatusbar)
+        updateStatusbar.timer = panelUpdater
+        panelUpdater.start()
 
         BurpExtender.callbacks.customizeUiComponent(this)
     }
