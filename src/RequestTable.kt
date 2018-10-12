@@ -14,7 +14,7 @@ import javax.swing.Timer
 import javax.swing.border.BevelBorder
 
 
-class UpdateStatusbar(val message: JLabel): ActionListener {
+class UpdateStatusbar(val message: JLabel, val handler: AttackHandler): ActionListener {
     lateinit var timer: Timer
 
     override fun actionPerformed(e: ActionEvent?) {
@@ -23,12 +23,12 @@ class UpdateStatusbar(val message: JLabel): ActionListener {
             timer.stop()
         }
         Utilities.out("updating label!")
-        message.text = "Running"
+        message.text = handler.statusString()
     }
 
 }
 
-class RequestTable(val service: IHttpService): JPanel() {
+class RequestTable(val service: IHttpService, val handler: AttackHandler): JPanel() {
     val model = RequestTableModel()
     val issueTable = JTable(model)
     val requestEditor: IMessageEditor
@@ -85,7 +85,7 @@ class RequestTable(val service: IHttpService): JPanel() {
         statusLabel.setHorizontalAlignment(SwingConstants.LEFT)
         statusPanel.add(statusLabel)
 
-        val updateStatusbar = UpdateStatusbar(statusLabel)
+        val updateStatusbar = UpdateStatusbar(statusLabel, handler)
         val panelUpdater = Timer(1000, updateStatusbar)
         updateStatusbar.timer = panelUpdater
         panelUpdater.start()

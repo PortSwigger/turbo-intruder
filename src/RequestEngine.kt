@@ -42,6 +42,12 @@ abstract class RequestEngine {
         Utilities.out(String.format("RPS: %.0f\n", requests / (duration / 1000000000)))
     }
 
+    fun statusString(): String {
+        val duration = ((System.nanoTime().toFloat() - start) / 1000000000).toInt()
+        val requests = successfulRequests.get().toFloat()
+        return String.format("Reqs: %d | RPS: %.0f | Duration: %d", requests.toInt(), requests / duration, duration)
+    }
+
     fun processResponse(req: Request, response: ByteArray): Boolean {
         if (req.learnBoring != 0) {
             var base = baselines.getOrNull(req.learnBoring-1)

@@ -60,7 +60,6 @@ class RequestEngine:
 
         handler.setRequestEngine(self.engine)
 
-
     def queue(self, template, payload=0, learn=0):
         if payload != 0:
             self.engine.queue(template, payload, learn)
@@ -298,7 +297,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                     }
                     else {
                         button.text = "Configure"
-                        val requestTable = RequestTable(req.httpService)
+                        val requestTable = RequestTable(req.httpService, handler)
                         pane.bottomComponent = requestTable
                         val script = String(textEditor.text)
                         BurpExtender.callbacks.saveExtensionSetting("defaultScript", script)
