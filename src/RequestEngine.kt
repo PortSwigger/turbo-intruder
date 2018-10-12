@@ -9,7 +9,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 abstract class RequestEngine {
     var start: Long = 0
     var successfulRequests = AtomicInteger(0)
-    val attackState = AtomicInteger(0) // 0 = connecting, 1 = live, 2 = fully queued, 3 = cancelled
+    val attackState = AtomicInteger(0) // 0 = connecting, 1 = live, 2 = fully queued, 3 = cancelled, 4 = completed
     lateinit var completedLatch: CountDownLatch
     private val baselines = LinkedList<SafeResponseVariations>()
 
@@ -27,6 +27,9 @@ abstract class RequestEngine {
         if (!success) {
             Utilities.out("Aborting attack due to timeout")
             attackState.set(3)
+        }
+        else {
+            attackState.set(4)
         }
         showSummary()
     }

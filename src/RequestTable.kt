@@ -18,11 +18,10 @@ class UpdateStatusbar(val message: JLabel, val handler: AttackHandler): ActionLi
     lateinit var timer: Timer
 
     override fun actionPerformed(e: ActionEvent?) {
-        if (SwingUtilities.getWindowAncestor(message) == null){
-            Utilities.out("Aborting!")
+        if (handler.hasFinished() || SwingUtilities.getWindowAncestor(message) == null){
             timer.stop()
         }
-        Utilities.out("updating label!")
+
         message.text = handler.statusString()
     }
 

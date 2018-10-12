@@ -9,6 +9,13 @@ class AttackHandler {
         return running
     }
 
+    fun hasFinished(): Boolean {
+        if (engine == null) {
+            return false
+        }
+        return engine!!.attackState.get() >= 3
+    }
+
     fun setRequestEngine(engine: RequestEngine) {
         running = true
         this.engine = engine
