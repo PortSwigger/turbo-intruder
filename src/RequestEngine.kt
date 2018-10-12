@@ -48,7 +48,17 @@ abstract class RequestEngine {
     fun statusString(): String {
         val duration = ((System.nanoTime().toFloat() - start) / 1000000000).toInt()
         val requests = successfulRequests.get().toFloat()
-        return String.format("Reqs: %d | RPS: %.0f | Duration: %d", requests.toInt(), requests / duration, duration)
+        var statusString = String.format("Reqs: %d | RPS: %.0f | Duration: %d", requests.toInt(), requests / duration, duration)
+        val state = attackState.get()
+        if (state < 3) {
+            return statusString
+        }
+        else if (state == 3) {
+            return statusString + " | Cancelled"
+        }
+        else {
+            return statusString + " | Completed"
+        }
     }
 
     fun processResponse(req: Request, response: ByteArray): Boolean {

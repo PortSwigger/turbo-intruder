@@ -26,7 +26,7 @@ class AttackHandler {
             return engine!!.statusString()
         }
         else {
-            return "starting"
+            return "Engine warming up..."
         }
     }
 

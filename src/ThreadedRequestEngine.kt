@@ -219,8 +219,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
                 if (reqWithResponse != null) {
                     Utilities.out("Controlled error after "+answeredRequests+" answered requests. After '" + reqWithResponse.word + "' during '" + inflight.pop().word + "'")
                 }
-
-                if (answeredRequests == 0) {
+                else if (answeredRequests == 0) {
                     Utilities.out("Error on first request :(  '"+inflight.pop().word+"'")
                     ex.printStackTrace()
                 }

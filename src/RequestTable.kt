@@ -80,7 +80,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         this.add(statusPanel, BorderLayout.SOUTH) //
         statusPanel.preferredSize = Dimension(this.getWidth(), 30)
         statusPanel.layout = BoxLayout(statusPanel, BoxLayout.X_AXIS)
-        val statusLabel = JLabel("Starting")
+        val statusLabel = JLabel("")
         statusLabel.setHorizontalAlignment(SwingConstants.LEFT)
         statusPanel.add(statusLabel)
 
