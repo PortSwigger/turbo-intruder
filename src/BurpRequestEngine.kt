@@ -17,7 +17,7 @@ class BurpRequestEngine(url: String, threads: Int, val callback: (Request, Boole
 
     init {
         completedLatch = CountDownLatch(threads)
-        println("Warming up...")
+        Utilities.out("Warming up...")
         val target = URL(url)
         val service = BurpExtender.callbacks.helpers.buildHttpService(target.host, target.port, true)
 
@@ -49,7 +49,7 @@ class BurpRequestEngine(url: String, threads: Int, val callback: (Request, Boole
 
         val queued = requestQueue.offer(request, 10, TimeUnit.SECONDS)
         if (!queued) {
-            println("Timeout queuing request. Aborting.")
+            Utilities.out("Timeout queuing request. Aborting.")
             this.showStats(1)
         }
     }
@@ -80,7 +80,7 @@ class BurpRequestEngine(url: String, threads: Int, val callback: (Request, Boole
                 callback(req, interesting)
             }
             else {
-                print("null response :(")
+                Utilities.out("null response :(")
             }
         }
     }

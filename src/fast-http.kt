@@ -140,6 +140,7 @@ queueRequests()
 }
 
 fun evalJython(code: String, baseRequest: String, target: String, baseInput: String, outputTable: RequestTable, handler: AttackHandler) {
+    Utilities.out("Starting attack...")
     val pyInterp = PythonInterpreter()
     pyInterp.set("baseRequest", baseRequest) // todo avoid concurrency issues
     pyInterp.set("handler", handler)
@@ -151,6 +152,7 @@ fun evalJython(code: String, baseRequest: String, target: String, baseInput: Str
     pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
     pyInterp.exec(code)
     pyInterp.exec("queueRequests()")
+    Utilities.out("Attack completed")
 }
 
 fun jythonSend(scriptFile: String) {
@@ -161,7 +163,7 @@ fun jythonSend(scriptFile: String) {
     }
     catch (e: FileNotFoundException) {
         File(scriptFile).printWriter().use { out -> out.println(Scripts.SAMPLECOMMANDSCRIPT) }
-        System.out.println("Wrote example script to "+scriptFile);
+        Utilities.out("Wrote example script to "+scriptFile);
     }
 }
 
@@ -171,6 +173,8 @@ class Utilities() {
         private val CHARSET = "0123456789abcdefghijklmnopqrstuvwxyz" // ABCDEFGHIJKLMNOPQRSTUVWXYZ
         private val START_CHARSET = "ghijklmnopqrstuvwxyz"
         private val rnd = Random()
+        private val out = PrintWriter(BurpExtender.callbacks.stdout, true)
+        private val err = PrintWriter(BurpExtender.callbacks.stderr, true)
 
         fun decompress(compressed: ByteArray): String {
             try {
@@ -189,12 +193,19 @@ class Utilities() {
                 return sb.toString()
             }
             catch (e: IOException) {
-                println("GZIP decompression failed: "+e)
-                println("'"+String(compressed)+"'")
+                Utilities.out("GZIP decompression failed: "+e)
+                Utilities.out("'"+String(compressed)+"'")
                 return "GZIP decompression failed"
             }
         }
 
+        fun out(text: String) {
+            out.println(text)
+        }
+
+        fun err(text: String) {
+            err.write(text)
+        }
 
         fun randomString(len: Int): String {
             val sb = StringBuilder(len)

@@ -25,7 +25,7 @@ abstract class RequestEngine {
         attackState.set(2)
         val success = completedLatch.await(timeout.toLong(), TimeUnit.SECONDS)
         if (!success) {
-            println("Aborting attack due to timeout")
+            Utilities.out("Aborting attack due to timeout")
             attackState.set(3)
         }
         showSummary()
@@ -38,7 +38,7 @@ abstract class RequestEngine {
     fun showSummary() {
         val duration = System.nanoTime().toFloat() - start
         val requests = successfulRequests.get().toFloat()
-        println("Sent " + requests.toInt() + " requests in "+duration / 1000000000 + " seconds")
+        Utilities.out("Sent " + requests.toInt() + " requests in "+duration / 1000000000 + " seconds")
         System.out.printf("RPS: %.0f\n", requests / (duration / 1000000000))
     }
 
@@ -90,13 +90,13 @@ class Request(val template: String, val word: String?, val learnBoring: Int) {
         }
 
         if (!template.contains("%s")) {
-            println("Bad base request - nowhere to inject payload")
+            Utilities.out("Bad base request - nowhere to inject payload")
         }
 
         val req = template.replace("%s", word)
 
         if (req.contains("%s")) {
-            println("Bad base request - contains too many %s")
+            Utilities.out("Bad base request - contains too many %s")
         }
 
         return template.replace("%s", word)

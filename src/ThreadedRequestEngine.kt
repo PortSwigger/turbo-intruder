@@ -34,7 +34,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
         trustingSslContext.init(null, arrayOf<TrustManager>(TrustingTrustManager()), null)
         val trustingSslSocketFactory = trustingSslContext.socketFactory
 
-        println("Warming up...")
+        Utilities.out("Warming up...")
         for(j in 1..threads) {
             threadPool.add(
                 thread {
@@ -65,7 +65,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
 
         val queued = requestQueue.offer(request, 10, TimeUnit.SECONDS)
         if (!queued) {
-            println("Timeout queuing request. Aborting.")
+            Utilities.out("Timeout queuing request. Aborting.")
             this.showStats(1)
         }
     }
@@ -217,11 +217,11 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
             } catch (ex: Exception) {
 
                 if (reqWithResponse != null) {
-                    println("Controlled error after "+answeredRequests+" answered requests. After '" + reqWithResponse.word + "' during '" + inflight.pop().word + "'")
+                    Utilities.out("Controlled error after "+answeredRequests+" answered requests. After '" + reqWithResponse.word + "' during '" + inflight.pop().word + "'")
                 }
 
                 if (answeredRequests == 0) {
-                    println("Error on first request :(  '"+inflight.pop().word+"'")
+                    Utilities.out("Error on first request :(  '"+inflight.pop().word+"'")
                     ex.printStackTrace()
                 }
 

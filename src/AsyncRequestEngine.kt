@@ -83,7 +83,7 @@ class AsyncRequestEngine(url: String, threads: Int, readFreq: Int, requestsPerCo
         val target = HttpHost(parsed.host, parsed.port, parsed.protocol)
         latch = CountDownLatch(threads)
         try {
-            println("Warming up...")
+            Utilities.out("Warming up...")
             for (i in 0 until threads) {
                 threadPool.add(Connection(requester, target, requestQueue, requestsPerConnection, readFreq, successfulRequests, latch, attackState, i, callback))
             }
@@ -103,7 +103,7 @@ class AsyncRequestEngine(url: String, threads: Int, readFreq: Int, requestsPerCo
         }
 
         if(System.currentTimeMillis() >= stopAt) {
-            println("Timed out while waiting for all threads to connect")
+            Utilities.out("Timed out while waiting for all threads to connect")
         }
 
         start = System.nanoTime()
@@ -147,7 +147,7 @@ class AsyncRequestEngine(url: String, threads: Int, readFreq: Int, requestsPerCo
         }
 
         if (0L != latch.count) {
-            println("Timed out with " + latch.count + " threads still running")
+            Utilities.out("Timed out with " + latch.count + " threads still running")
             for(thread in threadPool) {
                 thread.cancelled()
             }
@@ -287,7 +287,7 @@ internal class AsyncRequest(var base: String, var url: URL) {
 
 
         } catch (e: Exception) {
-            println("Error creating request from input string. If the request is malformed, you may need to use the non-async approach")
+            Utilities.out("Error creating request from input string. If the request is malformed, you may need to use the non-async approach")
             e.printStackTrace()
         }
     }
@@ -324,7 +324,7 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
         }
 
         if (closeIfComplete()) {
-            println("Abandoning reconnection - no longer necessary "+id)
+            Utilities.out("Abandoning reconnection - no longer necessary "+id)
             return
         }
         clientEndpoint?.releaseAndDiscard()
@@ -424,11 +424,11 @@ internal class Connection(private val requester: HttpAsyncRequester, private val
 
     override fun failed(ex: Exception) {
         if (!abort) {
-            println("Failed!: " + id + " |||" + inFlight.peek().request.requestUri + "->" + ex)
+            Utilities.out("Failed!: " + id + " |||" + inFlight.peek().request.requestUri + "->" + ex)
             ex.printStackTrace()
 
             if (!inFlight.isEmpty()) {
-                println("Re-queuing "+inFlight.size +" dropped requests "+id)
+                Utilities.out("Re-queuing "+inFlight.size +" dropped requests "+id)
                 requestQueue.addAll(inFlight)
                 inFlight.clear()
             }
