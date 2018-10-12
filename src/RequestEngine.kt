@@ -39,7 +39,8 @@ abstract class RequestEngine {
         val duration = System.nanoTime().toFloat() - start
         val requests = successfulRequests.get().toFloat()
         Utilities.out("Sent " + requests.toInt() + " requests in "+duration / 1000000000 + " seconds")
-        System.out.printf("RPS: %.0f\n", requests / (duration / 1000000000))
+        Utilities.out(String.format("RPS: %.0f\n", requests / (duration / 1000000000)))
+        //System.out.printf("RPS: %.0f\n", requests / (duration / 1000000000))
     }
 
     fun processResponse(req: Request, response: ByteArray): Boolean {
