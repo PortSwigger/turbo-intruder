@@ -8,6 +8,7 @@ import java.awt.event.ActionListener
 import java.io.*
 import javax.swing.*
 import org.python.util.PythonInterpreter
+import sun.tools.java.SyntaxError
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -139,20 +140,29 @@ queueRequests()
 }
 
 fun evalJython(code: String, baseRequest: String, target: String, baseInput: String, outputTable: RequestTable, handler: AttackHandler) {
-    Utilities.out("Starting attack...")
-    val pyInterp = PythonInterpreter()
-    pyInterp.set("baseRequest", baseRequest) // todo avoid concurrency issues
-    pyInterp.set("handler", handler)
-    pyInterp.set("target", target)
-    pyInterp.set("helpers", BurpExtender.callbacks.helpers)
-    pyInterp.set("baseInput", baseInput)
-    pyInterp.set("observedWords", BurpExtender.witnessedWords.savedWords)
-    pyInterp.set("table", outputTable)
-    pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
-    pyInterp.exec(code)
-    pyInterp.exec("queueRequests()")
-    //handler.f
-    Utilities.out("Attack completed")
+    try {
+        Utilities.out("Starting attack...")
+        val pyInterp = PythonInterpreter()
+        pyInterp.set("baseRequest", baseRequest) // todo avoid concurrency issues
+        pyInterp.set("handler", handler)
+        pyInterp.set("target", target)
+        pyInterp.set("helpers", BurpExtender.callbacks.helpers)
+        pyInterp.set("baseInput", baseInput)
+        pyInterp.set("observedWords", BurpExtender.witnessedWords.savedWords)
+        pyInterp.set("table", outputTable)
+        pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
+        pyInterp.exec(code)
+        pyInterp.exec("queueRequests()")
+        //handler.f
+        Utilities.out("Attack completed")
+    }
+    catch (ex: Exception) {
+        val stackTrace = StringWriter()
+        ex.printStackTrace(PrintWriter(stackTrace))
+        Utilities.out("Error launching attack - bad python?")
+        Utilities.out(stackTrace.toString())
+        handler.abort()
+    }
 }
 
 fun jythonSend(scriptFile: String) {
@@ -291,7 +301,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
             button.addActionListener {
                 thread {
-                    if (handler.isRunning()) {
+                    if (button.text == "Configure") {
                         handler.abort()
                         pane.bottomComponent = textEditor.component
                         button.text = "Attack"

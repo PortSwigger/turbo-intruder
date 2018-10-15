@@ -32,6 +32,6 @@ class AttackHandler {
 
     fun abort() {
         running = false
-        this.engine!!.cancel()
+        this.engine?.cancel()
     }
 }
