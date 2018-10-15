@@ -1,6 +1,8 @@
 package burp
 
 import burp.RequestEngine
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.net.InetAddress
 import java.net.URL
 import java.security.cert.X509Certificate
@@ -220,7 +222,9 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
 
                 if (reqWithResponse == null) {
                     Utilities.out("Thread failed to connect")
-                    ex.printStackTrace()
+                    val stackTrace = StringWriter()
+                    ex.printStackTrace(PrintWriter(stackTrace))
+                    Utilities.out(stackTrace.toString())
                 }
                 else {
 
@@ -231,11 +235,12 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
                             badWords.remove(activeWord)
                             inflight.pop()
                         } else {
-                            Utilities.out("Controlled error after " + answeredRequests + " answered requests. After '" + reqWithResponse.word + "' during '" + inflight.peek().word + "'")
-                            if (answeredRequests == 0) {
-                                ex.printStackTrace()
-                            }
-
+                            Utilities.out("Autorecovering error after " + answeredRequests + " answered requests. After '" + reqWithResponse.word + "' during '" + inflight.peek().word + "'")
+//                            if (answeredRequests == 0) {
+//                                val stackTrace = StringWriter()
+//                                ex.printStackTrace(PrintWriter(stackTrace))
+//                                Utilities.out(stackTrace.toString())
+//                            }
                             badWords.add(activeWord)
                         }
                     }
