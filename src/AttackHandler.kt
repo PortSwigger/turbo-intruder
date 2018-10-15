@@ -4,6 +4,7 @@ package burp
 class AttackHandler {
     private var running = false
     private var engine: RequestEngine? = null
+    private var statusOverride: String? = null
 
     fun isRunning(): Boolean {
         return running
@@ -22,12 +23,19 @@ class AttackHandler {
     }
 
     fun statusString(): String {
+        if (statusOverride != null){
+            return statusOverride!!
+        }
+
         if (engine != null) {
             return engine!!.statusString()
         }
-        else {
-            return "Engine warming up..."
-        }
+
+        return "Engine warming up..."
+    }
+
+    fun overrideStatus(msg: String) {
+        statusOverride = msg
     }
 
     fun abort() {

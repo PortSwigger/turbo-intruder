@@ -157,6 +157,7 @@ fun evalJython(code: String, baseRequest: String, target: String, baseInput: Str
         Utilities.out("Attack completed")
     }
     catch (ex: Exception) {
+        handler.overrideStatus("Error launching attack - check extension output")
         val stackTrace = StringWriter()
         ex.printStackTrace(PrintWriter(stackTrace))
         Utilities.out("Error launching attack - bad python?")
