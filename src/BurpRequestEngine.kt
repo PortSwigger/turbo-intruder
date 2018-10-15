@@ -72,15 +72,18 @@ class BurpRequestEngine(url: String, threads: Int, val callback: (Request, Boole
                 }
             }
 
-            val resp = BurpExtender.callbacks.makeHttpRequest(service, req.getRawRequest())
+            var resp = BurpExtender.callbacks.makeHttpRequest(service, req.getRawRequest())
+            while (resp.response == null && shouldRetry(req)) {
+                Utilities.out("Retrying "+req.word)
+                resp = BurpExtender.callbacks.makeHttpRequest(service, req.getRawRequest())
+                Utilities.out("Retried "+req.word)
+            }
+
             if (resp.response != null) {
                 successfulRequests.getAndIncrement()
                 val interesting = processResponse(req, resp.response)
                 req.response = String(resp.response)
                 callback(req, interesting)
-            }
-            else {
-                Utilities.out("null response :(")
             }
         }
     }

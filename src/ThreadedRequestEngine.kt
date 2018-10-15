@@ -228,21 +228,13 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
                 }
                 else {
 
-                    val activeWord = inflight.peek().word
-                    if (activeWord != null) {
-                        if (badWords.contains(activeWord)) {
-                            Utilities.out("Skipping word: " + activeWord)
-                            badWords.remove(activeWord)
-                            inflight.pop()
-                        } else {
-                            Utilities.out("Autorecovering error after " + answeredRequests + " answered requests. After '" + reqWithResponse.word + "' during '" + inflight.peek().word + "'")
-//                            if (answeredRequests == 0) {
-//                                val stackTrace = StringWriter()
-//                                ex.printStackTrace(PrintWriter(stackTrace))
-//                                Utilities.out(stackTrace.toString())
-//                            }
-                            badWords.add(activeWord)
-                        }
+                    val activeRequest = inflight.peek()
+                    val activeWord = activeRequest.word ?: "(null)"
+                    if (shouldRetry(inflight.peek())) {
+                        Utilities.out("Autorecovering error after " + answeredRequests + " answered requests. After '" + reqWithResponse.word + "' during '" + activeWord+ "'")
+                    }
+                    else {
+                        inflight.pop()
                     }
                 }
 
