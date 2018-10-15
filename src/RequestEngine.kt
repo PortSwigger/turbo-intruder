@@ -71,6 +71,9 @@ abstract class RequestEngine {
             base.updateWith(response)
             return false
         }
+        else if (baselines.isEmpty()) {
+            return true
+        }
 
         val resp = BurpExtender.callbacks.helpers.analyzeResponseVariations(response)
 
