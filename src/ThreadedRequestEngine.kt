@@ -77,6 +77,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
         var connected = false
         var reqWithResponse: Request? = null
         var answeredRequests = 0
+        val badWords = HashSet<String>()
 
         while (!BurpExtender.unloaded) {
 
@@ -86,7 +87,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
                 } else {
                     SocketFactory.getDefault().createSocket(ipAddress, port)
                 }
-                socket.soTimeout = 10000
+                socket.soTimeout = 5000 // todo make this configurable
+                socket.tcpNoDelay = true
                 // todo tweak other TCP options for max performance
 
                 if(!connected) {
@@ -211,17 +213,32 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
                         val interesting = processResponse(reqWithResponse, msg.toByteArray(Charsets.ISO_8859_1))
                         reqWithResponse.response = msg
                         callback(reqWithResponse, interesting)
-
                     }
+                    badWords.clear()
                 }
             } catch (ex: Exception) {
 
-                if (reqWithResponse != null) {
-                    Utilities.out("Controlled error after "+answeredRequests+" answered requests. After '" + reqWithResponse.word + "' during '" + inflight.pop().word + "'")
-                }
-                else if (answeredRequests == 0) {
-                    Utilities.out("Error on first request :(  '"+inflight.pop().word+"'")
+                if (reqWithResponse == null) {
+                    Utilities.out("Thread failed to connect")
                     ex.printStackTrace()
+                }
+                else {
+
+                    val activeWord = inflight.peek().word
+                    if (activeWord != null) {
+                        if (badWords.contains(activeWord)) {
+                            Utilities.out("Skipping word: " + activeWord)
+                            badWords.remove(activeWord)
+                            inflight.pop()
+                        } else {
+                            Utilities.out("Controlled error after " + answeredRequests + " answered requests. After '" + reqWithResponse.word + "' during '" + inflight.peek().word + "'")
+                            if (answeredRequests == 0) {
+                                ex.printStackTrace()
+                            }
+
+                            badWords.add(activeWord)
+                        }
+                    }
                 }
 
                 // do callback here (allow user code change
