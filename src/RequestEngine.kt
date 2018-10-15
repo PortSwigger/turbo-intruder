@@ -13,6 +13,7 @@ abstract class RequestEngine {
     val attackState = AtomicInteger(0) // 0 = connecting, 1 = live, 2 = fully queued, 3 = cancelled, 4 = completed
     lateinit var completedLatch: CountDownLatch
     private val baselines = LinkedList<SafeResponseVariations>()
+    val retries = AtomicInteger(0)
 
     abstract fun start(timeout: Int = 10)
 
@@ -60,7 +61,7 @@ abstract class RequestEngine {
     fun statusString(): String {
         val duration = ((System.nanoTime().toFloat() - start) / 1000000000).toInt()
         val requests = successfulRequests.get().toFloat()
-        var statusString = String.format("Reqs: %d | RPS: %.0f | Duration: %d", requests.toInt(), requests / duration, duration)
+        var statusString = String.format("Reqs: %d | RPS: %.0f | Retries: %d | Duration: %d", requests.toInt(), requests / duration, retries.get(), duration)
         val state = attackState.get()
         if (state < 3) {
             return statusString
@@ -105,6 +106,7 @@ abstract class RequestEngine {
             return false
         }
         failedWords.add(reqID)
+        retries.getAndIncrement()
         return true
     }
 
