@@ -158,14 +158,15 @@ class AsyncRequestEngine(url: String, threads: Int, readFreq: Int, requestsPerCo
         requester.initiateShutdown()
     }
 
-    override fun queue(req: String) {
+    override fun queue(template: String, payload: String?, learnBoring: Int?) {
+        val req = Request(template.replace("Connection: close", "Connection: keep-alive"), payload, learnBoring ?: 0)
         queuedRequestCount += 1
         if (requestQueue.isEmpty()) {
-            requestQueue.add(AsyncRequest(req, parsed))
+            requestQueue.add(AsyncRequest(req.getRequest(), parsed))
             threadPool.get(0).wake()
         }
         else {
-            requestQueue.add(AsyncRequest(req, parsed))
+            requestQueue.add(AsyncRequest(req.getRequest(), parsed))
         }
     }
 

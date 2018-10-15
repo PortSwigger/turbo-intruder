@@ -53,15 +53,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
         start = System.nanoTime()
     }
 
-    override fun queue(req: String) {
-        queue(req, null, 0)
-    }
-
-    fun queue(template: String, payload: String?) {
-        queue(template, payload, 0)
-    }
-
-    fun queue(template: String, payload: String?, learnBoring: Int?) {
+    override fun queue(template: String, payload: String?, learnBoring: Int?) {
 
         val request = Request(template.replace("Connection: close", "Connection: keep-alive"), payload, learnBoring ?: 0)
 

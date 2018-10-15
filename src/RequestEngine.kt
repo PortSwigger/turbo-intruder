@@ -15,8 +15,19 @@ abstract class RequestEngine {
     private val baselines = LinkedList<SafeResponseVariations>()
 
     abstract fun start(timeout: Int = 10)
-    abstract fun queue(req: String)
-    //abstract fun queue(template: String, payload: String?)
+
+
+    fun queue(req: String) {
+        queue(req, null, 0)
+    }
+
+    fun queue(template: String, payload: String?) {
+        queue(template, payload, 0)
+    }
+
+    abstract fun queue(template: String, payload: String?, learnBoring: Int?)
+
+
 
     open fun showStats(timeout: Int = -1) {
         if (attackState.get() == 3) {
