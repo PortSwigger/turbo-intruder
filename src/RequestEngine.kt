@@ -37,11 +37,16 @@ abstract class RequestEngine {
 
         attackState.set(2)
         val success = completedLatch.await(timeout.toLong(), TimeUnit.SECONDS)
+        if (attackState.get() == 3) {
+            return
+        }
+
         if (!success) {
             Utilities.out("Aborting attack due to timeout")
             attackState.set(3)
         }
         else {
+            Utilities.out("Completed attack")
             attackState.set(4)
         }
         showSummary()
@@ -49,6 +54,8 @@ abstract class RequestEngine {
 
     fun cancel() {
         attackState.set(3)
+        Utilities.out("Cancelled attack")
+        showSummary()
     }
 
     fun showSummary() {

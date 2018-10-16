@@ -153,8 +153,6 @@ fun evalJython(code: String, baseRequest: String, target: String, baseInput: Str
         pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
         pyInterp.exec(code)
         pyInterp.exec("queueRequests()")
-        //handler.f
-        Utilities.out("Attack completed")
     }
     catch (ex: Exception) {
         handler.overrideStatus("Error launching attack - check extension output")
