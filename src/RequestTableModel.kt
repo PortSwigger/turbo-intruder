@@ -8,9 +8,13 @@ import java.*
 import java.util.*
 
 
+class TableRequest(val req: Request) {
+    val code = BurpExtender.callbacks.helpers.analyzeResponse(req.getRawResponse()).statusCode
+    val wordcount =  BurpExtender.callbacks.helpers.analyzeResponseVariations(req.getRawResponse()).getAttributeValue("word_count", 0)
+}
 
 class RequestTableModel : AbstractTableModel() {
-    internal var requests: MutableList<Request> = ArrayList<Request>()
+    internal var requests: MutableList<TableRequest> = ArrayList<TableRequest>()
     internal var editable: Boolean = false
 
     override fun getRowCount(): Int {
@@ -27,9 +31,12 @@ class RequestTableModel : AbstractTableModel() {
 
     override fun getValueAt(rowIndex: Int, columnIndex: Int): Any? {
         val request = requests[rowIndex]
-        when (columnIndex) {
-            0 -> return request.word
-            else -> return null
+
+        return when (columnIndex) {
+            0 -> request.req.word
+            1 ->  request.code
+            2 -> request.wordcount
+            else -> null
         }
     }
 
@@ -38,12 +45,13 @@ class RequestTableModel : AbstractTableModel() {
     }
 
     fun addRequest(req: Request) {
-        requests.add(req)
+
+        requests.add(TableRequest(req))
         fireTableRowsInserted(requests.size, requests.size)
     }
 
 
-    fun getRequest(index: Int): Request? {
+    fun getRequest(index: Int): TableRequest? {
         try {
             return requests[index]
         } catch (ex: ArrayIndexOutOfBoundsException) {
@@ -53,6 +61,6 @@ class RequestTableModel : AbstractTableModel() {
     }
 
     companion object {
-        internal var columns = Arrays.asList("Payload")
+        internal var columns = Arrays.asList("Payload", "Status", "Words")
     }
 }

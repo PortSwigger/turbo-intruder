@@ -51,7 +51,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
 
         issueTable.getSelectionModel().addListSelectionListener({
             val req = model.getRequest(issueTable.getSelectedRow())
-            setCurrentRequest(req)
+            setCurrentRequest(req!!.req)
         })
 
         requestListView = JScrollPane(issueTable)
@@ -90,6 +90,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         panelUpdater.start()
 
         BurpExtender.callbacks.customizeUiComponent(this)
+        BurpExtender.callbacks.customizeUiComponent(issueTable)
     }
 
 
