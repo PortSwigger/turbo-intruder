@@ -14,6 +14,7 @@ abstract class RequestEngine {
     lateinit var completedLatch: CountDownLatch
     private val baselines = LinkedList<SafeResponseVariations>()
     val retries = AtomicInteger(0)
+    val permaFails= AtomicInteger(0)
 
     abstract fun start(timeout: Int = 10)
 
@@ -68,7 +69,7 @@ abstract class RequestEngine {
     fun statusString(): String {
         val duration = ((System.nanoTime().toFloat() - start) / 1000000000).toInt()
         val requests = successfulRequests.get().toFloat()
-        var statusString = String.format("Reqs: %d | RPS: %.0f | Retries: %d | Duration: %d", requests.toInt(), requests / duration, retries.get(), duration)
+        var statusString = String.format("Reqs: %d | RPS: %.0f | Retries: %d | Fails: %d | Duration: %d", requests.toInt(), requests / duration, retries.get(), permaFails.get(), duration)
         val state = attackState.get()
         if (state < 3) {
             return statusString
@@ -109,6 +110,7 @@ abstract class RequestEngine {
     fun shouldRetry(req: Request): Boolean {
         val reqID = req.word ?: req.getRequest().hashCode().toString()
         if (failedWords.contains(reqID)) {
+            permaFails.getAndIncrement()
             Utilities.out("Skipping word due to multiple failures: $reqID")
             return false
         }
