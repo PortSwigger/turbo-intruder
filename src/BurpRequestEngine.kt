@@ -72,6 +72,11 @@ class BurpRequestEngine(url: String, threads: Int, val callback: (Request, Boole
                 Utilities.out("Retried "+req.word)
             }
 
+            if(resp.response == null) {
+                req.response = "null"
+                callback(req, true)
+            }
+
             if (resp.response != null) {
                 successfulRequests.getAndIncrement()
                 val interesting = processResponse(req, resp.response)

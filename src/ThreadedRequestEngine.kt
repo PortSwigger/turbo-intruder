@@ -226,7 +226,9 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
                         Utilities.out("Autorecovering error after " + answeredRequests + " answered requests. After '" + reqWithResponse.word + "' during '" + activeWord+ "'")
                     }
                     else {
-                        inflight.pop()
+                        val badReq = inflight.pop()
+                        badReq.response = "null"
+                        callback(badReq, true)
                     }
                 }
 

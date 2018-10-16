@@ -9,8 +9,23 @@ import java.util.*
 
 
 class TableRequest(val req: Request) {
-    val code = BurpExtender.callbacks.helpers.analyzeResponse(req.getRawResponse()).statusCode
-    val wordcount =  BurpExtender.callbacks.helpers.analyzeResponseVariations(req.getRawResponse()).getAttributeValue("word_count", 0)
+    var code: Short = 0
+    var wordcount: Int = 0
+
+    init {
+        val resp = req.getRawResponse() ?: "".toByteArray()
+
+        code = BurpExtender.callbacks.helpers.analyzeResponse(resp).statusCode
+        wordcount =  BurpExtender.callbacks.helpers.analyzeResponseVariations(resp).getAttributeValue("word_count", 0)
+
+//        if (resp != null) {
+//            val code = BurpExtender.callbacks.helpers.analyzeResponse(resp).statusCode
+//            val wordcount =  BurpExtender.callbacks.helpers.analyzeResponseVariations(resp).getAttributeValue("word_count", 0)
+//        } else {
+//            val code = "null"
+//            val wordcount = "0"
+//        }
+    }
 }
 
 class RequestTableModel : AbstractTableModel() {
