@@ -14,6 +14,10 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.zip.GZIPInputStream
+import netscape.javascript.JSObject.getWindow
+import java.awt.event.WindowAdapter
+import java.awt.event.WindowEvent
+
 
 class Scripts() {
     companion object {
@@ -262,10 +266,14 @@ class OfferTurboIntruder(): IContextMenuFactory {
 class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds: IntArray): ActionListener, JFrame("Turbo Intruder - " + inputRequest.httpService.host)  {
     private val req = BurpExtender.callbacks.saveBuffersToTempFiles(inputRequest)
 
+
+
     override fun actionPerformed(e: ActionEvent?) {
         SwingUtilities.invokeLater {
             val outerpane = JPanel(GridBagLayout())
             outerpane.layout = BorderLayout()
+
+
             val pane = JSplitPane(JSplitPane.VERTICAL_SPLIT)
             pane.setDividerLocation(0.25)
             val textEditor = BurpExtender.callbacks.createTextEditor()
@@ -319,6 +327,13 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                     }
                 }
             }
+
+            this.addWindowListener(object : WindowAdapter() {
+                override fun windowClosing(e: WindowEvent) {
+                    handler.abort()
+                    e.getWindow().dispose()
+                }
+            })
 
 
             outerpane.add(pane, BorderLayout.CENTER)
