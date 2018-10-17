@@ -305,12 +305,13 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             textEditor.component.preferredSize = Dimension(1000, 400)
 
             val button = JButton("Attack");
-            val handler = AttackHandler()
+            var handler = AttackHandler()
 
             button.addActionListener {
                 thread {
                     if (button.text == "Configure") {
                         handler.abort()
+                        handler = AttackHandler()
                         pane.bottomComponent = textEditor.component
                         button.text = "Attack"
                     }

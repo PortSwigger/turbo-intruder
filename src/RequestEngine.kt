@@ -94,7 +94,7 @@ abstract class RequestEngine {
     fun statusString(): String {
         val duration = ((System.nanoTime().toFloat() - start) / 1000000000).toInt()
         val requests = successfulRequests.get().toFloat()
-        var statusString = String.format("Reqs: %d | Queued: %d | Duration: %d |RPS: %.0f | Retries: %d | Fails: %d", requests.toInt(), requestQueue.count(), duration, requests / duration, retries.get(), permaFails.get())
+        var statusString = String.format("Reqs: %d | Queued: %d | Duration: %d |RPS: %.0f | Retries: %d | Fails: %d | Next: %s", requests.toInt(), requestQueue.count(), duration, requests / duration, retries.get(), permaFails.get(), requestQueue.peek()?.word?: "")
         val state = attackState.get()
         if (state < 3) {
             return statusString
