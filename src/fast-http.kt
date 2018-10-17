@@ -153,6 +153,7 @@ fun evalJython(code: String, baseRequest: String, target: String, baseInput: Str
         pyInterp.set("helpers", BurpExtender.callbacks.helpers)
         pyInterp.set("baseInput", baseInput)
         pyInterp.set("observedWords", BurpExtender.witnessedWords.savedWords)
+        pyInterp.set("bruteforce", Bruteforce())
         pyInterp.set("table", outputTable)
         pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
         pyInterp.exec(code)
