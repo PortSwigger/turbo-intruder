@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantReadWriteLock
 
 abstract class RequestEngine {
-    var start: Long = 0
+    var start: Long = System.nanoTime()
     val failedWords = HashSet<String>()
     var successfulRequests = AtomicInteger(0)
     val attackState = AtomicInteger(0) // 0 = connecting, 1 = live, 2 = fully queued, 3 = cancelled, 4 = completed
