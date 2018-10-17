@@ -158,6 +158,10 @@ class AsyncRequestEngine(url: String, threads: Int, readFreq: Int, requestsPerCo
         requester.initiateShutdown()
     }
 
+    override fun getQueueSize(): Int {
+        return requestQueue.count()
+    }
+
     override fun queue(template: String, payload: String?, learnBoring: Int?) {
         val req = Request(template.replace("Connection: close", "Connection: keep-alive"), payload, learnBoring ?: 0)
         queuedRequestCount += 1

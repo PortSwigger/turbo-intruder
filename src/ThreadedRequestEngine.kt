@@ -21,7 +21,7 @@ import kotlin.concurrent.thread
 
 open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: Int, val requestsPerConnection: Int, val callback: (Request, Boolean) -> Boolean): RequestEngine() {
 
-    private val requestQueue = ArrayBlockingQueue<Request>(1000000)
+    private val requestQueue = ArrayBlockingQueue<Request>(100000)
     private val connectedLatch = CountDownLatch(threads)
     private val target = URL(url)
     private val threadPool = ArrayList<Thread>()
@@ -47,6 +47,10 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
 
     }
 
+    override fun getQueueSize(): Int {
+        return requestQueue.count()
+    }
+
     override fun start(timeout: Int) {
         connectedLatch.await(timeout.toLong(), TimeUnit.SECONDS)
         attackState.set(1)
@@ -57,10 +61,19 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
 
         val request = Request(template.replace("Connection: close", "Connection: keep-alive"), payload, learnBoring ?: 0)
 
-        val queued = requestQueue.offer(request, 10, TimeUnit.SECONDS)
-        if (!queued) {
-            Utilities.out("Timeout queuing request. Aborting.")
-            this.showStats(1)
+        val state = attackState.get()
+        if (state == 0) {
+            val queued = requestQueue.offer(request, 10, TimeUnit.SECONDS)
+            if (!queued) {
+                Utilities.out("Timeout queuing request prior to attack start. Aborting.")
+                this.showStats(1)
+            }
+        }
+        else if (state > 2){
+            return
+        }
+        else {
+            requestQueue.offer(request)
         }
     }
 

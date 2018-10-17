@@ -66,10 +66,12 @@ abstract class RequestEngine {
         Utilities.out(String.format("RPS: %.0f\n", requests / (duration / 1000000000)))
     }
 
+    abstract fun getQueueSize(): Int
+
     fun statusString(): String {
         val duration = ((System.nanoTime().toFloat() - start) / 1000000000).toInt()
         val requests = successfulRequests.get().toFloat()
-        var statusString = String.format("Reqs: %d | RPS: %.0f | Retries: %d | Fails: %d | Duration: %d", requests.toInt(), requests / duration, retries.get(), permaFails.get(), duration)
+        var statusString = String.format("Reqs: %d | Queued: %d | Duration: %d |RPS: %.0f | Retries: %d | Fails: %d", requests.toInt(), getQueueSize(), duration, requests / duration, retries.get(), permaFails.get())
         val state = attackState.get()
         if (state < 3) {
             return statusString
