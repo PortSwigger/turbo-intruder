@@ -1,6 +1,7 @@
 package burp
 
 import java.util.*
+import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -15,6 +16,7 @@ abstract class RequestEngine {
     private val baselines = LinkedList<SafeResponseVariations>()
     val retries = AtomicInteger(0)
     val permaFails= AtomicInteger(0)
+    val requestQueue = ArrayBlockingQueue<Request>(100000)
 
     abstract fun start(timeout: Int = 10)
 
@@ -26,6 +28,7 @@ abstract class RequestEngine {
     fun queue(template: String, payload: String?) {
         queue(template, payload, 0)
     }
+
 
     abstract fun queue(template: String, payload: String?, learnBoring: Int?)
 
@@ -66,12 +69,10 @@ abstract class RequestEngine {
         Utilities.out(String.format("RPS: %.0f\n", requests / (duration / 1000000000)))
     }
 
-    abstract fun getQueueSize(): Int
-
     fun statusString(): String {
         val duration = ((System.nanoTime().toFloat() - start) / 1000000000).toInt()
         val requests = successfulRequests.get().toFloat()
-        var statusString = String.format("Reqs: %d | Queued: %d | Duration: %d |RPS: %.0f | Retries: %d | Fails: %d", requests.toInt(), getQueueSize(), duration, requests / duration, retries.get(), permaFails.get())
+        var statusString = String.format("Reqs: %d | Queued: %d | Duration: %d |RPS: %.0f | Retries: %d | Fails: %d", requests.toInt(), requestQueue.count(), duration, requests / duration, retries.get(), permaFails.get())
         val state = attackState.get()
         if (state < 3) {
             return statusString
@@ -140,7 +141,7 @@ abstract class RequestEngine {
 }
 
 
-class Request(val template: String, val word: String?, val learnBoring: Int) {
+open class Request(val template: String, val word: String?, val learnBoring: Int) {
 
     var response: String? = null
     var details: IResponseVariations? = null

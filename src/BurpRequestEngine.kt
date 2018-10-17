@@ -13,7 +13,6 @@ import kotlin.concurrent.write
 class BurpRequestEngine(url: String, threads: Int, val callback: (Request, Boolean) -> Boolean): RequestEngine() {
 
     private val threadPool = ArrayList<Thread>()
-    private val requestQueue = ArrayBlockingQueue<Request>(100000)
 
     init {
         completedLatch = CountDownLatch(threads)
@@ -33,10 +32,6 @@ class BurpRequestEngine(url: String, threads: Int, val callback: (Request, Boole
     override fun start(timeout: Int) {
         attackState.set(1)
         start = System.nanoTime()
-    }
-
-    override fun getQueueSize(): Int {
-        return requestQueue.count()
     }
 
 
