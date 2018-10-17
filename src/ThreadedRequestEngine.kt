@@ -66,7 +66,6 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
         val badWords = HashSet<String>()
 
         while (!BurpExtender.unloaded) {
-
             try {
                 val socket = if (url.protocol.equals("https")) {
                     trustingSslSocketFactory.createSocket(ipAddress, port)
@@ -208,19 +207,22 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
                     Utilities.out("Thread failed to connect")
                     val stackTrace = StringWriter()
                     ex.printStackTrace(PrintWriter(stackTrace))
-                    Utilities.out(stackTrace.toString())
+                    Utilities.err(stackTrace.toString())
                 }
                 else {
-
                     val activeRequest = inflight.peek()
-                    val activeWord = activeRequest.word ?: "(null)"
-                    if (shouldRetry(inflight.peek())) {
-                        Utilities.out("Autorecovering error after " + answeredRequests + " answered requests. After '" + reqWithResponse.word + "' during '" + activeWord+ "'")
+                    if (activeRequest != null) {
+                        val activeWord = activeRequest.word ?: "(null)"
+                        if (shouldRetry(activeRequest)) {
+                            Utilities.out("Autorecovering error after " + answeredRequests + " answered requests. After '" + reqWithResponse.word + "' during '" + activeWord + "'")
+                        } else {
+                            val badReq = inflight.pop()
+                            badReq.response = "null"
+                            callback(badReq, true)
+                        }
                     }
                     else {
-                        val badReq = inflight.pop()
-                        badReq.response = "null"
-                        callback(badReq, true)
+                        Utilities.out("Autorecovering error with empty queue: "+ex.message)
                     }
                 }
 
