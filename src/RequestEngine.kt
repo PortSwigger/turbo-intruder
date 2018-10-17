@@ -20,6 +20,8 @@ abstract class RequestEngine {
 
     abstract fun start(timeout: Int = 10)
 
+    abstract fun buildRequest(template: String, payload: String?, learnBoring: Int?): Request
+
 
     fun queue(req: String) {
         queue(req, null, 0)
@@ -30,7 +32,27 @@ abstract class RequestEngine {
     }
 
 
-    abstract fun queue(template: String, payload: String?, learnBoring: Int?)
+    fun queue(template: String, payload: String?, learnBoring: Int?) {
+
+        val request = buildRequest(template, payload, learnBoring)
+
+        val state = attackState.get()
+
+        if (state > 2) {
+            return
+        }
+
+        var timeout = 60L
+        if (state == 0) {
+            timeout = 1
+        }
+
+        val queued = requestQueue.offer(request, timeout, TimeUnit.SECONDS)
+        if (!queued) {
+            Utilities.out("Timeout queuing request. Aborting.")
+            this.cancel()
+        }
+    }
 
 
 

@@ -52,28 +52,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, val readFreq: In
         start = System.nanoTime()
     }
 
-    override fun queue(template: String, payload: String?, learnBoring: Int?) {
-
-        val request = Request(template.replace("Connection: close", "Connection: keep-alive"), payload, learnBoring ?: 0)
-
-        val state = attackState.get()
-        if (state == 0) {
-            val queued = requestQueue.offer(request, 1, TimeUnit.SECONDS)
-            if (!queued) {
-                Utilities.out("Timeout queuing request prior to attack start. Aborting.")
-                this.showStats(1)
-            }
-        }
-        else if (state > 2){
-            return
-        }
-        else {
-            val queued = requestQueue.offer(request, 60, TimeUnit.SECONDS)
-            if (!queued) {
-                Utilities.out("Timeout queuing request after attack start. Aborting.")
-                this.showStats(1)
-            }
-        }
+    override fun buildRequest(template: String, payload: String?, learnBoring: Int?): Request {
+        return Request(template.replace("Connection: close", "Connection: keep-alive"), payload, learnBoring ?: 0)
     }
 
     private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, retryQueue: LinkedBlockingQueue<Request>, completedLatch: CountDownLatch, baseReadFreq: Int, baseRequestsPerConnection: Int, connectedLatch: CountDownLatch) {
