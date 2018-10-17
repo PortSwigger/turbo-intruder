@@ -9,7 +9,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 
 abstract class RequestEngine {
     var start: Long = System.nanoTime()
-    val failedWords = HashSet<String>()
+    val failedWords = HashMap<String, AtomicInteger>()
     var successfulRequests = AtomicInteger(0)
     val attackState = AtomicInteger(0) // 0 = connecting, 1 = live, 2 = fully queued, 3 = cancelled, 4 = completed
     lateinit var completedLatch: CountDownLatch
@@ -134,12 +134,19 @@ abstract class RequestEngine {
 
     fun shouldRetry(req: Request): Boolean {
         val reqID = req.word ?: req.getRequest().hashCode().toString()
-        if (failedWords.contains(reqID)) {
-            permaFails.getAndIncrement()
-            Utilities.out("Skipping word due to multiple failures: $reqID")
-            return false
+
+        val fails = failedWords.get(reqID)
+        if (fails == null){
+            failedWords[reqID] = AtomicInteger(1)
         }
-        failedWords.add(reqID)
+        else {
+            if(fails.incrementAndGet() > 3) {
+                permaFails.getAndIncrement()
+                Utilities.out("Skipping word due to multiple failures: $reqID")
+                return false
+            }
+        }
+
         retries.getAndIncrement()
         return true
     }
