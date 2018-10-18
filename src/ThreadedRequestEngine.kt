@@ -75,6 +75,11 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
         while (!BurpExtender.unloaded) {
             try {
+                
+                if(attackState.get() == 3) {
+                    return
+                }
+
                 val socket = if (url.protocol.equals("https")) {
                     trustingSslSocketFactory.createSocket(ipAddress, port)
                 } else {
