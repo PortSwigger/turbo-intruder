@@ -19,7 +19,7 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 import kotlin.concurrent.thread
 
-open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, val callback: (Request, Boolean) -> Boolean): RequestEngine() {
+open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val callback: (Request, Boolean) -> Boolean): RequestEngine() {
 
     private val connectedLatch = CountDownLatch(threads)
     private val target = URL(url)

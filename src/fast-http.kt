@@ -64,6 +64,8 @@ class RequestEngine:
             print('Unrecognised engine. Valid engines are Engine.BURP, Engine.THREADED, Engine.ASYNC, Engine.HTTP2')
 
         handler.setRequestEngine(self.engine)
+        self.engine.setTable(table)
+
 
     def queue(self, template, payload=0, learn=0):
         if payload != 0:

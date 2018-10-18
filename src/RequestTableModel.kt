@@ -60,7 +60,6 @@ class RequestTableModel : AbstractTableModel() {
     }
 
     fun addRequest(req: Request) {
-
         requests.add(TableRequest(req))
         fireTableRowsInserted(requests.size, requests.size)
     }

@@ -11,7 +11,7 @@ import kotlin.concurrent.read
 import kotlin.concurrent.thread
 import kotlin.concurrent.write
 
-class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, val callback: (Request, Boolean) -> Boolean): RequestEngine() {
+class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, override val callback: (Request, Boolean) -> Boolean): RequestEngine() {
 
     private val threadPool = ArrayList<Thread>()
 

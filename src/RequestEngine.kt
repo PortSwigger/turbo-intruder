@@ -17,7 +17,9 @@ abstract class RequestEngine {
     private val baselines = LinkedList<SafeResponseVariations>()
     val retries = AtomicInteger(0)
     val permaFails= AtomicInteger(0)
+    lateinit var requestTable: RequestTable
     lateinit var requestQueue: LinkedBlockingQueue<Request>
+    abstract val callback: (Request, Boolean) -> Boolean
 
     abstract fun start(timeout: Int = 10)
 
@@ -107,7 +109,35 @@ abstract class RequestEngine {
         }
     }
 
+    fun reinvokeCallbacks() {
+        val requestsFromTable = requestTable.model.requests
+
+        if (requestsFromTable.size == 0) {
+            return
+        }
+
+        val copy = ArrayList<Request>(requestsFromTable.size)
+        for (tableReq in requestsFromTable) {
+            copy.add(tableReq.req)
+        }
+
+        requestsFromTable.clear()
+        requestTable.model.fireTableRowsDeleted(0, requestsFromTable.size)
+
+        for (request in copy) {
+            val interesting = processResponse(request, request.getRawResponse()!!)
+            callback(request, interesting)
+        }
+
+        requestTable.repaint()
+    }
+
+    fun setTable(table: RequestTable) {
+        requestTable = table
+    }
+
     fun processResponse(req: Request, response: ByteArray): Boolean {
+        // todo don't learn+update unless necessary
         if (req.learnBoring != 0) {
             var base = baselines.getOrNull(req.learnBoring-1)
             if (base == null) {
@@ -115,6 +145,8 @@ abstract class RequestEngine {
                 baselines.add(base)
             }
             base.updateWith(response)
+
+            reinvokeCallbacks()
             return false
         }
         else if (baselines.isEmpty()) {
