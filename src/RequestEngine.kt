@@ -39,7 +39,7 @@ abstract class RequestEngine {
         val state = attackState.get()
 
         if (state > 2) {
-            return
+            throw IllegalStateException("Cannot queue any more items - the attack has finished")
         }
 
         var timeout = 1800L

@@ -161,11 +161,17 @@ fun evalJython(code: String, baseRequest: String, target: String, baseInput: Str
         pyInterp.exec("queueRequests()")
     }
     catch (ex: Exception) {
-        handler.overrideStatus("Error launching attack - check extension output")
         val stackTrace = StringWriter()
         ex.printStackTrace(PrintWriter(stackTrace))
-        Utilities.out("Error launching attack - bad python?")
-        Utilities.out(stackTrace.toString())
+        val errorContents = stackTrace.toString()
+        if (errorContents.contains("Cannot queue any more items - the attack has finished")) {
+            Utilities.out("Attack aborted with items waiting to be queued.")
+        }
+        else {
+            handler.overrideStatus("Error launching attack - check extension output")
+            Utilities.out("Error launching attack - bad python?")
+            Utilities.out(stackTrace.toString())
+        }
         handler.abort()
     }
 }
