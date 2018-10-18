@@ -7,6 +7,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantReadWriteLock
 
+
 abstract class RequestEngine {
     var start: Long = System.nanoTime()
     val failedWords = HashMap<String, AtomicInteger>()
@@ -42,7 +43,7 @@ abstract class RequestEngine {
             return
         }
 
-        var timeout = 60L
+        var timeout = 1800L
         if (state == 0) {
             timeout = 1
         }
