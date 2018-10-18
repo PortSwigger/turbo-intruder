@@ -137,7 +137,15 @@ abstract class RequestEngine {
     }
 
     fun processResponse(req: Request, response: ByteArray): Boolean {
-        // todo don't learn+update unless necessary
+        val resp = BurpExtender.callbacks.helpers.analyzeResponseVariations(response)
+
+        // fixme might screw over the user if they try to add multiple overlapping fingerprints?
+        for(base in baselines) {
+            if (invariantsMatch(base, resp)) {
+                return false
+            }
+        }
+
         if (req.learnBoring != 0) {
             var base = baselines.getOrNull(req.learnBoring-1)
             if (base == null) {
@@ -151,14 +159,6 @@ abstract class RequestEngine {
         }
         else if (baselines.isEmpty()) {
             return true
-        }
-
-        val resp = BurpExtender.callbacks.helpers.analyzeResponseVariations(response)
-
-        for(base in baselines) {
-            if (invariantsMatch(base, resp)) {
-                return false
-            }
         }
 
         return true
