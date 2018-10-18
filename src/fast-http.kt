@@ -85,8 +85,10 @@ class RequestEngine:
                            concurrentConnections=1,
                            requestsPerConnection=100,
                            pipeline=True,
-                           maxQueueSize=-1
+                           maxQueueSize=10
                            )
+
+    engine.start(timeout=5)
 
     req = helpers.bytesToString(baseRequest)
 
@@ -102,7 +104,6 @@ class RequestEngine:
         if line not in observedWords:
             engine.queue(req, line.rstrip())
 
-    engine.start(timeout=5)
     engine.complete(timeout=60)
 
 

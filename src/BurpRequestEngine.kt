@@ -53,6 +53,7 @@ class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, val callba
             Thread.sleep(10)
         }
 
+
         while(attackState.get() < 3 && !BurpExtender.unloaded) {
             val req = requestQueue.poll(100, TimeUnit.MILLISECONDS);
 
@@ -84,6 +85,7 @@ class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, val callba
                 req.response = String(resp.response)
                 callback(req, interesting)
             }
+
         }
     }
 
