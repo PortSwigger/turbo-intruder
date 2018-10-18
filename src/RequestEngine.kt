@@ -3,10 +3,10 @@ package burp
 import java.util.*
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantReadWriteLock
-
 
 abstract class RequestEngine {
     var start: Long = System.nanoTime()
@@ -17,12 +17,11 @@ abstract class RequestEngine {
     private val baselines = LinkedList<SafeResponseVariations>()
     val retries = AtomicInteger(0)
     val permaFails= AtomicInteger(0)
-    val requestQueue = ArrayBlockingQueue<Request>(100000)
+    lateinit var requestQueue: LinkedBlockingQueue<Request>
 
     abstract fun start(timeout: Int = 10)
 
     abstract fun buildRequest(template: String, payload: String?, learnBoring: Int?): Request
-
 
     fun queue(req: String) {
         queue(req, null, 0)
