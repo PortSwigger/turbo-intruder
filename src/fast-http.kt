@@ -83,7 +83,7 @@ class RequestEngine:
         val SAMPLEBURPSCRIPT = """def queueRequests():
     engine = RequestEngine(target=target,
                            callback=handleResponse,
-                           engine=Engine.BURP,  # {BURP, THREADED, ASYNC, HTTP2}
+                           engine=Engine.BURP,  # {BURP, THREADED}
                            concurrentConnections=1,
                            requestsPerConnection=100,
                            pipeline=True,

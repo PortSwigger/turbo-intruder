@@ -2,7 +2,7 @@
 def queueRequests():
     engine = RequestEngine(target=target,
                            callback=handleResponse,
-                           engine=Engine.THREADED,  # {BURP, THREADED, ASYNC, HTTP2}
+                           engine=Engine.THREADED,  # {BURP, THREADED}
                            concurrentConnections=30,
                            requestsPerConnection=100,
                            pipeline=False,
