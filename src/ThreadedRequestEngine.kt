@@ -19,7 +19,7 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 import kotlin.concurrent.thread
 
-open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val callback: (Request, Boolean) -> Boolean): RequestEngine() {
+open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val callback: (Request, Boolean) -> Boolean, val timeout: Int): RequestEngine() {
 
     private val connectedLatch = CountDownLatch(threads)
     private val target = URL(url)
@@ -85,7 +85,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                 } else {
                     SocketFactory.getDefault().createSocket(ipAddress, port)
                 }
-                socket.soTimeout = 5000 // todo make this configurable
+                socket.soTimeout = timeout * 1000
                 socket.tcpNoDelay = true
                 // todo tweak other TCP options for max performance
 
@@ -276,6 +276,9 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
         val chunkLengthStart = 0
         val chunkLengthEnd = buf.indexOf("\r\n")
+        if(chunkLengthEnd == -1) {
+            throw RuntimeException("Coulnd't find the chunk length. Response size may be unspecified - try Burp request engine instead?")
+        }
 
         try {
             val skip = 2+chunkLengthEnd-chunkLengthStart
