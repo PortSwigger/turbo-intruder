@@ -1,7 +1,6 @@
 
 def queueRequests():
     engine = RequestEngine(target=target,
-                           callback=handleResponse,
                            engine=Engine.THREADED,  # {BURP, THREADED}
                            concurrentConnections=5,
                            requestsPerConnection=100,

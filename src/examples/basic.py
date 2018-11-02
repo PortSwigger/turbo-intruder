@@ -1,7 +1,6 @@
 # Find more advanced sample attacks at skeletonscribe.net/turbo
 def queueRequests():
     engine = RequestEngine(target=target,
-                           callback=handleResponse,
                            engine=Engine.THREADED,  # {BURP, THREADED}
                            concurrentConnections=5,
                            requestsPerConnection=100,
@@ -12,10 +11,9 @@ def queueRequests():
     engine.start(timeout=5)
     req = helpers.bytesToString(baseRequest)
 
-    for word in open('/Users/james/Dropbox/lists/favourites/disc_words.txt'):
+    for word in open('wordlist.txt'):
         engine.queue(req, word.rstrip())
 
-
-
 def handleResponse(req, interesting):
-    table.add(req)
+    if '200 OK' in req.response:
+        table.add(req)

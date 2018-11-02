@@ -38,9 +38,12 @@ class Engine:
 
 class RequestEngine:
 
-    def __init__(self, target, callback, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=-1, timeout=5):
+    def __init__(self, target, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=-1, timeout=5):
         concurrentConnections = int(concurrentConnections)
         requestsPerConnection = int(requestsPerConnection)
+
+        if not callback:
+            callback = handleResponse
 
         if pipeline > 1:
             readFreq = int(pipeline)
