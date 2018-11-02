@@ -17,6 +17,7 @@ import java.util.zip.GZIPInputStream
 import netscape.javascript.JSObject.getWindow
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
+import java.util.concurrent.ConcurrentHashMap
 
 
 class Scripts() {
@@ -38,7 +39,7 @@ class Engine:
 
 class RequestEngine:
 
-    def __init__(self, target, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=-1, timeout=5):
+    def __init__(self, endpoint, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=-1, timeout=5):
         concurrentConnections = int(concurrentConnections)
         requestsPerConnection = int(requestsPerConnection)
 
@@ -56,13 +57,13 @@ class RequestEngine:
             if(requestsPerConnection > 1 or pipeline):
                 print('requestsPerConnection has been forced to 1 and pipelining has been disabled due to Burp engine limitations')
 
-            self.engine = burp.BurpRequestEngine(target, concurrentConnections, maxQueueSize, callback)
+            self.engine = burp.BurpRequestEngine(endpoint, concurrentConnections, maxQueueSize, callback)
         elif(engine == Engine.THREADED):
-            self.engine = burp.ThreadedRequestEngine(target, concurrentConnections, maxQueueSize, readFreq, requestsPerConnection, callback, timeout)
+            self.engine = burp.ThreadedRequestEngine(endpoint, concurrentConnections, maxQueueSize, readFreq, requestsPerConnection, callback, timeout)
         elif(engine == Engine.ASYNC):
-            self.engine = burp.AsyncRequestEngine(target, concurrentConnections, readFreq, requestsPerConnection, False, callback)
+            self.engine = burp.AsyncRequestEngine(endpoint, concurrentConnections, readFreq, requestsPerConnection, False, callback)
         elif(engine == Engine.HTTP2):
-            self.engine = burp.AsyncRequestEngine(target, concurrentConnections, readFreq, requestsPerConnection, True, callback)
+            self.engine = burp.AsyncRequestEngine(endpoint, concurrentConnections, readFreq, requestsPerConnection, True, callback)
         else:
             print('Unrecognised engine. Valid engines are Engine.BURP, Engine.THREADED, Engine.ASYNC, Engine.HTTP2')
 
@@ -150,21 +151,24 @@ queueRequests()
     }
 }
 
-fun evalJython(code: String, baseRequest: String, target: String, baseInput: String, outputTable: RequestTable, handler: AttackHandler) {
+
+class Target(val req: String, val endpoint: String, val baseInput: String)
+
+class Wordlist(val bruteforce: Bruteforce, val observedWords: ConcurrentHashMap.KeySetView<String, Boolean>)
+
+fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: String, outputTable: RequestTable, handler: AttackHandler) {
     try {
         Utilities.out("Starting attack...")
         val pyInterp = PythonInterpreter()
-        pyInterp.set("baseRequest", baseRequest) // todo avoid concurrency issues
+        pyInterp.set("target", Target(baseRequest, endpoint, baseInput))
+        pyInterp.set("wordlists", Wordlist(Bruteforce(), BurpExtender.witnessedWords.savedWords))
+
         pyInterp.set("handler", handler)
-        pyInterp.set("target", target)
         pyInterp.set("helpers", BurpExtender.callbacks.helpers)
-        pyInterp.set("baseInput", baseInput)
-        pyInterp.set("observedWords", BurpExtender.witnessedWords.savedWords)
-        pyInterp.set("bruteforce", Bruteforce())
         pyInterp.set("table", outputTable)
         pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
         pyInterp.exec(code)
-        pyInterp.exec("queueRequests()")
+        pyInterp.exec("queueRequests(target, wordlists)")
     }
     catch (ex: Exception) {
         val stackTrace = StringWriter()

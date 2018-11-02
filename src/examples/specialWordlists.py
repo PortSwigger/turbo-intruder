@@ -1,7 +1,6 @@
 
-def queueRequests():
-    engine = RequestEngine(target=target,
-                           engine=Engine.THREADED,  # {BURP, THREADED}
+def queueRequests(target, wordlists):
+    engine = RequestEngine(endpoint=target.endpoint,
                            concurrentConnections=5,
                            requestsPerConnection=100,
                            pipeline=False,
@@ -16,14 +15,14 @@ def queueRequests():
         engine.queue(req, line.rstrip())
 
     # list of all words observed in traffic
-    for word in observedWords:
+    for word in wordlists.observedWords:
         engine.queue(req, word)
 
     # infinitely-running bruteforce (a, b ... aaa, aab etc)
     seed = 0
     while True:
         batch = []
-        seed = bruteforce.generate(seed, 5000, batch)
+        seed = wordlists.bruteforce.generate(seed, 5000, batch)
         for word in batch:
             engine.queue(req, word)
 
