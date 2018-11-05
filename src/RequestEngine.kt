@@ -1,7 +1,8 @@
 package burp
 
+import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.util.*
-import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -228,12 +229,112 @@ open class Request(val template: String, val word: String?, val learnBoring: Int
     }
 
     fun getRawRequest(): ByteArray {
-        return getRequest().toByteArray(Charsets.ISO_8859_1)
+        return fixContentLength(getRequest().toByteArray(Charsets.ISO_8859_1))
     }
 
     fun getRawResponse(): ByteArray? {
         return response?.toByteArray(Charsets.ISO_8859_1)
     }
+
+
+    fun fixContentLength(request: ByteArray): ByteArray {
+        if (countMatches(request, BurpExtender.callbacks.helpers.stringToBytes("Content-Length: ")) > 0) {
+            val start = getBodyStart(request)
+            val contentLength = request.size - start
+            return setHeader(request, "Content-Length", Integer.toString(contentLength))
+        } else {
+            return request
+        }
+    }
+
+    fun setHeader(request: ByteArray, header: String, value: String): ByteArray {
+        val offsets = getHeaderOffsets(request, header)
+        val outputStream = ByteArrayOutputStream()
+        try {
+            outputStream.write(Arrays.copyOfRange(request, 0, offsets[1]))
+            outputStream.write(value.toByteArray(Charsets.ISO_8859_1))
+            outputStream.write(Arrays.copyOfRange(request, offsets[2], request.size))
+            return outputStream.toByteArray()
+        } catch (e: IOException) {
+            throw RuntimeException("Request creation unexpectedly failed")
+        } catch (e: NullPointerException) {
+            Utilities.out("header locating fail: $header")
+            throw RuntimeException("Can't find the header")
+        }
+
+    }
+
+    fun getHeaderOffsets(request: ByteArray, header: String): IntArray {
+        var i = 0
+        val end = request.size
+        while (i < end) {
+            val line_start = i
+            while (i < end && request[i++] != ' '.toByte()) {
+            }
+            val header_name = Arrays.copyOfRange(request, line_start, i - 2)
+            val headerValueStart = i
+            while (i < end && request[i++] != '\n'.toByte()) {
+            }
+            if (i == end) {
+                break
+            }
+
+            val header_str = BurpExtender.callbacks.helpers.bytesToString(header_name)
+
+            if (header == header_str) {
+                return intArrayOf(line_start, headerValueStart, i - 2)
+            }
+
+            if (i + 2 < end && request[i] == '\r'.toByte() && request[i + 1] == '\n'.toByte()) {
+                break
+            }
+        }
+        throw RuntimeException("Couldn't find header: '$header'")
+    }
+
+    fun countMatches(response: ByteArray, match: ByteArray): Int {
+        var matches = 0
+        if (match.size < 4) {
+            return matches
+        }
+
+        var start = 0
+        while (start < response.size) {
+            start = BurpExtender.callbacks.helpers.indexOf(response, match, true, start, response.size)
+            if (start == -1)
+                break
+            matches += 1
+            start += match.size
+        }
+
+        return matches
+    }
+
+    fun getBodyStart(response: ByteArray): Int {
+        var i = 0
+        var newlines_seen = 0
+        while (i < response.size) {
+            val x = response[i]
+            if (x == '\n'.toByte()) {
+                newlines_seen++
+            } else if (x != '\r'.toByte()) {
+                newlines_seen = 0
+            }
+
+            if (newlines_seen == 2) {
+                break
+            }
+            i += 1
+        }
+
+
+        while (i < response.size && (response[i] == ' '.toByte() || response[i] == '\n'.toByte() || response[i] == '\r'.toByte())) {
+            i++
+        }
+
+        return i
+    }
+
 }
 
 

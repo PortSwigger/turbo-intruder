@@ -10,8 +10,8 @@ def queueRequests(target, wordlists):
     engine.start()
 
     for i in range(5):
-        engine.queue(req, randstr(i), learn=1)
-        engine.queue(req, target.baseInput, learn=2)
+        engine.queue(target.req, randstr(i), learn=1)
+        engine.queue(target.req, target.baseInput, learn=2)
 
     for word in open('wordlist.txt'):
         engine.queue(req, word.rstrip())
