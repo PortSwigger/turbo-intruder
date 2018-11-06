@@ -52,8 +52,14 @@ abstract class RequestEngine {
 
         val queued = requestQueue.offer(request, timeout, TimeUnit.SECONDS)
         if (!queued) {
-            Utilities.out("Timeout queuing request. Aborting.")
-            this.cancel()
+            if (state == 0 && requestQueue.size == 100) {
+                Utilities.out("Looks like a non-streaming attack, unlimiting the queue")
+                requestQueue = LinkedBlockingQueue(requestQueue)
+            }
+            else {
+                Utilities.out("Timeout queuing request. Aborting.")
+                this.cancel()
+            }
         }
     }
 

@@ -39,7 +39,7 @@ class Engine:
 
 class RequestEngine:
 
-    def __init__(self, endpoint, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=-1, timeout=5):
+    def __init__(self, endpoint, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=100, timeout=5):
         concurrentConnections = int(concurrentConnections)
         requestsPerConnection = int(requestsPerConnection)
 
@@ -90,8 +90,7 @@ class RequestEngine:
                            engine=Engine.BURP,  # {BURP, THREADED}
                            concurrentConnections=1,
                            requestsPerConnection=100,
-                           pipeline=True,
-                           maxQueueSize=10
+                           pipeline=True
                            )
 
     engine.start(timeout=5)

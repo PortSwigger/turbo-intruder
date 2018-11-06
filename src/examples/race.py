@@ -3,8 +3,7 @@ def queueRequests(target, wordlists):
     engine = RequestEngine(endpoint=target.endpoint,
                            concurrentConnections=30,
                            requestsPerConnection=100,
-                           pipeline=False,
-                           maxQueueSize=-1
+                           pipeline=False
                            )
     # queue up attacks before launching engine.start
     for i in range(30):
