@@ -10,6 +10,10 @@ class AttackHandler {
         return running
     }
 
+    fun setComplete() {
+        engine?.showStats(-1)
+    }
+
     fun hasFinished(): Boolean {
         if (engine == null) {
             return false

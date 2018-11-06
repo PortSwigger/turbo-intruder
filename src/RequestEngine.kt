@@ -70,8 +70,15 @@ abstract class RequestEngine {
             return
         }
 
+        var success = true
         attackState.set(2)
-        val success = completedLatch.await(timeout.toLong(), TimeUnit.SECONDS)
+        if (timeout > 0) {
+            success = completedLatch.await(timeout.toLong(), TimeUnit.SECONDS)
+        }
+        else {
+            completedLatch.await()
+        }
+
         if (attackState.get() == 3) {
             return
         }

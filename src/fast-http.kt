@@ -155,6 +155,7 @@ fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: S
         pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
         pyInterp.exec(code)
         pyInterp.exec("queueRequests(target, wordlists)")
+        handler.setComplete()
     }
     catch (ex: Exception) {
         val stackTrace = StringWriter()
