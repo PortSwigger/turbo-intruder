@@ -118,35 +118,22 @@ def handleResponse(req, interesting):
         table.add(req)
 """
 
-        val SAMPLECOMMANDSCRIPT = """
-from urlparse import urlparse
+        val SAMPLECOMMANDSCRIPT = """# Find more advanced sample attacks at skeletonscribe.net/turbo
+def queueRequests(target, wordlists):
+    engine = RequestEngine(endpoint=target.endpoint,
+                           concurrentConnections=5,
+                           requestsPerConnection=100,
+                           pipeline=False,
+                           maxQueueSize=10
+                           )
+    engine.start()
 
-def handleResponse(req, resp):
-    code = resp.split(' ', 2)[1]
-    if code != '404':
-        print(code + ': '+req.split('\r', 1)[0])
+    for word in open('wordlist.txt'):
+        engine.queue(target.req, word.rstrip())
 
-def queueRequests():
-    args = burp.Args.args
-
-    engine = RequestEngine(target=args[2],
-                           callback=handleResponse,
-                           async=True,
-                           concurrentConnections=args[4],
-                           readFreq=args[5],
-                           requestsPerConnection=args[5])
-
-    engine.start(timeout=10)
-
-    with open(urlfile) as file:
-        for line in file:
-            url = urlparse(line.rstrip())
-            engine.queue('GET %s?%s HTTP/1.1\r\nHost: %s\r\nConnection: keep-alive\r\n\r\n' % (url.path, url.query, url.netloc))
-
-    engine.complete(timeout=60)
-
-
-queueRequests()
+def handleResponse(req, interesting):
+    if '200 OK' in req.response:
+        table.add(req)
 """
     }
 }

@@ -4,7 +4,7 @@ def queueRequests(target, wordlists):
                            concurrentConnections=30,
                            requestsPerConnection=100,
                            pipeline=False,
-                           queueSize=-1
+                           maxQueueSize=-1
                            )
     # queue up attacks before launching engine.start
     for i in range(30):

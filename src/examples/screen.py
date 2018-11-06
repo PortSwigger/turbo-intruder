@@ -14,7 +14,7 @@ def queueRequests(target, wordlists):
         engine.queue(target.req, target.baseInput, learn=2)
 
     for word in open('wordlist.txt'):
-        engine.queue(req, word.rstrip())
+        engine.queue(target.req, word.rstrip())
 
 
 def handleResponse(req, interesting):

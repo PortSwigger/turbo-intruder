@@ -4,11 +4,10 @@ def queueRequests(target, wordlists):
                            concurrentConnections=5,
                            requestsPerConnection=100,
                            pipeline=False,
-                           queueSize=10
+                           maxQueueSize=10
                            )
 
-    engine.start(timeout=5)
-    req = helpers.bytesToString(baseRequest)
+    engine.start()
 
     # regular wordlist
     for line in open('/Users/james/Dropbox/lists/favourites/disc_words.txt'):
@@ -24,7 +23,7 @@ def queueRequests(target, wordlists):
         batch = []
         seed = wordlists.bruteforce.generate(seed, 5000, batch)
         for word in batch:
-            engine.queue(req, word)
+            engine.queue(target.req, word)
 
 
 def handleResponse(req, interesting):
