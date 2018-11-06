@@ -104,11 +104,11 @@ abstract class RequestEngine {
         val duration = System.nanoTime().toFloat() - start
         val requests = successfulRequests.get().toFloat()
         Utilities.out("Sent " + requests.toInt() + " requests in "+duration / 1000000000 + " seconds")
-        Utilities.out(String.format("RPS: %.0f\n", requests / (duration / 1000000000)))
+        Utilities.out(String.format("RPS: %.0f\n", requests / Math.ceil((duration / 1000000000).toDouble())))
     }
 
     fun statusString(): String {
-        val duration = ((System.nanoTime().toFloat() - start) / 1000000000).toInt()
+        val duration = Math.ceil(((System.nanoTime().toFloat() - start) / 1000000000).toDouble()).toInt()
         val requests = successfulRequests.get().toFloat()
         var statusString = String.format("Reqs: %d | Queued: %d | Duration: %d |RPS: %.0f | Retries: %d | Fails: %d | Next: %s", requests.toInt(), requestQueue.count(), duration, requests / duration, retries.get(), permaFails.get(), requestQueue.peek()?.word?: "")
         val state = attackState.get()
