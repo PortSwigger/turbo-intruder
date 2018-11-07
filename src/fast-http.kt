@@ -117,8 +117,7 @@ def handleResponse(req, interesting):
         table.add(req)
 """
 
-        val SAMPLECOMMANDSCRIPT = """
-def queueRequests(target, wordlists):
+        val SAMPLECOMMANDSCRIPT = """def queueRequests(target, wordlists):
     engine = RequestEngine(endpoint=target.endpoint,
                            concurrentConnections=5,
                            requestsPerConnection=100,
@@ -126,11 +125,11 @@ def queueRequests(target, wordlists):
                            )
     engine.start()
 
-    for i in range(5):
+    for i in range(3, 8):
         engine.queue(target.req, randstr(i), learn=1)
         engine.queue(target.req, target.baseInput, learn=2)
 
-    for word in open('wordlist.txt'):
+    for word in open('/usr/share/dict/words'):
         engine.queue(target.req, word.rstrip())
 
 
@@ -290,7 +289,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             val messageEditor = BurpExtender.callbacks.createMessageEditor(null, true)
 
             var baseInput = ""
-            if(!selectionBounds.isEmpty()) {
+            if(!selectionBounds.isEmpty() && selectionBounds[0] != selectionBounds[1]) {
                 messageEditor.setMessage(req.request.copyOfRange(0, selectionBounds[0]) + ("%s".toByteArray()) + req.request.copyOfRange(selectionBounds[1], req.request.size), true)
                 baseInput = String(req.request.copyOfRange(selectionBounds[0], selectionBounds[1]), Charsets.ISO_8859_1)
             } else {

@@ -10,7 +10,7 @@ def queueRequests(target, wordlists):
         engine.queue(target.req, randstr(i), learn=1)
         engine.queue(target.req, target.baseInput, learn=2)
 
-    for word in open('wordlist.txt'):
+    for word in open('/usr/share/dict/words'):
         engine.queue(target.req, word.rstrip())
 
 
