@@ -117,22 +117,27 @@ def handleResponse(req, interesting):
         table.add(req)
 """
 
-        val SAMPLECOMMANDSCRIPT = """# Find more advanced sample attacks at skeletonscribe.net/turbo
+        val SAMPLECOMMANDSCRIPT = """
 def queueRequests(target, wordlists):
     engine = RequestEngine(endpoint=target.endpoint,
                            concurrentConnections=5,
                            requestsPerConnection=100,
-                           pipeline=False,
-                           maxQueueSize=10
+                           pipeline=False
                            )
     engine.start()
+
+    for i in range(5):
+        engine.queue(target.req, randstr(i), learn=1)
+        engine.queue(target.req, target.baseInput, learn=2)
 
     for word in open('wordlist.txt'):
         engine.queue(target.req, word.rstrip())
 
+
 def handleResponse(req, interesting):
-    if '200 OK' in req.response:
+    if interesting:
         table.add(req)
+
 """
     }
 }
