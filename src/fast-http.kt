@@ -371,8 +371,12 @@ fun main(args : Array<String>) {
         val baseInput = args[3]
         val outputHandler = ConsolePrinter()
         val attackHandler = AttackHandler()
+        Runtime.getRuntime().addShutdownHook(Thread {
+            Utilities.out(attackHandler.statusString())
+        })
         evalJython(code, req, endpoint, baseInput, outputHandler, attackHandler)
     }
+
     catch (e: FileNotFoundException) {
         File(scriptFile).printWriter().use { out -> out.println(Scripts.SAMPLECOMMANDSCRIPT) }
         println("Wrote example script to "+scriptFile)
