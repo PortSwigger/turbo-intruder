@@ -84,32 +84,20 @@ class RequestEngine:
         self.engine.showStats(timeout)
 """
 
-        val SAMPLEBURPSCRIPT = """def queueRequests():
-    engine = RequestEngine(target=target,
-                           callback=handleResponse,
-                           engine=Engine.BURP,  # {BURP, THREADED}
-                           concurrentConnections=1,
+        val SAMPLEBURPSCRIPT = """def queueRequests(target, wordlists):
+    engine = RequestEngine(endpoint=target.endpoint,
+                           concurrentConnections=5,
                            requestsPerConnection=100,
-                           pipeline=True
+                           pipeline=False
                            )
+    engine.start()
 
-    engine.start(timeout=5)
+    for i in range(3, 8):
+        engine.queue(target.req, randstr(i), learn=1)
+        engine.queue(target.req, target.baseInput, learn=2)
 
-    req = helpers.bytesToString(baseRequest)
-
-    for i in range(3):
-        engine.queue(req, randstr(4+i), learn=1)
-        engine.queue(req, baseInput, learn=2)
-        engine.queue(req, "."+randstr(4), learn=3)
-
-    for word in observedWords:
-        engine.queue(req, word)
-
-    for line in open('/Users/james/Dropbox/lists/discovery/PredictableRes/raft-large-words-lowercase.txt'):
-        if line not in observedWords:
-            engine.queue(req, line.rstrip())
-
-    engine.complete(timeout=60)
+    for word in open('/usr/share/dict/words'):
+        engine.queue(target.req, word.rstrip())
 
 
 def handleResponse(req, interesting):
@@ -240,6 +228,9 @@ class Utilities() {
 }
 
 class BurpExtender(): IBurpExtender, IExtensionStateListener {
+
+    val version = "1.0"
+
     override fun extensionUnloaded() {
         unloaded = true
     }
@@ -256,6 +247,7 @@ class BurpExtender(): IBurpExtender, IExtensionStateListener {
         callbacks.registerExtensionStateListener(this)
         callbacks.setExtensionName("Turbo Intruder")
         Companion.callbacks = callbacks
+        Utilities.out("Loaded Turbo Intruder v${version}")
     }
 }
 
