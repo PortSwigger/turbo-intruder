@@ -18,7 +18,7 @@ abstract class RequestEngine {
     private val baselines = LinkedList<SafeResponseVariations>()
     val retries = AtomicInteger(0)
     val permaFails= AtomicInteger(0)
-    lateinit var requestTable: RequestTable
+    lateinit var outputHandler: OutputHandler
     lateinit var requestQueue: LinkedBlockingQueue<Request>
     abstract val callback: (Request, Boolean) -> Boolean
 
@@ -129,33 +129,44 @@ abstract class RequestEngine {
     }
 
     fun reinvokeCallbacks() {
-        val requestsFromTable = requestTable.model.requests
+        val reqTable = outputHandler
 
-        if (requestsFromTable.size == 0) {
-            return
+        // if the request engine isn't a table, we can't update the output
+        if (reqTable is RequestTable) {
+
+            val requestsFromTable = reqTable.model.requests
+
+            if (requestsFromTable.size == 0) {
+                return
+            }
+
+            val copy = ArrayList<Request>(requestsFromTable.size)
+            for (tableReq in requestsFromTable) {
+                copy.add(tableReq.req)
+            }
+
+            requestsFromTable.clear()
+            reqTable.model.fireTableRowsDeleted(0, requestsFromTable.size)
+
+            for (request in copy) {
+                val interesting = processResponse(request, request.getRawResponse()!!)
+                callback(request, interesting)
+            }
+
+            reqTable.repaint()
         }
-
-        val copy = ArrayList<Request>(requestsFromTable.size)
-        for (tableReq in requestsFromTable) {
-            copy.add(tableReq.req)
-        }
-
-        requestsFromTable.clear()
-        requestTable.model.fireTableRowsDeleted(0, requestsFromTable.size)
-
-        for (request in copy) {
-            val interesting = processResponse(request, request.getRawResponse()!!)
-            callback(request, interesting)
-        }
-
-        requestTable.repaint()
     }
 
-    fun setTable(table: RequestTable) {
-        requestTable = table
+    fun setOutput(outputHandler: OutputHandler) {
+        this.outputHandler = outputHandler
     }
 
     fun processResponse(req: Request, response: ByteArray): Boolean {
+        if (!Utilities.gotBurp) {
+            return false
+        }
+
+
         val resp = BurpExtender.callbacks.helpers.analyzeResponseVariations(response)
 
         // fixme might screw over the user if they try to add multiple overlapping fingerprints?
@@ -256,7 +267,7 @@ open class Request(val template: String, val word: String?, val learnBoring: Int
 
 
     fun fixContentLength(request: ByteArray): ByteArray {
-        if (countMatches(request, BurpExtender.callbacks.helpers.stringToBytes("Content-Length: ")) > 0) {
+        if (String(request).contains("Content-Length: ")) {
             val start = getBodyStart(request)
             val contentLength = request.size - start
             return setHeader(request, "Content-Length", Integer.toString(contentLength))
@@ -297,7 +308,7 @@ open class Request(val template: String, val word: String?, val learnBoring: Int
                 break
             }
 
-            val header_str = BurpExtender.callbacks.helpers.bytesToString(header_name)
+            val header_str = String(header_name) // todo check this actually works
 
             if (header == header_str) {
                 return intArrayOf(line_start, headerValueStart, i - 2)
@@ -308,24 +319,6 @@ open class Request(val template: String, val word: String?, val learnBoring: Int
             }
         }
         throw RuntimeException("Couldn't find header: '$header'")
-    }
-
-    fun countMatches(response: ByteArray, match: ByteArray): Int {
-        var matches = 0
-        if (match.size < 4) {
-            return matches
-        }
-
-        var start = 0
-        while (start < response.size) {
-            start = BurpExtender.callbacks.helpers.indexOf(response, match, true, start, response.size)
-            if (start == -1)
-                break
-            matches += 1
-            start += match.size
-        }
-
-        return matches
     }
 
     fun getBodyStart(response: ByteArray): Int {

@@ -1,4 +1,3 @@
-# Find more advanced sample attacks at skeletonscribe.net/turbo
 def queueRequests(target, wordlists):
     engine = RequestEngine(endpoint=target.endpoint,
                            concurrentConnections=5,
@@ -7,9 +6,16 @@ def queueRequests(target, wordlists):
                            )
     engine.start()
 
-    for word in open('wordlist.txt'):
+    for i in range(3, 8):
+        engine.queue(target.req, randstr(i), learn=1)
+        engine.queue(target.req, target.baseInput, learn=2)
+
+    for word in open('/usr/share/dict/words'):
         engine.queue(target.req, word.rstrip())
 
+
 def handleResponse(req, interesting):
-    if '200 OK' in req.response:
+    if interesting:
         table.add(req)
+
+

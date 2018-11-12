@@ -236,6 +236,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                     }
                     else {
                         Utilities.out("Autorecovering error with empty queue: "+ex.message)
+                        ex.printStackTrace()
                     }
                 }
 

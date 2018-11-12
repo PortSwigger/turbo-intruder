@@ -27,7 +27,17 @@ class UpdateStatusbar(val message: JLabel, val handler: AttackHandler): ActionLi
 
 }
 
-class RequestTable(val service: IHttpService, val handler: AttackHandler): JPanel() {
+interface OutputHandler {
+    fun add(req: Request)
+}
+
+class ConsolePrinter(): OutputHandler {
+    override fun add(req: Request) {
+        Utilities.out(req.word?: "")
+    }
+}
+
+class RequestTable(val service: IHttpService, val handler: AttackHandler): JPanel(), OutputHandler {
     val model = RequestTableModel()
     val issueTable = JTable(model)
     val requestEditor: IMessageEditor
@@ -94,7 +104,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
     }
 
 
-    fun add(req: Request) {
+    override fun add(req: Request) {
         model.addRequest(req)
     }
 

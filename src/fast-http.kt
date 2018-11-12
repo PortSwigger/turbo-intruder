@@ -68,7 +68,7 @@ class RequestEngine:
             print('Unrecognised engine. Valid engines are Engine.BURP, Engine.THREADED, Engine.ASYNC, Engine.HTTP2')
 
         handler.setRequestEngine(self.engine)
-        self.engine.setTable(table)
+        self.engine.setOutput(outputHandler)
 
 
     def queue(self, template, payload=0, learn=0):
@@ -134,7 +134,7 @@ class Target(val req: String, val endpoint: String, val baseInput: String)
 
 class Wordlist(val bruteforce: Bruteforce, val observedWords: ConcurrentHashMap.KeySetView<String, Boolean>)
 
-fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: String, outputTable: RequestTable, handler: AttackHandler) {
+fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: String, outputHandler: OutputHandler, handler: AttackHandler) {
     try {
         Utilities.out("Starting attack...")
         val pyInterp = PythonInterpreter()
@@ -142,8 +142,9 @@ fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: S
         pyInterp.set("wordlists", Wordlist(Bruteforce(), BurpExtender.witnessedWords.savedWords))
 
         pyInterp.set("handler", handler)
-        pyInterp.set("helpers", BurpExtender.callbacks.helpers)
-        pyInterp.set("table", outputTable)
+        //pyInterp.set("helpers", BurpExtender.callbacks.helpers)
+        pyInterp.set("outputHandler", outputHandler)
+        pyInterp.set("table", outputHandler)
         pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
         pyInterp.exec(code)
         pyInterp.exec("queueRequests(target, wordlists)")
@@ -165,26 +166,14 @@ fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: S
     }
 }
 
-fun jythonSend(scriptFile: String) {
-    try {
-        val pyInterp = PythonInterpreter()
-        pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
-        pyInterp.exec(File(scriptFile).readText())
-    }
-    catch (e: FileNotFoundException) {
-        File(scriptFile).printWriter().use { out -> out.println(Scripts.SAMPLECOMMANDSCRIPT) }
-        Utilities.out("Wrote example script to "+scriptFile);
-    }
-}
-
-
 class Utilities() {
     companion object {
         private val CHARSET = "0123456789abcdefghijklmnopqrstuvwxyz" // ABCDEFGHIJKLMNOPQRSTUVWXYZ
         private val START_CHARSET = "ghijklmnopqrstuvwxyz"
         private val rnd = Random()
-        private val out = PrintWriter(BurpExtender.callbacks.stdout, true)
-        private val err = PrintWriter(BurpExtender.callbacks.stderr, true)
+        var gotBurp = false
+        lateinit var out: PrintWriter
+        lateinit var err: PrintWriter
 
         fun decompress(compressed: ByteArray): String {
             try {
@@ -210,11 +199,21 @@ class Utilities() {
         }
 
         fun out(text: String) {
-            out.println(text)
+            if (gotBurp) {
+                out.println(text)
+            }
+            else {
+                println(text)
+            }
         }
 
         fun err(text: String) {
-            err.write(text)
+            if (gotBurp) {
+                err.write(text)
+            }
+            else {
+                println(text)
+            }
         }
 
         fun randomString(len: Int): String {
@@ -223,6 +222,12 @@ class Utilities() {
             for (i in 1 until len)
                 sb.append(CHARSET.get(rnd.nextInt(CHARSET.length)))
             return sb.toString()
+        }
+
+        fun setBurpPresent() {
+            gotBurp = true
+            out = PrintWriter(BurpExtender.callbacks.stdout, true)
+            err = PrintWriter(BurpExtender.callbacks.stderr, true)
         }
     }
 }
@@ -247,6 +252,7 @@ class BurpExtender(): IBurpExtender, IExtensionStateListener {
         callbacks.registerExtensionStateListener(this)
         callbacks.setExtensionName("Turbo Intruder")
         Companion.callbacks = callbacks
+        Utilities.setBurpPresent()
         Utilities.out("Loaded Turbo Intruder v${version}")
     }
 }
@@ -356,9 +362,23 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
 fun main(args : Array<String>) {
     val scriptFile = args[0]
-    Args.args = args
-    jythonSend(scriptFile)
+    //Args.args = args
+
+    try {
+        val code = File(scriptFile).readText()
+        val req = File(args[1]).readText()
+        val endpoint = args[2]
+        val baseInput = args[3]
+        val outputHandler = ConsolePrinter()
+        val attackHandler = AttackHandler()
+        evalJython(code, req, endpoint, baseInput, outputHandler, attackHandler)
+    }
+    catch (e: FileNotFoundException) {
+        File(scriptFile).printWriter().use { out -> out.println(Scripts.SAMPLECOMMANDSCRIPT) }
+        println("Wrote example script to "+scriptFile)
+    }
 }
+
 
 class Args(args: Array<String>) {
 
