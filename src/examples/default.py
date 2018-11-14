@@ -6,12 +6,14 @@ def queueRequests(target, wordlists):
                            )
     engine.start()
 
+    for i in range(3, 8):
+        engine.queue(target.req, randstr(i), learn=1)
+        engine.queue(target.req, target.baseInput, learn=2)
+
     for word in open('/usr/share/dict/words'):
         engine.queue(target.req, word.rstrip())
 
 
 def handleResponse(req, interesting):
-    if '404 Not Found' not in req.response:
+    if interesting:
         table.add(req)
-
-

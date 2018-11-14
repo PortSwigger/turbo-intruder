@@ -84,48 +84,7 @@ class RequestEngine:
         self.engine.showStats(timeout)
 """
 
-        val SAMPLEBURPSCRIPT = """def queueRequests(target, wordlists):
-    engine = RequestEngine(endpoint=target.endpoint,
-                           concurrentConnections=5,
-                           requestsPerConnection=100,
-                           pipeline=False
-                           )
-    engine.start()
-
-    for i in range(3, 8):
-        engine.queue(target.req, randstr(i), learn=1)
-        engine.queue(target.req, target.baseInput, learn=2)
-
-    for word in open('/usr/share/dict/words'):
-        engine.queue(target.req, word.rstrip())
-
-
-def handleResponse(req, interesting):
-    if interesting:
-        table.add(req)
-"""
-
-        val SAMPLECOMMANDSCRIPT = """def queueRequests(target, wordlists):
-    engine = RequestEngine(endpoint=target.endpoint,
-                           concurrentConnections=5,
-                           requestsPerConnection=100,
-                           pipeline=False
-                           )
-    engine.start()
-
-    for i in range(3, 8):
-        engine.queue(target.req, randstr(i), learn=1)
-        engine.queue(target.req, target.baseInput, learn=2)
-
-    for word in open('/usr/share/dict/words'):
-        engine.queue(target.req, word.rstrip())
-
-
-def handleResponse(req, interesting):
-    if interesting:
-        table.add(req)
-
-"""
+        val SAMPLEBURPSCRIPT = Scripts::class.java.getResource("/examples/default.py").readText()
     }
 }
 
@@ -361,10 +320,10 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
 
 fun main(args : Array<String>) {
-    val scriptFile = args[0]
-    //Args.args = args
+
 
     try {
+        val scriptFile = args[0]
         val code = File(scriptFile).readText()
         val req = File(args[1]).readText()
         val endpoint = args[2]
@@ -378,8 +337,14 @@ fun main(args : Array<String>) {
     }
 
     catch (e: FileNotFoundException) {
-        File(scriptFile).printWriter().use { out -> out.println(Scripts.SAMPLECOMMANDSCRIPT) }
-        println("Wrote example script to "+scriptFile)
+        Utilities.out("Couldn't find input file: "+e.message)
+//        File(scriptFile).printWriter().use { out -> out.println(Scripts.SAMPLECOMMANDSCRIPT) }
+//        println("Wrote example script to "+scriptFile)
+    }
+    catch (e: ArrayIndexOutOfBoundsException) {
+        Utilities.out("Missing argument.")
+        Utilities.out("Usage: java -jar turbo.jar <scriptFile> <baseRequestFile> <endpoint> <baseInput>\n" +
+                "Example: java -jar turbo.jar attack.py baseReq.txt https://hackxor.net:443 foobar")
     }
 }
 

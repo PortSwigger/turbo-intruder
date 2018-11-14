@@ -1,0 +1,15 @@
+Turbo Intruder is a Burp Suite extension for sending large numbers of HTTP requests and analyzing the results. It's intended to complement Burp Intruder by handling attacks that require extreme speed or complexity. The following features set it apart:
+
+Fast - Turbo Intruder uses a HTTP stack hand-coded from scratch with speed in mind. As a result, on many targets it can seriously outpace even fashionable asynchronous Go scripts.
+Flexible - Attacks are configured using Python. This enables handling of complex requirements such as signed requests and multi-step attack sequences. Also, the custom HTTP stack means it can handle malformed requests that break other libraries.
+Scalable - Turbo Intruder can achieve flat memory usage, enabling reliable multi-day attacks. It can also be run in headless environments via the command line.
+Convenient - Boring results are automatically filtered out by an advanced algorithm based on Backslash Powered Scanner
+
+On the other hand it's undeniably harder to use, and the network stack isn't as reliable and battle-tested as core Burp's.
+
+Usage
+To use it, simply highlight the area you want to inject over, then right click and 'Send to Turbo Intruder'. This will open a window containing a Python snippet which you can customise before launching the attack.
+
+You can find additional attack configs using various features at blah
+
+For further details, check out the presentation: 
