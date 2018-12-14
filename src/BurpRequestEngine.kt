@@ -1,15 +1,10 @@
 package burp
 import java.net.URL
 import java.util.*
-import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.locks.ReadWriteLock
-import java.util.concurrent.locks.ReentrantReadWriteLock
-import kotlin.concurrent.read
 import kotlin.concurrent.thread
-import kotlin.concurrent.write
 
 class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, override val callback: (Request, Boolean) -> Boolean): RequestEngine() {
 
@@ -24,9 +19,9 @@ class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, override v
         }
 
         completedLatch = CountDownLatch(threads)
-        Utilities.out("Warming up...")
+        Utils.out("Warming up...")
         val target = URL(url)
-        val service = BurpExtender.callbacks.helpers.buildHttpService(target.host, target.port, true)
+        val service = Utils.callbacks.helpers.buildHttpService(target.host, target.port, true)
 
         for(j in 1..threads) {
             threadPool.add(
@@ -54,7 +49,7 @@ class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, override v
         }
 
 
-        while(attackState.get() < 3 && !BurpExtender.unloaded) {
+        while(attackState.get() < 3 && !Utils.unloaded) {
             val req = requestQueue.poll(100, TimeUnit.MILLISECONDS);
 
             if(req == null) {
@@ -67,11 +62,11 @@ class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, override v
                 }
             }
 
-            var resp = BurpExtender.callbacks.makeHttpRequest(service, req.getRawRequest())
+            var resp = Utils.callbacks.makeHttpRequest(service, req.getRawRequest())
             while (resp.response == null && shouldRetry(req)) {
-                Utilities.out("Retrying "+req.word)
-                resp = BurpExtender.callbacks.makeHttpRequest(service, req.getRawRequest())
-                Utilities.out("Retried "+req.word)
+                Utils.out("Retrying "+req.word)
+                resp = Utils.callbacks.makeHttpRequest(service, req.getRawRequest())
+                Utils.out("Retried "+req.word)
             }
 
             if(resp.response == null) {

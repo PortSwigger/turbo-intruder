@@ -1,5 +1,4 @@
 package burp
-import java.net.URL
 import java.util.*
 import kotlin.concurrent.thread
 import java.awt.*
@@ -8,13 +7,6 @@ import java.awt.event.ActionListener
 import java.io.*
 import javax.swing.*
 import org.python.util.PythonInterpreter
-import sun.tools.java.SyntaxError
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.locks.ReentrantReadWriteLock
-import java.util.zip.GZIPInputStream
-import netscape.javascript.JSObject.getWindow
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.util.concurrent.ConcurrentHashMap
@@ -95,10 +87,10 @@ class Wordlist(val bruteforce: Bruteforce, val observedWords: ConcurrentHashMap.
 
 fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: String, outputHandler: OutputHandler, handler: AttackHandler) {
     try {
-        Utilities.out("Starting attack...")
+        Utils.out("Starting attack...")
         val pyInterp = PythonInterpreter()
         pyInterp.set("target", Target(baseRequest, endpoint, baseInput))
-        pyInterp.set("wordlists", Wordlist(Bruteforce(), BurpExtender.witnessedWords.savedWords))
+        pyInterp.set("wordlists", Wordlist(Bruteforce(), Utils.witnessedWords.savedWords))
 
         pyInterp.set("handler", handler)
         //pyInterp.set("helpers", BurpExtender.callbacks.helpers)
@@ -114,18 +106,18 @@ fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: S
         ex.printStackTrace(PrintWriter(stackTrace))
         val errorContents = stackTrace.toString()
         if (errorContents.contains("Cannot queue any more items - the attack has finished")) {
-            Utilities.out("Attack aborted with items waiting to be queued.")
+            Utils.out("Attack aborted with items waiting to be queued.")
         }
         else {
             handler.overrideStatus("Error launching attack - check extension output")
-            Utilities.out("Error launching attack - bad python?")
-            Utilities.out(stackTrace.toString())
+            Utils.out("Error launching attack - bad python?")
+            Utils.out(stackTrace.toString())
         }
         handler.abort()
     }
 }
 
-class Utilities() {
+class zUtilities() {
     companion object {
         private val CHARSET = "0123456789abcdefghijklmnopqrstuvwxyz" // ABCDEFGHIJKLMNOPQRSTUVWXYZ
         private val START_CHARSET = "ghijklmnopqrstuvwxyz"
@@ -133,29 +125,6 @@ class Utilities() {
         var gotBurp = false
         lateinit var out: PrintWriter
         lateinit var err: PrintWriter
-
-        fun decompress(compressed: ByteArray): String {
-            try {
-                val bis = ByteArrayInputStream(compressed)
-                val gis = GZIPInputStream(bis)
-                val br = BufferedReader(InputStreamReader(gis, "UTF-8"))
-                val sb = StringBuilder()
-                var line = br.readLine()
-                while (line != null) {
-                    sb.append(line)
-                    line = br.readLine()
-                }
-                br.close()
-                gis.close()
-                bis.close()
-                return sb.toString()
-            }
-            catch (e: IOException) {
-                Utilities.out("GZIP decompression failed: "+e)
-                Utilities.out("'"+String(compressed)+"'")
-                return "GZIP decompression failed"
-            }
-        }
 
         fun out(text: String) {
             if (gotBurp) {
@@ -175,18 +144,10 @@ class Utilities() {
             }
         }
 
-        fun randomString(len: Int): String {
-            val sb = StringBuilder(len)
-            sb.append(START_CHARSET.get(rnd.nextInt(START_CHARSET.length)))
-            for (i in 1 until len)
-                sb.append(CHARSET.get(rnd.nextInt(CHARSET.length)))
-            return sb.toString()
-        }
-
         fun setBurpPresent() {
             gotBurp = true
-            out = PrintWriter(BurpExtender.callbacks.stdout, true)
-            err = PrintWriter(BurpExtender.callbacks.stderr, true)
+            out = PrintWriter(Utils.callbacks.stdout, true)
+            err = PrintWriter(Utils.callbacks.stderr, true)
         }
     }
 }
@@ -196,23 +157,16 @@ class BurpExtender(): IBurpExtender, IExtensionStateListener {
     val version = "1.0"
 
     override fun extensionUnloaded() {
-        unloaded = true
-    }
-
-    companion object {
-        lateinit var callbacks: IBurpExtenderCallbacks
-        var witnessedWords = WordRecorder()
-        var unloaded = false
+        Utils.unloaded = true
     }
 
     override fun registerExtenderCallbacks(callbacks: IBurpExtenderCallbacks?) {
         callbacks!!.registerContextMenuFactory(OfferTurboIntruder())
-        callbacks.registerScannerCheck(witnessedWords)
+        Utils.setBurpPresent(callbacks)
+        callbacks.registerScannerCheck(Utils.witnessedWords)
         callbacks.registerExtensionStateListener(this)
         callbacks.setExtensionName("Turbo Intruder")
-        Companion.callbacks = callbacks
-        Utilities.setBurpPresent()
-        Utilities.out("Loaded Turbo Intruder v${version}")
+        Utils.out("Loaded Turbo Intruder v${version}")
     }
 }
 
@@ -230,7 +184,7 @@ class OfferTurboIntruder(): IContextMenuFactory {
 
 
 class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds: IntArray): ActionListener, JFrame("Turbo Intruder - " + inputRequest.httpService.host)  {
-    private val req = BurpExtender.callbacks.saveBuffersToTempFiles(inputRequest)
+    private val req = Utils.callbacks.saveBuffersToTempFiles(inputRequest)
 
 
 
@@ -242,8 +196,8 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
             val pane = JSplitPane(JSplitPane.VERTICAL_SPLIT)
             pane.setDividerLocation(0.25)
-            val textEditor = BurpExtender.callbacks.createTextEditor()
-            val messageEditor = BurpExtender.callbacks.createMessageEditor(null, true)
+            val textEditor = Utils.callbacks.createTextEditor()
+            val messageEditor = Utils.callbacks.createMessageEditor(null, true)
 
             var baseInput = ""
             if(!selectionBounds.isEmpty() && selectionBounds[0] != selectionBounds[1]) {
@@ -253,7 +207,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                 messageEditor.setMessage(req.request, true)
             }
 
-            val defaultScript = BurpExtender.callbacks.loadExtensionSetting("defaultScript")
+            val defaultScript = Utils.callbacks.loadExtensionSetting("defaultScript")
             if (defaultScript == null){
                 textEditor.text = Scripts.SAMPLEBURPSCRIPT.toByteArray()
             }
@@ -285,9 +239,9 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                         val requestTable = RequestTable(req.httpService, handler)
                         pane.bottomComponent = requestTable
                         val script = String(textEditor.text)
-                        BurpExtender.callbacks.saveExtensionSetting("defaultScript", script)
-                        BurpExtender.callbacks.helpers
-                        val baseRequest = BurpExtender.callbacks.helpers.bytesToString(messageEditor.message)
+                        Utils.callbacks.saveExtensionSetting("defaultScript", script)
+                        Utils.callbacks.helpers
+                        val baseRequest = Utils.callbacks.helpers.bytesToString(messageEditor.message)
                         val service = req.httpService
                         val target = service.protocol + "://" + service.host + ":" + service.port
                         evalJython(script, baseRequest, target, baseInput, requestTable, handler)
@@ -331,19 +285,19 @@ fun main(args : Array<String>) {
         val outputHandler = ConsolePrinter()
         val attackHandler = AttackHandler()
         Runtime.getRuntime().addShutdownHook(Thread {
-            Utilities.out(attackHandler.statusString())
+            Utils.out(attackHandler.statusString())
         })
         evalJython(code, req, endpoint, baseInput, outputHandler, attackHandler)
     }
 
     catch (e: FileNotFoundException) {
-        Utilities.out("Couldn't find input file: "+e.message)
+        Utils.out("Couldn't find input file: "+e.message)
 //        File(scriptFile).printWriter().use { out -> out.println(Scripts.SAMPLECOMMANDSCRIPT) }
 //        println("Wrote example script to "+scriptFile)
     }
     catch (e: ArrayIndexOutOfBoundsException) {
-        Utilities.out("Missing argument.")
-        Utilities.out("Usage: java -jar turbo.jar <scriptFile> <baseRequestFile> <endpoint> <baseInput>\n" +
+        Utils.out("Missing argument.")
+        Utils.out("Usage: java -jar turbo.jar <scriptFile> <baseRequestFile> <endpoint> <baseInput>\n" +
                 "Example: java -jar turbo.jar attack.py baseReq.txt https://hackxor.net:443 foobar")
     }
 }

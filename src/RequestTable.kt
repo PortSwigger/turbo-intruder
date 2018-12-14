@@ -1,14 +1,9 @@
 package burp
 
-import javax.swing.event.ListSelectionEvent
-import javax.swing.event.ListSelectionListener
 import java.awt.BorderLayout
-import javax.swing.text.StyleConstants.getComponent
-import com.sun.corba.se.spi.presentation.rmi.StubAdapter.request
 import java.awt.Dimension
 import java.awt.event.ActionEvent
 import java.awt.event.ActionListener
-import java.util.*
 import javax.swing.*
 import javax.swing.Timer
 import javax.swing.border.BevelBorder
@@ -33,7 +28,7 @@ interface OutputHandler {
 
 class ConsolePrinter(): OutputHandler {
     override fun add(req: Request) {
-        Utilities.out(req.word?: "")
+        Utils.out(req.word?: "")
     }
 }
 
@@ -66,8 +61,8 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
 
         requestListView = JScrollPane(issueTable)
 
-        requestEditor = BurpExtender.callbacks.createMessageEditor(controller, false)
-        responseEditor = BurpExtender.callbacks.createMessageEditor(controller, false)
+        requestEditor = Utils.callbacks.createMessageEditor(controller, false)
+        responseEditor = Utils.callbacks.createMessageEditor(controller, false)
         bottomSplit = JSplitPane(JSplitPane.HORIZONTAL_SPLIT, requestEditor.getComponent(), responseEditor.getComponent())
         bottomSplit.setResizeWeight(0.5)
 
@@ -99,8 +94,8 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         updateStatusbar.timer = panelUpdater
         panelUpdater.start()
 
-        BurpExtender.callbacks.customizeUiComponent(this)
-        BurpExtender.callbacks.customizeUiComponent(issueTable)
+        Utils.callbacks.customizeUiComponent(this)
+        Utils.callbacks.customizeUiComponent(issueTable)
     }
 
 

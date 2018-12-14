@@ -1,13 +1,13 @@
 package burp
 
-import java.io.ByteArrayOutputStream
-import java.io.IOException
+import java.io.*
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantReadWriteLock
+import java.util.zip.GZIPInputStream
 
 abstract class RequestEngine {
     var start: Long = System.nanoTime()
@@ -38,7 +38,7 @@ abstract class RequestEngine {
     fun queue(template: String, payload: String?, learnBoring: Int?) {
 
         if (payload != null && !template.contains("%s")) {
-            Utilities.out("Aborting attack - no payload position specified. Add %s where you want the payload to go.")
+            Utils.out("Aborting attack - no payload position specified. Add %s where you want the payload to go.")
             throw Exception("Aborting attack - no payload position specified. Add %s where you want the payload to go.")
         }
 
@@ -58,11 +58,11 @@ abstract class RequestEngine {
         val queued = requestQueue.offer(request, timeout, TimeUnit.SECONDS)
         if (!queued) {
             if (state == 0 && requestQueue.size == 100) {
-                Utilities.out("Looks like a non-streaming attack, unlimiting the queue")
+                Utils.out("Looks like a non-streaming attack, unlimiting the queue")
                 requestQueue = LinkedBlockingQueue(requestQueue)
             }
             else {
-                Utilities.out("Timeout queuing request. Aborting.")
+                Utils.out("Timeout queuing request. Aborting.")
                 this.cancel()
             }
         }
@@ -89,11 +89,11 @@ abstract class RequestEngine {
         }
 
         if (!success) {
-            Utilities.out("Aborting attack due to timeout")
+            Utils.out("Aborting attack due to timeout")
             attackState.set(3)
         }
         else {
-            Utilities.out("Completed attack")
+            Utils.out("Completed attack")
             attackState.set(4)
         }
         showSummary()
@@ -101,15 +101,15 @@ abstract class RequestEngine {
 
     fun cancel() {
         attackState.set(3)
-        Utilities.out("Cancelled attack")
+        Utils.out("Cancelled attack")
         showSummary()
     }
 
     fun showSummary() {
         val duration = System.nanoTime().toFloat() - start
         val requests = successfulRequests.get().toFloat()
-        Utilities.out("Sent " + requests.toInt() + " requests in "+duration / 1000000000 + " seconds")
-        Utilities.out(String.format("RPS: %.0f\n", requests / Math.ceil((duration / 1000000000).toDouble())))
+        Utils.out("Sent " + requests.toInt() + " requests in "+duration / 1000000000 + " seconds")
+        Utils.out(String.format("RPS: %.0f\n", requests / Math.ceil((duration / 1000000000).toDouble())))
     }
 
     fun statusString(): String {
@@ -162,12 +162,12 @@ abstract class RequestEngine {
     }
 
     fun processResponse(req: Request, response: ByteArray): Boolean {
-        if (!Utilities.gotBurp) {
+        if (!Utils.gotBurp) {
             return false
         }
 
 
-        val resp = BurpExtender.callbacks.helpers.analyzeResponseVariations(response)
+        val resp = Utils.callbacks.helpers.analyzeResponseVariations(response)
 
         // fixme might screw over the user if they try to add multiple overlapping fingerprints?
         for(base in baselines) {
@@ -204,7 +204,7 @@ abstract class RequestEngine {
         else {
             if(fails.incrementAndGet() > 3) {
                 permaFails.getAndIncrement()
-                Utilities.out("Skipping word due to multiple failures: $reqID")
+                Utils.out("Skipping word due to multiple failures: $reqID")
                 return false
             }
         }
@@ -229,6 +229,29 @@ abstract class RequestEngine {
         return true
     }
 
+    fun decompress(compressed: ByteArray): String {
+        try {
+            val bis = ByteArrayInputStream(compressed)
+            val gis = GZIPInputStream(bis)
+            val br = BufferedReader(InputStreamReader(gis, "UTF-8"))
+            val sb = StringBuilder()
+            var line = br.readLine()
+            while (line != null) {
+                sb.append(line)
+                line = br.readLine()
+            }
+            br.close()
+            gis.close()
+            bis.close()
+            return sb.toString()
+        }
+        catch (e: IOException) {
+            Utils.out("GZIP decompression failed: "+e)
+            Utils.out("'"+String(compressed)+"'")
+            return "GZIP decompression failed"
+        }
+    }
+
 }
 
 
@@ -245,13 +268,13 @@ open class Request(val template: String, val word: String?, val learnBoring: Int
         }
 
         if (!template.contains("%s")) {
-            Utilities.out("Bad base request - nowhere to inject payload")
+            Utils.out("Bad base request - nowhere to inject payload")
         }
 
         val req = template.replace("%s", word)
 
         if (req.contains("%s")) {
-            Utilities.out("Bad base request - contains too many %s")
+            Utils.out("Bad base request - contains too many %s")
         }
 
         return template.replace("%s", word)
@@ -287,7 +310,7 @@ open class Request(val template: String, val word: String?, val learnBoring: Int
         } catch (e: IOException) {
             throw RuntimeException("Request creation unexpectedly failed")
         } catch (e: NullPointerException) {
-            Utilities.out("header locating fail: $header")
+            Utils.out("header locating fail: $header")
             throw RuntimeException("Can't find the header")
         }
 
@@ -351,7 +374,7 @@ open class Request(val template: String, val word: String?, val learnBoring: Int
 
 class SafeResponseVariations {
     private val lock = ReentrantReadWriteLock()
-    private val variations = BurpExtender.callbacks.helpers.analyzeResponseVariations()
+    private val variations = Utils.callbacks.helpers.analyzeResponseVariations()
 
     fun updateWith(response: ByteArray) {
         val writelock = lock.writeLock()

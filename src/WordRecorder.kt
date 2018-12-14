@@ -17,8 +17,8 @@ class WordRecorder: IScannerCheck {
     }
 
     override fun doPassiveScan(baseRequestResponse: IHttpRequestResponse?): MutableList<IScanIssue> {
-        savedWords.addAll(BurpExtender.callbacks.helpers.bytesToString(baseRequestResponse?.request).split(wordRegex))
-        savedWords.addAll(BurpExtender.callbacks.helpers.bytesToString(baseRequestResponse?.response).split(wordRegex))
+        savedWords.addAll(Utils.callbacks.helpers.bytesToString(baseRequestResponse?.request).split(wordRegex))
+        savedWords.addAll(Utils.callbacks.helpers.bytesToString(baseRequestResponse?.response).split(wordRegex))
         return ArrayList()
     }
 }

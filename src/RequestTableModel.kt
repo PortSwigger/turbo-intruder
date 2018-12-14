@@ -1,10 +1,6 @@
 package burp
 
-import javax.*
-import javax.swing.*
-import javax.swing.event.TableModelListener
 import javax.swing.table.AbstractTableModel
-import java.*
 import java.util.*
 
 
@@ -15,8 +11,8 @@ class TableRequest(val req: Request) {
     init {
         val resp = req.getRawResponse() ?: "".toByteArray()
 
-        code = BurpExtender.callbacks.helpers.analyzeResponse(resp).statusCode
-        wordcount =  BurpExtender.callbacks.helpers.analyzeResponseVariations(resp).getAttributeValue("word_count", 0)
+        code = Utils.callbacks.helpers.analyzeResponse(resp).statusCode
+        wordcount =  Utils.callbacks.helpers.analyzeResponseVariations(resp).getAttributeValue("word_count", 0)
 
 //        if (resp != null) {
 //            val code = BurpExtender.callbacks.helpers.analyzeResponse(resp).statusCode

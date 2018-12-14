@@ -1,17 +1,14 @@
 package burp
 
-import burp.RequestEngine
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.net.InetAddress
 import java.net.URL
 import java.security.cert.X509Certificate
 import java.util.*
-import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
 import javax.net.SocketFactory
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocketFactory
@@ -43,7 +40,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         trustingSslContext.init(null, arrayOf<TrustManager>(TrustingTrustManager()), null)
         val trustingSslSocketFactory = trustingSslContext.socketFactory
 
-        Utilities.out("Warming up...")
+        Utils.out("Warming up...")
         for(j in 1..threads) {
             threadPool.add(
                 thread {
@@ -73,7 +70,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         var answeredRequests = 0
         val badWords = HashSet<String>()
 
-        while (!BurpExtender.unloaded) {
+        while (!Utils.unloaded) {
             try {
 
                 if(attackState.get() == 3) {
@@ -139,6 +136,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                     var buffer = ""
 
                     for (k in 1..readCount) {
+
                         var bodyStart = buffer.indexOf("\r\n\r\n")
                         while (bodyStart == -1) {
                             val len = socket.getInputStream().read(read)
@@ -192,14 +190,13 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                         }
 
-
                         if (!headers.startsWith("HTTP")) {
                             throw Exception("no http")
                         }
 
                         var msg = headers
                         if(shouldGzip) {
-                            msg += Utilities.decompress(body.toByteArray(Charsets.ISO_8859_1))
+                            msg += decompress(body.toByteArray(Charsets.ISO_8859_1))
                         }
                         else {
                             msg += body
@@ -207,9 +204,10 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                         reqWithResponse = inflight.removeFirst()
                         successfulRequests.getAndIncrement()
-                        answeredRequests += 1
-                        val interesting = processResponse(reqWithResponse, msg.toByteArray(Charsets.ISO_8859_1))
                         reqWithResponse.response = msg
+
+                        answeredRequests += 1
+                        val interesting = processResponse(reqWithResponse, (reqWithResponse.response as String).toByteArray(Charsets.ISO_8859_1))
                         callback(reqWithResponse, interesting)
                     }
                     badWords.clear()
@@ -217,17 +215,17 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
             } catch (ex: Exception) {
 
                 if (reqWithResponse == null) {
-                    Utilities.out("Thread failed to connect")
+                    Utils.out("Thread failed to connect")
                     val stackTrace = StringWriter()
                     ex.printStackTrace(PrintWriter(stackTrace))
-                    Utilities.err(stackTrace.toString())
+                    Utils.err(stackTrace.toString())
                 }
                 else {
                     val activeRequest = inflight.peek()
                     if (activeRequest != null) {
                         val activeWord = activeRequest.word ?: "(null)"
                         if (shouldRetry(activeRequest)) {
-                            Utilities.out("Autorecovering error after " + answeredRequests + " answered requests. After '" + reqWithResponse.word + "' during '" + activeWord + "'")
+                            Utils.out("Autorecovering error after " + answeredRequests + " answered requests. After '" + reqWithResponse.word + "' during '" + activeWord + "'")
                         } else {
                             val badReq = inflight.pop()
                             badReq.response = "null"
@@ -235,7 +233,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         }
                     }
                     else {
-                        Utilities.out("Autorecovering error with empty queue: "+ex.message)
+                        Utils.out("Autorecovering error with empty queue: "+ex.message)
                         ex.printStackTrace()
                     }
                 }

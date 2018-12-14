@@ -83,7 +83,7 @@
 //        val target = HttpHost(parsed.host, parsed.port, parsed.protocol)
 //        latch = CountDownLatch(threads)
 //        try {
-//            Utilities.out("Warming up...")
+//            Utils.out("Warming up...")
 //            for (i in 0 until threads) {
 //                threadPool.add(Connection(requester, target, requestQueue, requestsPerConnection, readFreq, successfulRequests, latch, attackState, i, callback))
 //            }
@@ -103,7 +103,7 @@
 //        }
 //
 //        if(System.currentTimeMillis() >= stopAt) {
-//            Utilities.out("Timed out while waiting for all threads to connect")
+//            Utils.out("Timed out while waiting for all threads to connect")
 //        }
 //
 //        start = System.nanoTime()
@@ -147,7 +147,7 @@
 //        }
 //
 //        if (0L != latch.count) {
-//            Utilities.out("Timed out with " + latch.count + " threads still running")
+//            Utils.out("Timed out with " + latch.count + " threads still running")
 //            for(thread in threadPool) {
 //                thread.cancelled()
 //            }
@@ -292,7 +292,7 @@
 //
 //
 //        } catch (e: Exception) {
-//            Utilities.out("Error creating request from input string. If the request is malformed, you may need to use the non-async approach")
+//            Utils.out("Error creating request from input string. If the request is malformed, you may need to use the non-async approach")
 //            e.printStackTrace()
 //        }
 //    }
@@ -329,7 +329,7 @@
 //        }
 //
 //        if (closeIfComplete()) {
-//            Utilities.out("Abandoning reconnection - no longer necessary "+id)
+//            Utils.out("Abandoning reconnection - no longer necessary "+id)
 //            return
 //        }
 //        clientEndpoint?.releaseAndDiscard()
@@ -429,11 +429,11 @@
 //
 //    override fun failed(ex: Exception) {
 //        if (!abort) {
-//            Utilities.out("Failed!: " + id + " |||" + inFlight.peek().request.requestUri + "->" + ex)
+//            Utils.out("Failed!: " + id + " |||" + inFlight.peek().request.requestUri + "->" + ex)
 //            ex.printStackTrace()
 //
 //            if (!inFlight.isEmpty()) {
-//                Utilities.out("Re-queuing "+inFlight.size +" dropped requests "+id)
+//                Utils.out("Re-queuing "+inFlight.size +" dropped requests "+id)
 //                requestQueue.addAll(inFlight)
 //                inFlight.clear()
 //            }
@@ -482,7 +482,7 @@
 //        output.append("\r\n")
 //
 //        if(decompress) {
-//            output.append(Utilities.decompress(body))
+//            output.append(Utils.decompress(body))
 //        }
 //        else {
 //            output.append(String(body))
