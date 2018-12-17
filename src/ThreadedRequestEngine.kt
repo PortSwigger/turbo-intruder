@@ -182,6 +182,9 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                 chunk = getNextChunkLength(buffer)
                                 if (chunk.length == -1) {
                                     val len = socket.getInputStream().read(read)
+                                    if (len == -1) {
+                                        break
+                                    }
                                     buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
                                     chunk = getNextChunkLength(buffer)
                                 }
