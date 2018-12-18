@@ -168,7 +168,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                             var chunk = getNextChunkLength(buffer)
 
-                            while (chunk.length != 3) {
+                            while (chunk.length != 3 && chunk.length != chunk.skip) {
                                 //println("Chunk length: "+chunk.length)
                                 while (buffer.length < chunk.length) {
                                     val len = socket.getInputStream().read(read)
@@ -180,10 +180,16 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                 buffer = buffer.substring(chunk.length+2)
 
                                 chunk = getNextChunkLength(buffer)
+
+                                if (chunk.length == chunk.skip) {
+                                    break
+                                }
+
                                 if (chunk.length == -1) {
+                                    // if 'buffer' is empty.. we should probably wait?
                                     val len = socket.getInputStream().read(read)
                                     if (len == -1) {
-                                        break
+                                        throw RuntimeException("Chunked response finished unexpectedly")
                                     }
                                     buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
                                     chunk = getNextChunkLength(buffer)
@@ -234,6 +240,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             badReq.response = "null"
                             callback(badReq, true)
                         }
+                        //ex.printStackTrace()
                     }
                     else {
                         Utils.out("Autorecovering error with empty queue: "+ex.message)
