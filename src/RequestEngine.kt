@@ -21,6 +21,7 @@ abstract class RequestEngine {
     lateinit var outputHandler: OutputHandler
     lateinit var requestQueue: LinkedBlockingQueue<Request>
     abstract val callback: (Request, Boolean) -> Boolean
+    abstract val maxRetriesPerRequest: Int
 
     abstract fun start(timeout: Int = 10)
 
@@ -93,7 +94,7 @@ abstract class RequestEngine {
             attackState.set(3)
         }
         else {
-            Utils.out("Completed attack")
+            Utils.err("Completed attack")
             attackState.set(4)
         }
         showSummary()
@@ -108,8 +109,8 @@ abstract class RequestEngine {
     fun showSummary() {
         val duration = System.nanoTime().toFloat() - start
         val requests = successfulRequests.get().toFloat()
-        Utils.out("Sent " + requests.toInt() + " requests in "+duration / 1000000000 + " seconds")
-        Utils.out(String.format("RPS: %.0f\n", requests / Math.ceil((duration / 1000000000).toDouble())))
+        Utils.err("Sent " + requests.toInt() + " requests in "+duration / 1000000000 + " seconds")
+        Utils.err(String.format("RPS: %.0f\n", requests / Math.ceil((duration / 1000000000).toDouble())))
     }
 
     fun statusString(): String {
@@ -195,6 +196,10 @@ abstract class RequestEngine {
     }
 
     fun shouldRetry(req: Request): Boolean {
+        if (maxRetriesPerRequest < 1) {
+            return false
+        }
+
         val reqID = req.word ?: req.getRequest().hashCode().toString()
 
         val fails = failedWords.get(reqID)
@@ -202,7 +207,7 @@ abstract class RequestEngine {
             failedWords[reqID] = AtomicInteger(1)
         }
         else {
-            if(fails.incrementAndGet() > 3) {
+            if(fails.incrementAndGet() > maxRetriesPerRequest) {
                 permaFails.getAndIncrement()
                 Utils.out("Skipping word due to multiple failures: $reqID")
                 return false

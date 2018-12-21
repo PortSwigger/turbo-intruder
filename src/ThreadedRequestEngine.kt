@@ -16,7 +16,7 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 import kotlin.concurrent.thread
 
-open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val callback: (Request, Boolean) -> Boolean, val timeout: Int): RequestEngine() {
+open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, val timeout: Int): RequestEngine() {
 
     private val connectedLatch = CountDownLatch(threads)
     private val target = URL(url)
@@ -40,7 +40,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         trustingSslContext.init(null, arrayOf<TrustManager>(TrustingTrustManager()), null)
         val trustingSslSocketFactory = trustingSslContext.socketFactory
 
-        Utils.out("Warming up...")
+        Utils.err("Warming up...")
         for(j in 1..threads) {
             threadPool.add(
                 thread {

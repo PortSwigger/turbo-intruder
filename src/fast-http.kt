@@ -31,7 +31,7 @@ class Engine:
 
 class RequestEngine:
 
-    def __init__(self, endpoint, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=100, timeout=5):
+    def __init__(self, endpoint, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=100, timeout=5, maxRetriesPerRequest=3):
         concurrentConnections = int(concurrentConnections)
         requestsPerConnection = int(requestsPerConnection)
 
@@ -49,9 +49,9 @@ class RequestEngine:
             if(requestsPerConnection > 1 or pipeline):
                 print('requestsPerConnection has been forced to 1 and pipelining has been disabled due to Burp engine limitations')
 
-            self.engine = burp.BurpRequestEngine(endpoint, concurrentConnections, maxQueueSize, callback)
+            self.engine = burp.BurpRequestEngine(endpoint, concurrentConnections, maxQueueSize, maxRetriesPerRequest, callback)
         elif(engine == Engine.THREADED):
-            self.engine = burp.ThreadedRequestEngine(endpoint, concurrentConnections, maxQueueSize, readFreq, requestsPerConnection, callback, timeout)
+            self.engine = burp.ThreadedRequestEngine(endpoint, concurrentConnections, maxQueueSize, readFreq, requestsPerConnection, maxRetriesPerRequest, callback, timeout)
         elif(engine == Engine.ASYNC):
             self.engine = burp.AsyncRequestEngine(endpoint, concurrentConnections, readFreq, requestsPerConnection, False, callback)
         elif(engine == Engine.HTTP2):
