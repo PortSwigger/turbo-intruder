@@ -12,7 +12,9 @@ class TableRequest(val req: Request) {
         val resp = req.getRawResponse() ?: "".toByteArray()
 
         code = Utils.callbacks.helpers.analyzeResponse(resp).statusCode
-        wordcount =  Utils.callbacks.helpers.analyzeResponseVariations(resp).getAttributeValue("word_count", 0)
+
+        wordcount = Utils.callbacks.helpers.bytesToString(resp).split("^[a-zA-Z0-9]").size
+        // wordcount =  Utils.callbacks.helpers.analyzeResponseVariations(resp).getAttributeValue("word_count", 0)
 
 //        if (resp != null) {
 //            val code = BurpExtender.callbacks.helpers.analyzeResponse(resp).statusCode
