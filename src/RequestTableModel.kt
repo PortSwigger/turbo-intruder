@@ -3,17 +3,21 @@ package burp
 import javax.swing.table.AbstractTableModel
 import java.util.*
 
-
 class TableRequest(val req: Request) {
     var code: Short = 0
+    var length: Int = 0
     var wordcount: Int = 0
+
 
     init {
         val resp = req.getRawResponse() ?: "".toByteArray()
-
         code = Utils.callbacks.helpers.analyzeResponse(resp).statusCode
 
-        wordcount = Utils.callbacks.helpers.bytesToString(resp).split("^[a-zA-Z0-9]").size
+        length = req.response?.length ?: 0
+
+        wordcount = (req.response ?: "").split(Regex("[^a-zA-Z0-9]")).size
+
+
         // wordcount =  Utils.callbacks.helpers.analyzeResponseVariations(resp).getAttributeValue("word_count", 0)
 
 //        if (resp != null) {
@@ -46,9 +50,11 @@ class RequestTableModel : AbstractTableModel() {
         val request = requests[rowIndex]
 
         return when (columnIndex) {
-            0 -> request.req.word
-            1 ->  request.code
-            2 -> request.wordcount
+            0 -> rowIndex
+            1 -> request.req.word
+            2 ->  request.code
+            3 -> request.wordcount
+            4 -> request.length
             else -> null
         }
     }
@@ -73,6 +79,6 @@ class RequestTableModel : AbstractTableModel() {
     }
 
     companion object {
-        internal var columns = Arrays.asList("Payload", "Status", "Words")
+        internal var columns = Arrays.asList("Row", "Payload", "Status", "Words", "Length")
     }
 }
