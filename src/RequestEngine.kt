@@ -235,26 +235,22 @@ abstract class RequestEngine {
     }
 
     fun decompress(compressed: ByteArray): String {
+        val bytesIn = ByteArrayInputStream(compressed)
+        val unzipped = GZIPInputStream(bytesIn)
+        val bytes = ByteArray(1024)
+        val out = ByteArrayOutputStream()
         try {
-            val bis = ByteArrayInputStream(compressed)
-            val gis = GZIPInputStream(bis)
-            val br = BufferedReader(InputStreamReader(gis, "UTF-8"))
-            val sb = StringBuilder()
-            var line = br.readLine()
-            while (line != null) {
-                sb.append(line)
-                line = br.readLine()
+            while (true) {
+                val read = unzipped.read(bytes, 0, 1024)
+                if (read <= 0) {
+                    break
+                }
+                out.write(bytes)
             }
-            br.close()
-            gis.close()
-            bis.close()
-            return sb.toString()
+        } catch (e: IOException) {
+            Utils.err("GZIP decompression failed - possible partial response")
         }
-        catch (e: IOException) {
-            Utils.out("GZIP decompression failed: "+e)
-            Utils.out("'"+String(compressed)+"'")
-            return "GZIP decompression failed"
-        }
+        return String(out.toByteArray())
     }
 
 }
