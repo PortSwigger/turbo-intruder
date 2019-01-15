@@ -169,7 +169,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                             var chunk = getNextChunkLength(buffer)
 
-                            while (chunk.length != 3 && chunk.length != chunk.skip) {
+                            while (chunk.length != chunk.skip || chunk.length == -1) { // chunk.length != 3 &&
                                 //println("Chunk length: "+chunk.length)
                                 while (buffer.length < chunk.length) {
                                     val len = socket.getInputStream().read(read)
@@ -182,10 +182,6 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                                 chunk = getNextChunkLength(buffer)
 
-                                if (chunk.length == chunk.skip) {
-                                    break
-                                }
-
                                 if (chunk.length == -1) {
                                     // if 'buffer' is empty.. we should probably wait?
                                     val len = socket.getInputStream().read(read)
@@ -194,6 +190,9 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                     }
                                     buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
                                     chunk = getNextChunkLength(buffer)
+                                }
+                                else if (chunk.length == chunk.skip) {
+                                    break
                                 }
                             }
 
