@@ -10,10 +10,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import javax.net.SocketFactory
-import javax.net.ssl.SSLContext
-import javax.net.ssl.SSLSocketFactory
-import javax.net.ssl.TrustManager
-import javax.net.ssl.X509TrustManager
+import javax.net.ssl.*
 import kotlin.concurrent.thread
 
 open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, val timeout: Int): RequestEngine() {
@@ -69,6 +66,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         var reqWithResponse: Request? = null
         var answeredRequests = 0
         val badWords = HashSet<String>()
+        var consecutiveFailedConnections = 0
 
         while (!Utils.unloaded) {
             try {
@@ -82,6 +80,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                 } else {
                     SocketFactory.getDefault().createSocket(ipAddress, port)
                 }
+                //(socket as SSLSocket).session.peerCertificates
                 socket.soTimeout = timeout * 1000
                 socket.tcpNoDelay = true
                 // todo tweak other TCP options for max performance
@@ -93,6 +92,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         Thread.sleep(10)
                     }
                 }
+
+                consecutiveFailedConnections = 0
 
                 var requestsSent = 0
                 answeredRequests = 0
@@ -228,6 +229,9 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                     val stackTrace = StringWriter()
                     ex.printStackTrace(PrintWriter(stackTrace))
                     Utils.err(stackTrace.toString())
+                    consecutiveFailedConnections += 1
+                    val sleep = Math.pow(2.0, consecutiveFailedConnections.toDouble())
+                    Thread.sleep(sleep.toLong() * 200)
                 }
                 else {
                     val activeRequest = inflight.peek()
