@@ -292,13 +292,11 @@ fun main(args : Array<String>) {
 
     catch (e: FileNotFoundException) {
         Utils.out("Couldn't find input file: "+e.message)
-//        File(scriptFile).printWriter().use { out -> out.println(Scripts.SAMPLECOMMANDSCRIPT) }
-//        println("Wrote example script to "+scriptFile)
     }
     catch (e: ArrayIndexOutOfBoundsException) {
         Utils.out("Missing argument.")
         Utils.out("Usage: java -jar turbo.jar <scriptFile> <baseRequestFile> <endpoint> <baseInput>\n" +
-                "Example: java -jar turbo.jar attack.py baseReq.txt https://hackxor.net:443 foobar")
+                "Example: java -jar turbo.jar examples/basic.py examples/request.txt https://example.net:443 foobar")
     }
 }
 

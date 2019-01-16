@@ -18,10 +18,21 @@ public class Utils {
     }
 
     static void out(String message) {
-        stdout.println(message);
+        if (gotBurp) {
+            stdout.println(message);
+        }
+        else {
+            System.out.println(message);
+        }
+
     }
     static void err(String message) {
-        stderr.println(message);
+        if (gotBurp) {
+            stderr.println(message);
+        }
+        else {
+            System.out.println(message);
+        }
     }
 
 }
