@@ -237,10 +237,10 @@ abstract class RequestEngine {
     fun decompress(compressed: ByteArray): String {
         val bytesIn = ByteArrayInputStream(compressed)
         val unzipped = GZIPInputStream(bytesIn)
-        val bytes = ByteArray(1024)
         val out = ByteArrayOutputStream()
         try {
             while (true) {
+                val bytes = ByteArray(1024)
                 val read = unzipped.read(bytes, 0, 1024)
                 if (read <= 0) {
                     break
