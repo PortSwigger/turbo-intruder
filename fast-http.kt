@@ -57,7 +57,7 @@ class RequestEngine:
         elif(engine == Engine.HTTP2):
             self.engine = burp.AsyncRequestEngine(endpoint, concurrentConnections, readFreq, requestsPerConnection, True, callback)
         else:
-            print('Unrecognised engine. Valid engines are Engine.BURP, Engine.THREADED, Engine.ASYNC, Engine.HTTP2')
+            print('Unrecognised engine. Valid engines are Engine.BURP, Engine.THREADED')
 
         handler.setRequestEngine(self.engine)
         self.engine.setOutput(outputHandler)
