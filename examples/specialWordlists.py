@@ -4,7 +4,9 @@ def queueRequests(target, wordlists):
                            concurrentConnections=5,
                            requestsPerConnection=100,
                            pipeline=False,
-                           maxQueueSize=10
+                           maxQueueSize=10,
+                           timeout=5,
+                           maxRetriesPerRequest=3
                            )
 
     engine.start()
