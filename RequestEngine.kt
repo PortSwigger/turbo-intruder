@@ -39,8 +39,8 @@ abstract class RequestEngine {
     fun queue(template: String, payload: String?, learnBoring: Int?) {
 
         if (payload != null && !template.contains("%s")) {
-            Utils.out("Aborting attack - no payload position specified. Add %s where you want the payload to go.")
-            throw Exception("Aborting attack - no payload position specified. Add %s where you want the payload to go.")
+            Utils.out("Add %s to the request where you want the payload to go.")
+            throw Exception("Add %s to the request where you want the payload to go.")
         }
 
         val request = buildRequest(template, payload, learnBoring)

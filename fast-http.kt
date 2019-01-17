@@ -109,7 +109,12 @@ fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: S
             Utils.out("Attack aborted with items waiting to be queued.")
         }
         else {
-            handler.overrideStatus("Error launching attack - check extension output")
+            var message = ex.cause?.message
+
+            if (message == null) {
+                message = ex.toString()
+            }
+            handler.overrideStatus("Error, check extender for full details: "+message)
             Utils.out("Error launching attack - bad python?")
             Utils.out(stackTrace.toString())
         }
