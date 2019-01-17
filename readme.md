@@ -38,7 +38,7 @@ def handleResponse(req, interesting):
         table.add(req)
 ````
 
-Coding a custom response check here isn't always necessary - if you queue a requests specify the 'learn' parameter then Turbo Intruder will learn those responses as boring, and then set the 'interesting' argument based on whether each new response looks like a boring one. This strategy is used by the [default script](examples/default.py). For further information on this filtering strategy, check out [blah](https://www.youtube.com/watch?v=EPmjl7q1-n4&list=PLuUtcRxSUZUpv2An-RNhjuZSJ5fjY7ghe&index=3)
+Coding a custom response check here isn't always necessary - if you queue a requests specify the 'learn' parameter then Turbo Intruder will learn those responses as boring, and then set the 'interesting' argument based on whether each new response looks like a boring one. This strategy is used by the [default script](https://github.com/PortSwigger/turbo-intruder/blob/master/examples/default.py). For further information on this filtering strategy, check out [blah](https://www.youtube.com/watch?v=EPmjl7q1-n4&list=PLuUtcRxSUZUpv2An-RNhjuZSJ5fjY7ghe&index=3)
 
 #### Speed tuning
 
@@ -46,17 +46,17 @@ If speed is important for your attack, you'll want to tune the `pipeline`, `requ
 
 #### Finding race conditions
 
-The default script uses a streaming attack style, which is great for minimising memory usage but not ideal for finding race conditions. To find a race condition you'll want to ensure all your requests hit the target in as small a window as possible, which can be done by queueing all your requests before starting the request engine. You can find an example at [examples/race.py](/examples/race.py)
+The default script uses a streaming attack style, which is great for minimising memory usage but not ideal for finding race conditions. To find a race condition you'll want to ensure all your requests hit the target in as small a window as possible, which can be done by queueing all your requests before starting the request engine. You can find an example at [examples/race.py](https://github.com/PortSwigger/turbo-intruder/blob/master/examples/race.py)
 
 #### Builtin wordlists
 
-Turbo Intruder has two builtin wordlists - one for launching long-running bruteforce attacks, and one containing all words observed in in-scope proxy traffic. The latter wordlist can lead to some quite interesting findings that would normally require manual testing to identify. You can see how to use each of these in [specialWordlists.py](/examples/specialWordlists.py)
+Turbo Intruder has two builtin wordlists - one for launching long-running bruteforce attacks, and one containing all words observed in in-scope proxy traffic. The latter wordlist can lead to some quite interesting findings that would normally require manual testing to identify. You can see how to use each of these in [specialWordlists.py](https://github.com/PortSwigger/turbo-intruder/blob/master/examples/specialWordlists.py)
 
 #### Command line usage
 
 From time to time, you might find you want to run Turbo Intruder from a server. To support headless use it can be launched directly from the jar, without Burp.
 
-You can grab the jar from the releases pane.
+You can grab the jar from the [releases](https://github.com/PortSwigger/turbo-intruder/releases) pane.
 
 You'll probably find it easiest to develop your script inside Burp as usual, then save and launch it on the server like so:
 
