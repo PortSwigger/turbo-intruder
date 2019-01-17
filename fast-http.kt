@@ -122,41 +122,6 @@ fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: S
     }
 }
 
-class zUtilities() {
-    companion object {
-        private val CHARSET = "0123456789abcdefghijklmnopqrstuvwxyz" // ABCDEFGHIJKLMNOPQRSTUVWXYZ
-        private val START_CHARSET = "ghijklmnopqrstuvwxyz"
-        private val rnd = Random()
-        var gotBurp = false
-        lateinit var out: PrintWriter
-        lateinit var err: PrintWriter
-
-        fun out(text: String) {
-            if (gotBurp) {
-                out.println(text)
-            }
-            else {
-                println(text)
-            }
-        }
-
-        fun err(text: String) {
-            if (gotBurp) {
-                err.write(text)
-            }
-            else {
-                println(text)
-            }
-        }
-
-        fun setBurpPresent() {
-            gotBurp = true
-            out = PrintWriter(Utils.callbacks.stdout, true)
-            err = PrintWriter(Utils.callbacks.stderr, true)
-        }
-    }
-}
-
 class BurpExtender(): IBurpExtender, IExtensionStateListener {
 
     val version = "1.0"
