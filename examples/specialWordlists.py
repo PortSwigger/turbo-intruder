@@ -1,4 +1,3 @@
-
 def queueRequests(target, wordlists):
     engine = RequestEngine(endpoint=target.endpoint,
                            concurrentConnections=5,
