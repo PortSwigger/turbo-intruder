@@ -10,7 +10,7 @@ def queueRequests(target, wordlists):
     engine.start()
 
     # You can queue arbitrary requests - you don't have to use the insertion point
-    oddRequest = """GET /style.css HTTP/1.1
+    oddRequest = """GET /static/style.css HTTP/1.1
 Host: hackxor.net
 
 """
