@@ -13,5 +13,3 @@ def queueRequests(target, wordlists):
 def handleResponse(req, interesting):
     if '404 Not Found' not in req.response:
         table.add(req)
-
-
