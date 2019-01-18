@@ -23,6 +23,15 @@ abstract class RequestEngine {
     abstract val callback: (Request, Boolean) -> Boolean
     abstract val maxRetriesPerRequest: Int
 
+    fun invokeCallback(req: Request, interesting: Boolean){
+        try {
+            callback(req, interesting)
+        } catch (ex: Exception){
+            Utils.out("Error in user-defined callback: "+ex)
+            permaFails.incrementAndGet()
+        }
+    }
+
     abstract fun start(timeout: Int = 10)
 
     abstract fun buildRequest(template: String, payload: String?, learnBoring: Int?): Request

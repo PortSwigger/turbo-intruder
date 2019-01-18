@@ -217,7 +217,9 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                         answeredRequests += 1
                         val interesting = processResponse(reqWithResponse, (reqWithResponse.response as String).toByteArray(Charsets.ISO_8859_1))
-                        callback(reqWithResponse, interesting)
+
+                        invokeCallback(reqWithResponse, interesting)
+
                     }
                     badWords.clear()
                 }
@@ -241,7 +243,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         } else {
                             val badReq = inflight.pop()
                             badReq.response = "null"
-                            callback(badReq, true)
+                            invokeCallback(badReq, true)
                         }
                         //ex.printStackTrace()
                     }

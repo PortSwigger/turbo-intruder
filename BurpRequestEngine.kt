@@ -71,14 +71,14 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
 
             if(resp.response == null) {
                 req.response = "null"
-                callback(req, true)
+                invokeCallback(req, true)
             }
 
             if (resp.response != null) {
                 successfulRequests.getAndIncrement()
                 val interesting = processResponse(req, resp.response)
                 req.response = String(resp.response)
-                callback(req, interesting)
+                invokeCallback(req, interesting)
             }
 
         }
