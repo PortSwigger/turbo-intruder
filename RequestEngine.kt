@@ -211,6 +211,7 @@ abstract class RequestEngine {
 
     fun shouldRetry(req: Request): Boolean {
         if (maxRetriesPerRequest < 1) {
+            permaFails.getAndIncrement()
             return false
         }
 
