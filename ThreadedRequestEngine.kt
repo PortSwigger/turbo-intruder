@@ -179,10 +179,19 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             buffer = buffer.substring(responseLength)
                         }
                         else {
-                            //body += buffer.substring(0, bodyStart+4)
+                            // todo refactor this into something sensible
                             buffer = buffer.substring(bodyStart+4)
 
                             var chunk = getNextChunkLength(buffer)
+                            if (chunk.length == -1) {
+                                // if 'buffer' is empty.. we should probably wait?
+                                val len = socket.getInputStream().read(read)
+                                if (len == -1) {
+                                    throw RuntimeException("Chunked response finished unexpectedly")
+                                }
+                                buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
+                                chunk = getNextChunkLength(buffer)
+                            }
 
                             while (chunk.length != chunk.skip || chunk.length == -1) { // chunk.length != 3 &&
                                 //println("Chunk length: "+chunk.length)
@@ -191,7 +200,6 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                     buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
                                 }
 
-                                //println("Got chunk: "+buffer.substring(chunk.skip, chunk.length))
                                 body += buffer.substring(chunk.skip, chunk.length)
                                 buffer = buffer.substring(chunk.length+2)
 
@@ -241,6 +249,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
             } catch (ex: Exception) {
 
                 // todo distinguish couldn't send vs couldn't read
+
+                ex.printStackTrace()
 
                 val activeRequest = inflight.peek()
                 if (activeRequest != null) {
