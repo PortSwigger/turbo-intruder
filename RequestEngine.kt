@@ -52,6 +52,10 @@ abstract class RequestEngine {
             throw Exception("Add %s to the request where you want the payload to go.")
         }
 
+        if (learnBoring != 0 && !Utils.gotBurp) {
+            throw Exception("Automatic interesting response detection using 'learn=X' isn't support in command line mode.")
+        }
+
         val request = buildRequest(template, payload, learnBoring)
         request.engine = this
 
