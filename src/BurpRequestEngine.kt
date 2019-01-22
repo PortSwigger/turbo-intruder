@@ -6,7 +6,7 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
-class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean): RequestEngine() {
+open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean): RequestEngine() {
 
     private val threadPool = ArrayList<Thread>()
 
@@ -19,9 +19,8 @@ class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, override v
         }
 
         completedLatch = CountDownLatch(threads)
-        Utils.out("Warming up...")
         val target = URL(url)
-        val service = Utils.callbacks.helpers.buildHttpService(target.host, target.port, true)
+        val service = Utils.callbacks.helpers.buildHttpService(target.host, target.port, target.protocol == "https")
 
         for(j in 1..threads) {
             threadPool.add(
@@ -71,14 +70,14 @@ class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, override v
 
             if(resp.response == null) {
                 req.response = "null"
-                callback(req, true)
+                invokeCallback(req, true)
             }
 
             if (resp.response != null) {
                 successfulRequests.getAndIncrement()
                 val interesting = processResponse(req, resp.response)
                 req.response = String(resp.response)
-                callback(req, interesting)
+                invokeCallback(req, interesting)
             }
 
         }

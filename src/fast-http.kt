@@ -57,7 +57,7 @@ class RequestEngine:
         elif(engine == Engine.HTTP2):
             self.engine = burp.AsyncRequestEngine(endpoint, concurrentConnections, readFreq, requestsPerConnection, True, callback)
         else:
-            print('Unrecognised engine. Valid engines are Engine.BURP, Engine.THREADED, Engine.ASYNC, Engine.HTTP2')
+            print('Unrecognised engine. Valid engines are Engine.BURP, Engine.THREADED')
 
         handler.setRequestEngine(self.engine)
         self.engine.setOutput(outputHandler)
@@ -109,64 +109,16 @@ fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: S
             Utils.out("Attack aborted with items waiting to be queued.")
         }
         else {
-            handler.overrideStatus("Error launching attack - check extension output")
+            var message = ex.cause?.message
+
+            if (message == null) {
+                message = ex.toString()
+            }
+            handler.overrideStatus("Error, check extender for full details: "+message)
             Utils.out("Error launching attack - bad python?")
             Utils.out(stackTrace.toString())
         }
         handler.abort()
-    }
-}
-
-class zUtilities() {
-    companion object {
-        private val CHARSET = "0123456789abcdefghijklmnopqrstuvwxyz" // ABCDEFGHIJKLMNOPQRSTUVWXYZ
-        private val START_CHARSET = "ghijklmnopqrstuvwxyz"
-        private val rnd = Random()
-        var gotBurp = false
-        lateinit var out: PrintWriter
-        lateinit var err: PrintWriter
-
-        fun out(text: String) {
-            if (gotBurp) {
-                out.println(text)
-            }
-            else {
-                println(text)
-            }
-        }
-
-        fun err(text: String) {
-            if (gotBurp) {
-                err.write(text)
-            }
-            else {
-                println(text)
-            }
-        }
-
-        fun setBurpPresent() {
-            gotBurp = true
-            out = PrintWriter(Utils.callbacks.stdout, true)
-            err = PrintWriter(Utils.callbacks.stderr, true)
-        }
-    }
-}
-
-class BurpExtender(): IBurpExtender, IExtensionStateListener {
-
-    val version = "1.0"
-
-    override fun extensionUnloaded() {
-        Utils.unloaded = true
-    }
-
-    override fun registerExtenderCallbacks(callbacks: IBurpExtenderCallbacks?) {
-        callbacks!!.registerContextMenuFactory(OfferTurboIntruder())
-        Utils.setBurpPresent(callbacks)
-        callbacks.registerScannerCheck(Utils.witnessedWords)
-        callbacks.registerExtensionStateListener(this)
-        callbacks.setExtensionName("Turbo Intruder")
-        Utils.out("Loaded Turbo Intruder v${version}")
     }
 }
 

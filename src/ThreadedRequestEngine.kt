@@ -3,6 +3,7 @@ package burp
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.net.InetAddress
+import java.net.Socket
 import java.net.URL
 import java.security.cert.X509Certificate
 import java.util.*
@@ -75,13 +76,27 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                     return
                 }
 
-                val socket = if (url.protocol.equals("https")) {
-                    trustingSslSocketFactory.createSocket(ipAddress, port)
-                } else {
-                    SocketFactory.getDefault().createSocket(ipAddress, port)
+                val socket: Socket?
+                try {
+                    socket = if (url.protocol.equals("https")) {
+                        trustingSslSocketFactory.createSocket(ipAddress, port)
+                    } else {
+                        SocketFactory.getDefault().createSocket(ipAddress, port)
+                    }
+                }
+                catch (ex: Exception) {
+                    Utils.out("Thread failed to connect")
+                    retries.getAndIncrement()
+                    val stackTrace = StringWriter()
+                    ex.printStackTrace(PrintWriter(stackTrace))
+                    Utils.err(stackTrace.toString())
+                    consecutiveFailedConnections += 1
+                    val sleep = Math.pow(2.0, consecutiveFailedConnections.toDouble())
+                    Thread.sleep(sleep.toLong() * 200)
+                    continue
                 }
                 //(socket as SSLSocket).session.peerCertificates
-                socket.soTimeout = timeout * 1000
+                socket!!.soTimeout = timeout * 1000
                 socket.tcpNoDelay = true
                 // todo tweak other TCP options for max performance
 
@@ -164,26 +179,11 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             buffer = buffer.substring(responseLength)
                         }
                         else {
-                            //body += buffer.substring(0, bodyStart+4)
                             buffer = buffer.substring(bodyStart+4)
 
-                            var chunk = getNextChunkLength(buffer)
-
-                            while (chunk.length != chunk.skip || chunk.length == -1) { // chunk.length != 3 &&
-                                //println("Chunk length: "+chunk.length)
-                                while (buffer.length < chunk.length) {
-                                    val len = socket.getInputStream().read(read)
-                                    buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
-                                }
-
-                                //println("Got chunk: "+buffer.substring(chunk.skip, chunk.length))
-                                body += buffer.substring(chunk.skip, chunk.length)
-                                buffer = buffer.substring(chunk.length+2)
-
-                                chunk = getNextChunkLength(buffer)
-
-                                if (chunk.length == -1) {
-                                    // if 'buffer' is empty.. we should probably wait?
+                            while (true) {
+                                var chunk = getNextChunkLength(buffer)
+                                while (chunk.length == -1 || buffer.length < chunk.length) {
                                     val len = socket.getInputStream().read(read)
                                     if (len == -1) {
                                         throw RuntimeException("Chunked response finished unexpectedly")
@@ -191,12 +191,14 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                     buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
                                     chunk = getNextChunkLength(buffer)
                                 }
-                                else if (chunk.length == chunk.skip) {
+
+                                body += buffer.substring(chunk.skip, chunk.length)
+                                buffer = buffer.substring(chunk.length + 2)
+
+                                if (chunk.length == chunk.skip) {
                                     break
                                 }
                             }
-
-
                         }
 
                         if (!headers.startsWith("HTTP")) {
@@ -217,38 +219,38 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                         answeredRequests += 1
                         val interesting = processResponse(reqWithResponse, (reqWithResponse.response as String).toByteArray(Charsets.ISO_8859_1))
-                        callback(reqWithResponse, interesting)
+
+                        invokeCallback(reqWithResponse, interesting)
+
                     }
                     badWords.clear()
                 }
             } catch (ex: Exception) {
 
-                if (reqWithResponse == null) {
-                    Utils.out("Thread failed to connect")
-                    val stackTrace = StringWriter()
-                    ex.printStackTrace(PrintWriter(stackTrace))
-                    Utils.err(stackTrace.toString())
-                    consecutiveFailedConnections += 1
-                    val sleep = Math.pow(2.0, consecutiveFailedConnections.toDouble())
-                    Thread.sleep(sleep.toLong() * 200)
+                // todo distinguish couldn't send vs couldn't read
+
+                ex.printStackTrace()
+
+                val activeRequest = inflight.peek()
+                if (activeRequest != null) {
+                    val activeWord = activeRequest.word ?: "(null)"
+                    if (shouldRetry(activeRequest)) {
+                        if (reqWithResponse != null) {
+                            Utils.out("Autorecovering error after " + answeredRequests + " answered requests. After '" + reqWithResponse.word + "' during '" + activeWord + "'")
+                        }
+                        else {
+                            Utils.out("Autorecovering first-request error during '" + activeWord + "'")
+                        }
+                    } else {
+                        val badReq = inflight.pop()
+                        badReq.response = "null"
+                        invokeCallback(badReq, true)
+                    }
+                    //ex.printStackTrace()
                 }
                 else {
-                    val activeRequest = inflight.peek()
-                    if (activeRequest != null) {
-                        val activeWord = activeRequest.word ?: "(null)"
-                        if (shouldRetry(activeRequest)) {
-                            Utils.out("Autorecovering error after " + answeredRequests + " answered requests. After '" + reqWithResponse.word + "' during '" + activeWord + "'")
-                        } else {
-                            val badReq = inflight.pop()
-                            badReq.response = "null"
-                            callback(badReq, true)
-                        }
-                        //ex.printStackTrace()
-                    }
-                    else {
-                        Utils.out("Autorecovering error with empty queue: "+ex.message)
-                        ex.printStackTrace()
-                    }
+                    Utils.out("Autorecovering error with empty queue: "+ex.message)
+                    ex.printStackTrace()
                 }
 
                 // do callback here (allow user code change

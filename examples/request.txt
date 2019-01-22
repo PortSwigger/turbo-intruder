@@ -1,0 +1,4 @@
+GET /%s HTTP/1.1
+Host: example.net
+Connection: keep-alive
+

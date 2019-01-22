@@ -6,7 +6,7 @@ import java.util.concurrent.ConcurrentHashMap
 class WordRecorder: IScannerCheck {
 
     val savedWords = ConcurrentHashMap.newKeySet<String>()
-    val wordRegex = "[^a-zA-Z0-9]".toRegex()
+    val wordRegex = "[^a-zA-Z]".toRegex()
 
     override fun doActiveScan(p0: IHttpRequestResponse?, p1: IScannerInsertionPoint?): MutableList<IScanIssue> {
         return ArrayList()
