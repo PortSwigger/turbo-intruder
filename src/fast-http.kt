@@ -248,7 +248,7 @@ fun main(args : Array<String>) {
     catch (e: ArrayIndexOutOfBoundsException) {
         Utils.out("Missing argument.")
         Utils.out("Usage: java -jar turbo.jar <scriptFile> <baseRequestFile> <endpoint> <baseInput>\n" +
-                "Example: java -jar turbo.jar examples/basic.py examples/request.txt https://example.net:443 foobar")
+                "Example: java -jar turbo.jar resources/examples/basic.py resources/examples/request.txt https://example.net:443 foobar")
     }
 }
 
