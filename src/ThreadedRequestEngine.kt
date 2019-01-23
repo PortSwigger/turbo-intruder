@@ -96,6 +96,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                     Thread.sleep(sleep.toLong() * 200)
                     continue
                 }
+                connections.incrementAndGet()
                 //(socket as SSLSocket).session.peerCertificates
                 socket!!.soTimeout = timeout * 1000
                 socket.tcpNoDelay = true
