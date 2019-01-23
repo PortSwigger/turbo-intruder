@@ -29,6 +29,10 @@ You'll notice that the area of the request that you highlighted has been replace
 
 To begin with you'll probably just want to change '/usr/share/dict/words' to a more suitable wordlist. Other than that the default script should work out of the box for simple use cases.
 
+#### Debugging problems
+
+If the 'failed' counter starts creeping up that may mean something's not working. I recommend starting from the following ultra-simple [resources/examples/debug.py](https://github.com/PortSwigger/turbo-intruder/blob/master/resources/examples/debug.py) script to identify the source of the problem.
+
 #### Filtering boring results
 
 In Turbo Intruder, responses don't get placed in the results table automatically. Instead, the 'handleResponse' function is called, in which you can decide whether to add the response to the table. Here's a simple example:
@@ -38,7 +42,7 @@ def handleResponse(req, interesting):
         table.add(req)
 ````
 
-Coding a custom response check here isn't always necessary - if you queue a requests specify the 'learn' parameter then Turbo Intruder will learn those responses as boring, and then set the 'interesting' argument based on whether each new response looks like a boring one. This strategy is used by the [default script](https://github.com/PortSwigger/turbo-intruder/blob/master/resources/examples/default.py). For further information on this filtering strategy, check out [blah](https://www.youtube.com/watch?v=EPmjl7q1-n4&list=PLuUtcRxSUZUpv2An-RNhjuZSJ5fjY7ghe&index=3)
+Coding a custom response check here isn't always necessary - if you queue a requests specify the 'learn' parameter then Turbo Intruder will learn those responses as boring, and then set the 'interesting' argument based on whether each new response looks like a boring one. This strategy is used by the [default script](https://github.com/PortSwigger/turbo-intruder/blob/master/resources/examples/default.py). For further information on this filtering strategy, check out [my presentation on Backslash Powered Scanner](https://www.youtube.com/watch?v=EPmjl7q1-n4&list=PLuUtcRxSUZUpv2An-RNhjuZSJ5fjY7ghe&index=3)
 
 #### Speed tuning
 
