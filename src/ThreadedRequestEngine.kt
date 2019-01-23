@@ -2,6 +2,7 @@ package burp
 
 import java.io.PrintWriter
 import java.io.StringWriter
+import java.net.ConnectException
 import java.net.InetAddress
 import java.net.Socket
 import java.net.URL
@@ -165,7 +166,12 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                         val contentLength = getContentLength(buffer)
                         val shouldGzip = shouldGzip(buffer)
-                        val headers = buffer.substring(0, bodyStart+4) // fixme java.lang.StringIndexOutOfBoundsException: begin 0, end 3, length 0
+
+                        if (buffer.isEmpty()) {
+                            throw ConnectException("No response")
+                        }
+
+                        val headers = buffer.substring(0, bodyStart+4)
                         var body = ""
                         if (contentLength != -1) {
                             val responseLength = bodyStart + contentLength + 4
@@ -228,9 +234,6 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
             } catch (ex: Exception) {
 
                 // todo distinguish couldn't send vs couldn't read
-
-                ex.printStackTrace()
-
                 val activeRequest = inflight.peek()
                 if (activeRequest != null) {
                     val activeWord = activeRequest.word ?: "(null)"
