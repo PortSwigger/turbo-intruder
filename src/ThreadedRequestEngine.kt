@@ -170,40 +170,47 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                         if (buffer.isEmpty()) {
                             throw ConnectException("No response")
+                        } else if (bodyStart == -1) {
+                            throw ConnectException("Unterminated response")
                         }
 
                         val headers = buffer.substring(0, bodyStart+4)
                         var body = ""
-                        if (contentLength != -1) {
-                            val responseLength = bodyStart + contentLength + 4
 
-                            while (buffer.length < responseLength) {
-                                val len = socket.getInputStream().read(read)
-                                buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
-                            }
+                        Utils.out("Bodystart: "+bodyStart)
+                        Utils.out("Buffer length: "+buffer.length)
 
-                            body = buffer.substring(bodyStart+4, responseLength)
-                            buffer = buffer.substring(responseLength)
-                        }
-                        else {
-                            buffer = buffer.substring(bodyStart+4)
+                        if (bodyStart+4 != buffer.length) {
+                            if (contentLength != -1) {
+                                val responseLength = bodyStart + contentLength + 4
 
-                            while (true) {
-                                var chunk = getNextChunkLength(buffer)
-                                while (chunk.length == -1 || buffer.length < chunk.length) {
+                                while (buffer.length < responseLength) {
                                     val len = socket.getInputStream().read(read)
-                                    if (len == -1) {
-                                        throw RuntimeException("Chunked response finished unexpectedly")
-                                    }
                                     buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
-                                    chunk = getNextChunkLength(buffer)
                                 }
 
-                                body += buffer.substring(chunk.skip, chunk.length)
-                                buffer = buffer.substring(chunk.length + 2)
+                                body = buffer.substring(bodyStart + 4, responseLength)
+                                buffer = buffer.substring(responseLength)
+                            } else {
+                                buffer = buffer.substring(bodyStart + 4)
 
-                                if (chunk.length == chunk.skip) {
-                                    break
+                                while (true) {
+                                    var chunk = getNextChunkLength(buffer)
+                                    while (chunk.length == -1 || buffer.length < chunk.length) {
+                                        val len = socket.getInputStream().read(read)
+                                        if (len == -1) {
+                                            throw RuntimeException("Chunked response finished unexpectedly")
+                                        }
+                                        buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
+                                        chunk = getNextChunkLength(buffer)
+                                    }
+
+                                    body += buffer.substring(chunk.skip, chunk.length)
+                                    buffer = buffer.substring(chunk.length + 2)
+
+                                    if (chunk.length == chunk.skip) {
+                                        break
+                                    }
                                 }
                             }
                         }
