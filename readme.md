@@ -37,8 +37,8 @@ If the 'failed' counter starts creeping up that may mean something's not working
 
 In Turbo Intruder, responses don't get placed in the results table automatically. Instead, the 'handleResponse' function is called, in which you can decide whether to add the response to the table. Here's a simple example:
 ```
-def handleResponse(req, interesting):
-    if '200 OK' in req.response:
+def handleResponse(req, interesting):
+    if '200 OK' in req.response:
         table.add(req)
 ````
 
