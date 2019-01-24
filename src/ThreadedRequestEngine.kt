@@ -206,7 +206,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                             while (true) {
                                 var chunk = getNextChunkLength(buffer)
-                                while (chunk.length == -1 || buffer.length < chunk.length) {
+                                while (chunk.length == -1 || buffer.length < (chunk.length+2)) {
                                     val len = socket.getInputStream().read(read)
                                     if (len == -1) {
                                         throw RuntimeException("Chunked response finished unexpectedly")
@@ -215,7 +215,6 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                     chunk = getNextChunkLength(buffer)
                                 }
 
-                                Utils.out(chunk.length)
                                 body += buffer.substring(chunk.skip, chunk.length)
                                 buffer = buffer.substring(chunk.length + 2)
 
