@@ -35,9 +35,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         val ipAddress = InetAddress.getByName(target.host)
         val port = if (target.port == -1) { target.defaultPort } else { target.port }
 
-        val trustingSslContext = SSLContext.getInstance("TLS")
-        trustingSslContext.init(null, arrayOf<TrustManager>(TrustingTrustManager()), null)
-        val trustingSslSocketFactory = trustingSslContext.socketFactory
+        val trustingSslSocketFactory = createSSLSocketFactory()
 
         Utils.err("Warming up...")
         for(j in 1..threads) {
@@ -48,6 +46,13 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
             )
         }
 
+    }
+
+    fun createSSLSocketFactory(): SSLSocketFactory {
+        val trustingSslContext = SSLContext.getInstance("TLS")
+        trustingSslContext.init(null, arrayOf<TrustManager>(TrustingTrustManager()), null)
+        val trustingSslSocketFactory = trustingSslContext.socketFactory
+        return trustingSslSocketFactory
     }
 
     override fun start(timeout: Int) {
@@ -69,6 +74,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         var answeredRequests = 0
         val badWords = HashSet<String>()
         var consecutiveFailedConnections = 0
+        var reuseSSL = true
 
         while (!Utils.unloaded) {
             try {
@@ -80,7 +86,11 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                 val socket: Socket?
                 try {
                     socket = if (url.protocol.equals("https")) {
-                        trustingSslSocketFactory.createSocket(ipAddress, port)
+                        if (reuseSSL) {
+                            trustingSslSocketFactory.createSocket(ipAddress, port)
+                        } else {
+                            createSSLSocketFactory().createSocket(ipAddress, port)
+                        }
                     } else {
                         SocketFactory.getDefault().createSocket(ipAddress, port)
                     }
@@ -177,9 +187,6 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         val headers = buffer.substring(0, bodyStart+4)
                         var body = ""
 
-                        Utils.out("Bodystart: "+bodyStart)
-                        Utils.out("Buffer length: "+buffer.length)
-
                         if (bodyStart+4 != buffer.length) {
                             if (contentLength != -1) {
                                 val responseLength = bodyStart + contentLength + 4
@@ -241,27 +248,30 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                 }
             } catch (ex: Exception) {
 
-                // todo distinguish couldn't send vs couldn't read
-                val activeRequest = inflight.peek()
-                if (activeRequest != null) {
-                    val activeWord = activeRequest.word ?: "(null)"
-                    if (shouldRetry(activeRequest)) {
-                        if (reqWithResponse != null) {
-                            Utils.out("Autorecovering error after " + answeredRequests + " answered requests. After '" + reqWithResponse.word + "' during '" + activeWord + "'")
-                        }
-                        else {
-                            Utils.out("Autorecovering first-request error during '" + activeWord + "'")
-                        }
-                    } else {
-                        val badReq = inflight.pop()
-                        badReq.response = "null"
-                        invokeCallback(badReq, true)
-                    }
-                    //ex.printStackTrace()
+                if (ex is SSLHandshakeException && reuseSSL) {
+                    reuseSSL = false
                 }
                 else {
-                    Utils.out("Autorecovering error with empty queue: "+ex.message)
-                    ex.printStackTrace()
+                    // todo distinguish couldn't send vs couldn't read
+                    val activeRequest = inflight.peek()
+                    if (activeRequest != null) {
+                        val activeWord = activeRequest.word ?: "(null)"
+                        if (shouldRetry(activeRequest)) {
+                            if (reqWithResponse != null) {
+                                Utils.out("Autorecovering error after " + answeredRequests + " answered requests. After '" + reqWithResponse.word + "' during '" + activeWord + "'")
+                            } else {
+                                Utils.out("Autorecovering first-request error during '" + activeWord + "'")
+                            }
+                        } else {
+                            ex.printStackTrace()
+                            val badReq = inflight.pop()
+                            badReq.response = "null"
+                            invokeCallback(badReq, true)
+                        }
+                    } else {
+                        Utils.out("Autorecovering error with empty queue: " + ex.message)
+                        ex.printStackTrace()
+                    }
                 }
 
                 // do callback here (allow user code change
