@@ -187,40 +187,53 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         val headers = buffer.substring(0, bodyStart+4)
                         var body = ""
 
-                        if (bodyStart+4 != buffer.length) {
-                            if (contentLength != -1) {
-                                val responseLength = bodyStart + contentLength + 4
+                        if (bodyStart+4 == buffer.length) {
+                            // no need to read the body
+                        }
+                        else if (contentLength != -1) {
+                            val responseLength = bodyStart + contentLength + 4
 
-                                while (buffer.length < responseLength) {
+                            while (buffer.length < responseLength) {
+                                val len = socket.getInputStream().read(read)
+                                buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
+                            }
+
+                            body = buffer.substring(bodyStart + 4, responseLength)
+                            buffer = buffer.substring(responseLength)
+                        }
+                        else if (headers.toLowerCase().contains("transfer-encoding: chunked")) {
+                            buffer = buffer.substring(bodyStart + 4)
+
+                            while (true) {
+                                var chunk = getNextChunkLength(buffer)
+                                while (chunk.length == -1 || buffer.length < (chunk.length+2)) {
                                     val len = socket.getInputStream().read(read)
+                                    if (len == -1) {
+                                        throw RuntimeException("Chunked response finished unexpectedly")
+                                    }
                                     buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
+                                    chunk = getNextChunkLength(buffer)
                                 }
 
-                                body = buffer.substring(bodyStart + 4, responseLength)
-                                buffer = buffer.substring(responseLength)
-                            } else {
-                                buffer = buffer.substring(bodyStart + 4)
+                                body += buffer.substring(chunk.skip, chunk.length)
+                                buffer = buffer.substring(chunk.length + 2)
 
-                                while (true) {
-                                    var chunk = getNextChunkLength(buffer)
-                                    while (chunk.length == -1 || buffer.length < chunk.length) {
-                                        val len = socket.getInputStream().read(read)
-                                        if (len == -1) {
-                                            throw RuntimeException("Chunked response finished unexpectedly")
-                                        }
-                                        buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
-                                        chunk = getNextChunkLength(buffer)
-                                    }
-
-                                    body += buffer.substring(chunk.skip, chunk.length)
-                                    buffer = buffer.substring(chunk.length + 2)
-
-                                    if (chunk.length == chunk.skip) {
-                                        break
-                                    }
+                                if (chunk.length == chunk.skip) {
+                                    break
                                 }
                             }
                         }
+                        else {
+                            while (true) {
+                                val len = socket.getInputStream().read(read)
+                                if (len == -1) {
+                                    break
+                                }
+                                buffer = String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
+                                body += buffer
+                            }
+                        }
+
 
                         if (!headers.startsWith("HTTP")) {
                             throw Exception("no http")
