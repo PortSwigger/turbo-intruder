@@ -39,6 +39,11 @@ dependencies {
 } 
 
 task fatJar(type: Jar) {
+    manifest {
+        attributes('Class-Path': configurations.compile.collect { it.getName() }.join(' '),
+                'Main-Class': 'burp.Fast_httpKt'
+        )
+    }
     baseName = project.name + '-all'
     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
     with jar
