@@ -42,7 +42,12 @@ open class Request(val template: String, val word: String?, val learnBoring: Int
         if (String(request).contains("Content-Length: ")) {
             val start = getBodyStart(request)
             val contentLength = request.size - start
-            return setHeader(request, "Content-Length", Integer.toString(contentLength))
+            try {
+                return setHeader(request, "Content-Length", Integer.toString(contentLength))
+            } catch (e: RuntimeException) {
+                return request
+            }
+
         } else {
             return request
         }
