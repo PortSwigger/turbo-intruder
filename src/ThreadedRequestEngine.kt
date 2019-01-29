@@ -312,7 +312,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
     }
 
     fun shouldGzip(buf: String): Boolean {
-        return buf.indexOf("Content-Encoding: gzip") != -1
+        return buf.toLowerCase().indexOf("content-encoding: gzip") != -1
     }
 
     data class Result(val skip: Int, val length: Int)
