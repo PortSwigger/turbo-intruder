@@ -134,6 +134,20 @@ class OfferTurboIntruder(): IContextMenuFactory {
     }
 }
 
+class MessageController(val req: IHttpRequestResponse): IMessageEditorController {
+    override fun getResponse(): ByteArray {
+        return req.response ?: ByteArray(0)
+    }
+
+    override fun getRequest(): ByteArray {
+        return req.request
+    }
+
+    override fun getHttpService(): IHttpService {
+        return req.httpService
+    }
+
+}
 
 class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds: IntArray): ActionListener, JFrame("Turbo Intruder - " + inputRequest.httpService.host)  {
     private val req = Utils.callbacks.saveBuffersToTempFiles(inputRequest)
@@ -149,7 +163,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             val pane = JSplitPane(JSplitPane.VERTICAL_SPLIT)
             pane.setDividerLocation(0.25)
             val textEditor = Utils.callbacks.createTextEditor()
-            val messageEditor = Utils.callbacks.createMessageEditor(null, true)
+            val messageEditor = Utils.callbacks.createMessageEditor(MessageController(req), true)
 
             var baseInput = ""
             if(!selectionBounds.isEmpty() && selectionBounds[0] != selectionBounds[1]) {
