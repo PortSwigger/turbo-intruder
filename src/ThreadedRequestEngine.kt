@@ -2,10 +2,7 @@ package burp
 
 import java.io.PrintWriter
 import java.io.StringWriter
-import java.net.ConnectException
-import java.net.InetAddress
-import java.net.Socket
-import java.net.URL
+import java.net.*
 import java.security.cert.X509Certificate
 import java.util.*
 import java.util.concurrent.CountDownLatch
@@ -224,13 +221,20 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             }
                         }
                         else {
-                            while (true) {
-                                val len = socket.getInputStream().read(read)
-                                if (len == -1) {
-                                    break
+                            socket.soTimeout = 1000
+                            try {
+                                while (true) {
+                                    val len = socket.getInputStream().read(read)
+                                    if (len == -1) {
+                                        break
+                                    }
+                                    buffer = String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
+                                    body += buffer
                                 }
-                                buffer = String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
-                                body += buffer
+                            } catch (ex: SocketTimeoutException) {
+
+                            } catch (ex: SSLProtocolException) {
+
                             }
                         }
 
