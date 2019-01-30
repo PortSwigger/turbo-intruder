@@ -1,4 +1,4 @@
-# Find more example scripts at https://github.com/PortSwigger/turbo-intruder/tree/master/examples
+# Find more example scripts at https://github.com/PortSwigger/turbo-intruder/blob/master/resources/examples/default.py
 def queueRequests(target, wordlists):
     engine = RequestEngine(endpoint=target.endpoint,
                            concurrentConnections=5,

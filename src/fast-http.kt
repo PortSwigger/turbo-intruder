@@ -88,7 +88,7 @@ class Wordlist(val bruteforce: Bruteforce, val observedWords: ConcurrentHashMap.
 fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: String, outputHandler: OutputHandler, handler: AttackHandler) {
     try {
         Utils.out("Starting attack...")
-        val pyInterp = PythonInterpreter()
+        val pyInterp = PythonInterpreter() // todo add path to bs4
         pyInterp.set("target", Target(baseRequest, endpoint, baseInput))
         pyInterp.set("wordlists", Wordlist(Bruteforce(), Utils.witnessedWords.savedWords))
 
