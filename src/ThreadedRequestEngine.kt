@@ -198,7 +198,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             body = buffer.substring(bodyStart + 4, responseLength)
                             buffer = buffer.substring(responseLength)
                         }
-                        else if (headers.toLowerCase().contains("transfer-encoding: chunked")) {
+                        else if (headers.toLowerCase().contains("transfer-encoding: chunked") || headers.contains("^transfer-encoding:[ ]*chunked".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)))) {
+
                             buffer = buffer.substring(bodyStart + 4)
 
                             while (true) {
