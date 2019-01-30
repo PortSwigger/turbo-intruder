@@ -251,6 +251,10 @@ abstract class RequestEngine {
     }
 
     fun decompress(compressed: ByteArray): String {
+        if (compressed.size == 0) {
+            return ""
+        }
+
         val bytesIn = ByteArrayInputStream(compressed)
         val unzipped = GZIPInputStream(bytesIn)
         val out = ByteArrayOutputStream()
