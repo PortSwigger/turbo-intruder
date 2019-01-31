@@ -256,6 +256,7 @@ fun main(args : Array<String>) {
         Runtime.getRuntime().addShutdownHook(Thread {
             Utils.out(attackHandler.statusString())
         })
+        Utils.out("Please note that Turbo Intruder's SSL/TLS handling may differ slightly when run outside Burp Suite.")
         evalJython(code, req, endpoint, baseInput, outputHandler, attackHandler)
     }
 
