@@ -127,7 +127,8 @@ class OfferTurboIntruder(): IContextMenuFactory {
         val options = ArrayList<JMenuItem>()
         if (invocation!!.selectedMessages[0] != null) {
             val probeButton = JMenuItem("Send to turbo intruder")
-            probeButton.addActionListener(TurboIntruderFrame(invocation.selectedMessages[0], invocation.selectionBounds))
+            val bounds = invocation.selectionBounds ?: IntArray(0)
+            probeButton.addActionListener(TurboIntruderFrame(invocation.selectedMessages[0], bounds))
             options.add(probeButton)
         }
         return options
