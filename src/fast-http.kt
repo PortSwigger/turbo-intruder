@@ -65,6 +65,8 @@ class RequestEngine:
 
     def queue(self, template, payload=0, learn=0):
         if payload != 0:
+            if(not isinstance(payload, basestring)):
+                payload = str(payload)
             self.engine.queue(template, payload, learn)
         else:
             self.engine.queue(template)
