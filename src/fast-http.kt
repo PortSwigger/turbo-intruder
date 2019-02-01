@@ -199,14 +199,17 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
             button.addActionListener {
                 thread {
-                    if (button.text == "Configure") {
+                    if (button.text == "Halt") {
                         handler.abort()
+                        button.text = "Configure"
+                    }
+                    else if (button.text == "Configure") {
                         handler = AttackHandler()
                         pane.bottomComponent = textEditor.component
                         button.text = "Attack"
                     }
                     else {
-                        button.text = "Configure"
+                        button.text = "Halt"
                         val requestTable = RequestTable(req.httpService, handler)
                         pane.bottomComponent = requestTable
                         val script = String(textEditor.text)
