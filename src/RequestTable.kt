@@ -7,6 +7,7 @@ import java.awt.event.ActionListener
 import javax.swing.*
 import javax.swing.Timer
 import javax.swing.border.BevelBorder
+import javax.swing.table.TableRowSorter
 
 
 class UpdateStatusbar(val message: JLabel, val handler: AttackHandler): ActionListener {
@@ -50,6 +51,8 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
     }
 
     init {
+
+        issueTable.rowSorter = TableRowSorter(model)
 
         issueTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF)
         //issueTable.getColumnModel().getColumn(0).setPreferredWidth(500)

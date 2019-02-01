@@ -164,14 +164,15 @@ abstract class RequestEngine {
             }
 
             requestsFromTable.clear()
-            reqTable.model.fireTableRowsDeleted(0, requestsFromTable.size)
+            //reqTable.model.fireTableRowsDeleted(0, requestsFromTable.size)
 
             for (request in copy) {
                 val interesting = processResponse(request, request.getResponseAsBytes()!!)
                 callback(request, interesting)
             }
 
-            reqTable.repaint()
+            reqTable.model.fireTableDataChanged()
+            //reqTable.repaint()
         }
     }
 
