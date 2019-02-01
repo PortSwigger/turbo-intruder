@@ -10,7 +10,7 @@ class TableRequest(val req: Request) {
 
 
     init {
-        val resp = req.getRawResponse() ?: "".toByteArray()
+        val resp = req.getResponseAsBytes() ?: "".toByteArray()
         code = Utils.callbacks.helpers.analyzeResponse(resp).statusCode
 
         length = req.response?.length ?: 0

@@ -45,8 +45,8 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
     fun setCurrentRequest(req: Request?) {
         //println("Setting current request to "+req!!.word)
         currentRequest = req!!
-        requestEditor.setMessage(req.getRawRequest(), true)
-        responseEditor.setMessage(req.getRawResponse(), false)
+        requestEditor.setMessage(req.getRequestAsBytes(), true)
+        responseEditor.setMessage(req.getResponseAsBytes(), false)
     }
 
     init {
@@ -109,11 +109,11 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         }
 
         override fun getRequest(): ByteArray? {
-            return currentRequest?.getRawRequest()
+            return currentRequest?.getRequestAsBytes()
         }
 
         override fun getResponse(): ByteArray? {
-            return currentRequest?.getRawResponse()
+            return currentRequest?.getResponseAsBytes()
         }
     }
 

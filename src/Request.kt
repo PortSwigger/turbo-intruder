@@ -11,6 +11,10 @@ open class Request(val template: String, val word: String?, val learnBoring: Int
 
     constructor(template: String): this(template, null, 0)
 
+    fun getBurpRequest(): IHttpRequestResponse {
+        return BurpRequest(this)
+    }
+
     fun getRequest(): String {
         if (word == null) {
             return template
@@ -29,14 +33,13 @@ open class Request(val template: String, val word: String?, val learnBoring: Int
         return template.replace("%s", word)
     }
 
-    fun getRawRequest(): ByteArray {
+    fun getRequestAsBytes(): ByteArray {
         return fixContentLength(getRequest().toByteArray(Charsets.ISO_8859_1))
     }
 
-    fun getRawResponse(): ByteArray? {
+    fun getResponseAsBytes(): ByteArray? {
         return response?.toByteArray(Charsets.ISO_8859_1)
     }
-
 
     fun fixContentLength(request: ByteArray): ByteArray {
         if (String(request).contains("Content-Length: ")) {
@@ -123,4 +126,46 @@ open class Request(val template: String, val word: String?, val learnBoring: Int
         return i
     }
 
+
+
+}
+
+class BurpRequest(val req: Request): IHttpRequestResponse {
+
+
+    override fun getRequest(): ByteArray {
+        return req.getRequestAsBytes()
+    }
+
+    override fun getResponse(): ByteArray? {
+        return req.getResponseAsBytes()
+    }
+
+    override fun getHttpService(): IHttpService {
+        val url = req.engine!!.target
+        return Utils.callbacks.helpers.buildHttpService(url.host, url.port, url.protocol)
+    }
+
+    override fun getComment(): String? {
+        return null
+    }
+
+    override fun setComment(comment: String?) {
+    }
+
+    override fun getHighlight(): String? {
+        return null
+    }
+
+    override fun setResponse(message: ByteArray?) {
+    }
+
+    override fun setRequest(message: ByteArray?) {
+    }
+
+    override fun setHttpService(httpService: IHttpService?) {
+    }
+
+    override fun setHighlight(color: String?) {
+    }
 }

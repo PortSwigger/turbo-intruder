@@ -15,10 +15,11 @@ import kotlin.concurrent.thread
 open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, val timeout: Int): RequestEngine() {
 
     private val connectedLatch = CountDownLatch(threads)
-    private val target = URL(url)
+
     private val threadPool = ArrayList<Thread>()
 
     init {
+        target = URL(url)
 
         if (maxQueueSize > 0) {
             requestQueue = LinkedBlockingQueue<Request>(maxQueueSize)
@@ -151,7 +152,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         if (req == null) break
 
                         inflight.addLast(req)
-                        socket.getOutputStream().write(req.getRawRequest())
+                        socket.getOutputStream().write(req.getRequestAsBytes())
                         readCount++
                         requestsSent++
 

@@ -93,11 +93,13 @@ fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: S
         val pyInterp = PythonInterpreter() // todo add path to bs4
         pyInterp.set("target", Target(baseRequest, endpoint, baseInput))
         pyInterp.set("wordlists", Wordlist(Bruteforce(), Utils.witnessedWords.savedWords))
-
         pyInterp.set("handler", handler)
-        //pyInterp.set("helpers", BurpExtender.callbacks.helpers)
         pyInterp.set("outputHandler", outputHandler)
         pyInterp.set("table", outputHandler)
+        if (Utils.gotBurp) {
+            pyInterp.set("callbacks", Utils.callbacks)
+            pyInterp.set("helpers", Utils.callbacks.helpers)
+        }
         pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
         pyInterp.exec(code)
         pyInterp.exec("queueRequests(target, wordlists)")

@@ -1,6 +1,7 @@
 package burp
 
 import java.io.*
+import java.net.URL
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
@@ -23,6 +24,7 @@ abstract class RequestEngine {
     lateinit var requestQueue: LinkedBlockingQueue<Request>
     abstract val callback: (Request, Boolean) -> Boolean
     abstract val maxRetriesPerRequest: Int
+    lateinit var target: URL
 
     fun invokeCallback(req: Request, interesting: Boolean){
         try {
@@ -165,7 +167,7 @@ abstract class RequestEngine {
             reqTable.model.fireTableRowsDeleted(0, requestsFromTable.size)
 
             for (request in copy) {
-                val interesting = processResponse(request, request.getRawResponse()!!)
+                val interesting = processResponse(request, request.getResponseAsBytes()!!)
                 callback(request, interesting)
             }
 
