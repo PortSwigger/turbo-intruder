@@ -59,7 +59,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
 
         issueTable.getSelectionModel().addListSelectionListener({
             val req = model.getRequest(issueTable.getSelectedRow())
-            setCurrentRequest(req!!.req)
+            setCurrentRequest(req!!)
         })
 
         requestListView = JScrollPane(issueTable)

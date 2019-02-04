@@ -207,6 +207,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                         handler.abort()
                         handler = AttackHandler()
                         pane.bottomComponent = textEditor.component
+                        pane.setDividerLocation(0.25)
                         button.text = "Attack"
                     }
                     else {

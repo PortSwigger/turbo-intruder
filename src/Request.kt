@@ -2,12 +2,34 @@ package burp
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.util.*
+import kotlin.collections.HashMap
 
 open class Request(val template: String, val word: String?, val learnBoring: Int) {
 
     var response: String? = null
     var details: IResponseVariations? = null
     var engine: RequestEngine? = null
+
+    private val attributes: HashMap<String, Any> = HashMap()
+
+    val code: Short get() = getAttribute("code") as Short
+    val length: Int get() = getAttribute("length") as Int
+    val wordcount: Int get() = getAttribute("wordcount") as Int
+
+    fun getAttribute(name: String): Any? {
+        calculateProperties()
+        return attributes.get(name)
+    }
+
+    @Synchronized fun calculateProperties() {
+        if (!attributes.isEmpty()) {
+            return
+        }
+        val resp = getResponseAsBytes() ?: "".toByteArray()
+        attributes.put("code", Utils.callbacks.helpers.analyzeResponse(resp).statusCode)
+        attributes.put("length", response?.length ?: 0)
+        attributes.put("wordcount", (response ?: "").split(Regex("[^a-zA-Z0-9]")).size)
+    }
 
     constructor(template: String): this(template, null, 0)
 

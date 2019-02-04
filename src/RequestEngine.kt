@@ -160,7 +160,7 @@ abstract class RequestEngine {
 
             val copy = ArrayList<Request>(requestsFromTable.size)
             for (tableReq in requestsFromTable) {
-                copy.add(tableReq.req)
+                copy.add(tableReq)
             }
 
             requestsFromTable.clear()
