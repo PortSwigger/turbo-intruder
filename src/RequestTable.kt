@@ -4,6 +4,7 @@ import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.event.ActionEvent
 import java.awt.event.ActionListener
+import java.util.concurrent.atomic.AtomicInteger
 import javax.swing.*
 import javax.swing.Timer
 import javax.swing.border.BevelBorder
@@ -27,9 +28,15 @@ interface OutputHandler {
     fun add(req: Request)
 }
 
-class ConsolePrinter(): OutputHandler {
+class ConsolePrinter: OutputHandler {
+    private val requestID = AtomicInteger(0)
+
+    init {
+        Utils.out("ID | Word | Status | Wordcount | Length")
+    }
+
     override fun add(req: Request) {
-        Utils.out(req.word?: "")
+        Utils.out(String.format("%s | %s | %s | %s | %s ", requestID.incrementAndGet(), req.word?: "", req.code, req.wordcount, req.length))
     }
 }
 

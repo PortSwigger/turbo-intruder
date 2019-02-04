@@ -258,12 +258,12 @@ fun main(args : Array<String>) {
         val req = File(args[1]).readText()
         val endpoint = args[2]
         val baseInput = args[3]
-        val outputHandler = ConsolePrinter()
         val attackHandler = AttackHandler()
         Runtime.getRuntime().addShutdownHook(Thread {
             Utils.out(attackHandler.statusString())
         })
         Utils.out("Please note that Turbo Intruder's SSL/TLS handling may differ slightly when run outside Burp Suite.")
+        val outputHandler = ConsolePrinter()
         evalJython(code, req, endpoint, baseInput, outputHandler, attackHandler)
     }
 
