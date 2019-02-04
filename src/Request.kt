@@ -1,7 +1,9 @@
 package burp
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.lang.Exception
 import java.util.*
+import java.util.Arrays.asList
 import kotlin.collections.HashMap
 
 open class Request(val template: String, val word: String?, val learnBoring: Int) {
@@ -12,23 +14,36 @@ open class Request(val template: String, val word: String?, val learnBoring: Int
 
     private val attributes: HashMap<String, Any> = HashMap()
 
-    val code: Short get() = getAttribute("code") as Short
+    val code: Int get() = getAttribute("code") as Int
     val length: Int get() = getAttribute("length") as Int
     val wordcount: Int get() = getAttribute("wordcount") as Int
 
     fun getAttribute(name: String): Any? {
-        calculateProperties()
-        return attributes.get(name)
+        if (name in attributes) {
+            return attributes.get(name)
+        }
+
+        val result = when(name) {
+            "length" -> response?.length ?: 0
+            "wordcount" -> (response ?: "").split(Regex("[^a-zA-Z0-9]")).size
+            "code" -> calculateCode()
+            else -> "Unknown attribute"
+        }
+
+        attributes.put(name, result)
+
+        return result
     }
 
-    @Synchronized fun calculateProperties() {
-        if (!attributes.isEmpty()) {
-            return
+    fun calculateCode(): Int {
+        if (response == null) {
+            return 0
         }
-        val resp = getResponseAsBytes() ?: "".toByteArray()
-        attributes.put("code", Utils.callbacks.helpers.analyzeResponse(resp).statusCode)
-        attributes.put("length", response?.length ?: 0)
-        attributes.put("wordcount", (response ?: "").split(Regex("[^a-zA-Z0-9]")).size)
+        try {
+            return Integer.parseInt(response?.split(delimiters = " ", ignoreCase = false, limit = 3)?.get(1))
+        } catch (e: Exception) {
+            return 0
+        }
     }
 
     constructor(template: String): this(template, null, 0)
