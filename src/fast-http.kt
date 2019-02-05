@@ -209,6 +209,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                         pane.bottomComponent = textEditor.component
                         pane.setDividerLocation(0.25)
                         button.text = "Attack"
+                        this.title = "Turbo Intruder - " + req.httpService.host
                     }
                     else {
                         button.text = "Halt"
@@ -220,6 +221,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                         val baseRequest = Utils.callbacks.helpers.bytesToString(messageEditor.message)
                         val service = req.httpService
                         val target = service.protocol + "://" + service.host + ":" + service.port
+                        this.title += " - running"
                         evalJython(script, baseRequest, target, baseInput, requestTable, handler)
                     }
                 }

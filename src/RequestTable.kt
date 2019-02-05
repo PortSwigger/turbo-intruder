@@ -17,6 +17,8 @@ class UpdateStatusbar(val message: JLabel, val handler: AttackHandler): ActionLi
     override fun actionPerformed(e: ActionEvent?) {
         if (handler.hasFinished() || SwingUtilities.getWindowAncestor(message) == null){
             timer.stop()
+            val parent = (SwingUtilities.getWindowAncestor(message) as JFrame)
+            parent.title = parent.title.replace(" - running", " - done")
         }
 
         message.text = handler.statusString()
