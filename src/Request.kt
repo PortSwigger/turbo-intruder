@@ -15,6 +15,7 @@ open class Request(val template: String, val word: String?, val learnBoring: Int
     private val attributes: HashMap<String, Any> = HashMap()
 
     val code: Int get() = getAttribute("code") as Int
+    val status: Int get() = code
     val length: Int get() = getAttribute("length") as Int
     val wordcount: Int get() = getAttribute("wordcount") as Int
 
