@@ -91,6 +91,8 @@ fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: S
     try {
         Utils.out("Starting attack...")
         val pyInterp = PythonInterpreter() // todo add path to bs4
+        handler.code = code
+        handler.baseRequest = baseRequest
         pyInterp.set("target", Target(baseRequest, endpoint, baseInput))
         pyInterp.set("wordlists", Wordlist(Bruteforce(), Utils.witnessedWords.savedWords))
         pyInterp.set("handler", handler)

@@ -4,6 +4,7 @@ import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.event.ActionEvent
 import java.awt.event.ActionListener
+import java.net.URL
 import java.util.concurrent.atomic.AtomicInteger
 import javax.swing.*
 import javax.swing.Timer
@@ -106,8 +107,44 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         updateStatusbar.timer = panelUpdater
         panelUpdater.start()
 
+        val menu = JPopupMenu()
+
+        val addToSitemap = JMenuItem("Add to sitemap")
+        addToSitemap.addActionListener {
+            for (req in getSelectedRequests()) {
+                Utils.callbacks.addToSiteMap(req.getBurpRequest())
+            }
+        }
+        menu.add(addToSitemap)
+
+        val createIssueButton = JMenuItem("Report as issue")
+        createIssueButton.addActionListener {
+            val reqs = getSelectedRequests().map{ it.getBurpRequest() }
+            val service = reqs[0].httpService
+            val baseReq = StubRequest(Utils.callbacks.helpers.stringToBytes(handler.baseRequest), service)
+            val url = URL(service.protocol + "://" + service.host + ":" +service.port)
+            val detail = "<b>Status:</b> "+statusLabel.text + "<br/><br/>\n<pre>"+ handler.code.replace("<", "&lt;")+"</pre>\n"
+            val issue = TurboScanIssue(service, url, arrayOf<IHttpRequestResponse>(baseReq) + reqs.toTypedArray(), "Turbo Intruder Attack", detail, "Information", "Certain", "")
+            Utils.callbacks.addScanIssue(issue)
+        }
+        menu.add(createIssueButton)
+
+
+        issueTable.componentPopupMenu = menu
         Utils.callbacks.customizeUiComponent(this)
         Utils.callbacks.customizeUiComponent(issueTable)
+    }
+
+    private fun getSelectedRequests(): ArrayList<Request> {
+        val requests = ArrayList<Request>()
+        val table = issueTable.model as RequestTableModel
+        for (index in issueTable.selectedRows) {
+            val req = table.getRequest(index)
+            if (req != null) {
+                requests.add(req)
+            }
+        }
+        return requests
     }
 
 

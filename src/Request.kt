@@ -207,3 +207,40 @@ class BurpRequest(val req: Request): IHttpRequestResponse {
     override fun setHighlight(color: String?) {
     }
 }
+
+class StubRequest(val req: ByteArray, val service: IHttpService): IHttpRequestResponse {
+    override fun getRequest(): ByteArray {
+        return req
+    }
+
+    override fun getResponse(): ByteArray? {
+        return null
+    }
+
+    override fun getHttpService(): IHttpService {
+        return service
+    }
+
+    override fun getComment(): String? {
+        return null
+    }
+
+    override fun setComment(comment: String?) {
+    }
+
+    override fun getHighlight(): String? {
+        return null
+    }
+
+    override fun setResponse(message: ByteArray?) {
+    }
+
+    override fun setRequest(message: ByteArray?) {
+    }
+
+    override fun setHttpService(httpService: IHttpService?) {
+    }
+
+    override fun setHighlight(color: String?) {
+    }
+}

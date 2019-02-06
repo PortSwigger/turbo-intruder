@@ -5,6 +5,8 @@ class AttackHandler {
     private var running = false
     private var engine: RequestEngine? = null
     private var statusOverride: String? = null
+    var code: String = ""
+    var baseRequest: String = ""
 
     fun isRunning(): Boolean {
         return running
