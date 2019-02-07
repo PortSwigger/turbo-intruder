@@ -131,7 +131,7 @@ fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: S
 class OfferTurboIntruder(): IContextMenuFactory {
     override fun createMenuItems(invocation: IContextMenuInvocation?): MutableList<JMenuItem> {
         val options = ArrayList<JMenuItem>()
-        if (invocation!!.selectedMessages[0] != null) {
+        if (invocation != null && invocation.selectedMessages[0] != null) {
             val probeButton = JMenuItem("Send to turbo intruder")
             val bounds = invocation.selectionBounds ?: IntArray(0)
             probeButton.addActionListener(TurboIntruderFrame(invocation.selectedMessages[0], bounds))
