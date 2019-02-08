@@ -19,6 +19,17 @@ class RequestTableModel : AbstractTableModel() {
         return columns[column]
     }
 
+    override fun getColumnClass(columnIndex: Int): Class<*> {
+        return when (columnIndex) {
+            0 -> java.lang.Integer::class.java
+            1 -> String::class.java
+            2 -> java.lang.Integer::class.java
+            3 -> java.lang.Integer::class.java
+            4 -> java.lang.Integer::class.java
+            else -> throw RuntimeException()
+        }
+    }
+
     override fun getValueAt(rowIndex: Int, columnIndex: Int): Any? {
         val request = requests[rowIndex]
 

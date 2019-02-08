@@ -148,7 +148,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
     }
 
 
-    override fun add(req: Request) {
+    @Synchronized override fun add(req: Request) {
         model.addRequest(req)
     }
 
