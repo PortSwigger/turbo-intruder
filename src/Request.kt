@@ -11,6 +11,7 @@ open class Request(val template: String, val word: String?, val learnBoring: Int
     var response: String? = null
     var details: IResponseVariations? = null
     var engine: RequestEngine? = null
+    var connectionID: Int? = null
 
     private val attributes: HashMap<String, Any> = HashMap()
 
