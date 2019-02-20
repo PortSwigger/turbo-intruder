@@ -185,11 +185,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         val headers = buffer.substring(0, bodyStart+4)
                         var body = ""
 
-                        if (bodyStart+4 == buffer.length) {
-                            // no need to read the body
-                            buffer = ""
-                        }
-                        else if (contentLength != -1) {
+                        if (contentLength != -1) {
                             val responseLength = bodyStart + contentLength + 4
 
                             while (buffer.length < responseLength) {
