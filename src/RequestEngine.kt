@@ -28,7 +28,7 @@ abstract class RequestEngine {
 
     fun invokeCallback(req: Request, interesting: Boolean){
         try {
-            callback(req, interesting)
+            req.invokeCallback(interesting)
         } catch (ex: Exception){
             Utils.out("Error in user-defined callback: "+ex)
             permaFails.incrementAndGet()
@@ -40,15 +40,14 @@ abstract class RequestEngine {
     abstract fun buildRequest(template: String, payload: String?, learnBoring: Int?): Request
 
     fun queue(req: String) {
-        queue(req, null, 0)
+        queue(req, null, 0, null)
     }
 
     fun queue(template: String, payload: String?) {
-        queue(template, payload, 0)
+        queue(template, payload, 0, null)
     }
 
-
-    fun queue(template: String, payload: String?, learnBoring: Int?) {
+    fun queue(template: String, payload: String?, learnBoring: Int?, callback: ((Request, Boolean) -> Boolean)?) {
 
         if (payload != null && !template.contains("%s")) {
             Utils.out("Add %s to the request where you want the payload to go.")
@@ -61,6 +60,7 @@ abstract class RequestEngine {
 
         val request = buildRequest(template, payload, learnBoring)
         request.engine = this
+        request.callback = callback
 
         val state = attackState.get()
 

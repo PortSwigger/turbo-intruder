@@ -12,6 +12,7 @@ open class Request(val template: String, val word: String?, val learnBoring: Int
     var details: IResponseVariations? = null
     var engine: RequestEngine? = null
     var connectionID: Int? = null
+    var callback: ((Request, Boolean) -> Boolean)? = null
 
     private val attributes: HashMap<String, Any> = HashMap()
 
@@ -19,6 +20,15 @@ open class Request(val template: String, val word: String?, val learnBoring: Int
     val status: Int get() = code
     val length: Int get() = getAttribute("length") as Int
     val wordcount: Int get() = getAttribute("wordcount") as Int
+
+    fun invokeCallback(isinteresting: Boolean) {
+        if (callback != null) {
+            callback!!.invoke(this, isinteresting)
+        }
+        else {
+            engine!!.callback(this, isinteresting)
+        }
+    }
 
     fun getAttribute(name: String): Any? {
         if (name in attributes) {

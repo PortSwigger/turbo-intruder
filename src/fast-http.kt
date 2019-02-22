@@ -14,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 class Scripts() {
     companion object {
-        val SCRIPTENVIRONMENT = """import burp.RequestEngine, burp.Args, string, random
+        val SCRIPTENVIRONMENT = """import burp.RequestEngine, burp.Args, string, random, time
 
 def randstr(length=12, allow_digits=True):
     candidates = string.ascii_lowercase
@@ -63,13 +63,12 @@ class RequestEngine:
         self.engine.setOutput(outputHandler)
 
 
-    def queue(self, template, payload=-1, learn=0):
-        if payload != -1:
+    def queue(self, template, payload=None, learn=None, callback=None):
+        if payload != None:
             if(not isinstance(payload, basestring)):
                 payload = str(payload)
-            self.engine.queue(template, payload, learn)
-        else:
-            self.engine.queue(template)
+        self.engine.queue(template, payload, learn, callback)
+       
 
     def start(self, timeout=5):
         self.engine.start(timeout)
