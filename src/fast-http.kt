@@ -63,8 +63,8 @@ class RequestEngine:
         self.engine.setOutput(outputHandler)
 
 
-    def queue(self, template, payload=0, learn=0):
-        if payload != 0:
+    def queue(self, template, payload=-1, learn=0):
+        if payload != -1:
             if(not isinstance(payload, basestring)):
                 payload = str(payload)
             self.engine.queue(template, payload, learn)
