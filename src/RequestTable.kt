@@ -68,7 +68,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         //issueTable.getColumnModel().getColumn(0).setPreferredWidth(500)
 
         issueTable.getSelectionModel().addListSelectionListener({
-            val req = model.getRequest(issueTable.getSelectedRow())
+            val req = model.getRequest(issueTable.convertRowIndexToModel(issueTable.getSelectedRow()))
             setCurrentRequest(req!!)
         })
 
