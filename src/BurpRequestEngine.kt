@@ -37,8 +37,8 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
     }
 
 
-    override fun buildRequest(template: String, payload: String?, learnBoring: Int?): Request {
-        return Request(template.replace("Connection: keep-alive", "Connection: close"), payload, learnBoring ?: 0)
+    override fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?): Request {
+        return Request(template.replace("Connection: keep-alive", "Connection: close"), payloads, learnBoring ?: 0)
     }
 
 
@@ -64,10 +64,10 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
             var resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes())
             connections.incrementAndGet()
             while (resp.response == null && shouldRetry(req)) {
-                Utils.out("Retrying "+req.word)
+                Utils.out("Retrying "+req.words)
                 resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes())
                 connections.incrementAndGet()
-                Utils.out("Retried "+req.word)
+                Utils.out("Retried "+req.words)
             }
 
             if(resp.response == null) {

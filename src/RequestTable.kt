@@ -39,7 +39,7 @@ class ConsolePrinter: OutputHandler {
     }
 
     override fun add(req: Request) {
-        Utils.out(String.format("%s | %s | %s | %s | %s ", requestID.incrementAndGet(), req.word?: "", req.code, req.wordcount, req.length))
+        Utils.out(String.format("%s | %s | %s | %s | %s ", requestID.incrementAndGet(), req.words.joinToString(separator="/"), req.code, req.wordcount, req.length))
     }
 }
 

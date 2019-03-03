@@ -63,11 +63,11 @@ class RequestEngine:
         self.engine.setOutput(outputHandler)
 
 
-    def queue(self, template, payload=None, learn=None, callback=None):
-        if payload != None:
-            if(not isinstance(payload, basestring)):
-                payload = str(payload)
-        self.engine.queue(template, payload, learn, callback)
+    def queue(self, template, payloads=None, learn=None, callback=None):
+        if payloads != None:
+            if(not isinstance(payloads, list)):
+                payloads = [payloads]
+        self.engine.queue(template, payloads, learn, callback)
 
 
     def start(self, timeout=5):
@@ -178,6 +178,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             } else {
                 messageEditor.setMessage(req.request, true)
             }
+
 
             val defaultScript = Utils.callbacks.loadExtensionSetting("defaultScript")
             if (defaultScript == null){

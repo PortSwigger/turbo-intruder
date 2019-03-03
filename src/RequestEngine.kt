@@ -37,19 +37,19 @@ abstract class RequestEngine {
 
     abstract fun start(timeout: Int = 10)
 
-    abstract fun buildRequest(template: String, payload: String?, learnBoring: Int?): Request
+    abstract fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?): Request
 
     fun queue(req: String) {
-        queue(req, null, 0, null)
+        queue(req, emptyList<String>(), 0, null)
     }
 
-    fun queue(template: String, payload: String?) {
-        queue(template, payload, 0, null)
+    fun queue(template: String, payloads:  List<String?>) {
+        queue(template, payloads, 0, null)
     }
 
-    fun queue(template: String, payload: String?, learnBoring: Int?, callback: ((Request, Boolean) -> Boolean)?) {
+    fun queue(template: String, payloads: List<String?>, learnBoring: Int?, callback: ((Request, Boolean) -> Boolean)?) {
 
-        if (payload != null && !template.contains("%s")) {
+        if (!payloads.isEmpty() && !template.contains("%s")) {
             Utils.out("Add %s to the request where you want the payload to go.")
             throw Exception("Add %s to the request where you want the payload to go.")
         }
@@ -58,7 +58,7 @@ abstract class RequestEngine {
             throw Exception("Automatic interesting response detection using 'learn=X' isn't support in command line mode.")
         }
 
-        val request = buildRequest(template, payload, learnBoring)
+        val request = buildRequest(template, payloads, learnBoring)
         request.engine = this
         request.callback = callback
 
@@ -133,7 +133,7 @@ abstract class RequestEngine {
     fun statusString(): String {
         val duration = Math.ceil(((System.nanoTime().toFloat() - start) / 1000000000).toDouble()).toInt()
         val requests = successfulRequests.get().toFloat()
-        var statusString = String.format("Reqs: %d | Queued: %d | Duration: %d |RPS: %.0f | Connections: %d | Retries: %d | Fails: %d | Next: %s", requests.toInt(), requestQueue.count(), duration, requests / duration, connections.get(), retries.get(), permaFails.get(), requestQueue.peek()?.word?: "")
+        var statusString = String.format("Reqs: %d | Queued: %d | Duration: %d |RPS: %.0f | Connections: %d | Retries: %d | Fails: %d | Next: %s", requests.toInt(), requestQueue.count(), duration, requests / duration, connections.get(), retries.get(), permaFails.get(), requestQueue.peek().words.joinToString(separator="/"))
         val state = attackState.get()
         if (state < 3) {
             return statusString
@@ -219,7 +219,7 @@ abstract class RequestEngine {
             return false
         }
 
-        val reqID = req.word ?: req.getRequest().hashCode().toString()
+        val reqID = req.getRequest().hashCode().toString()
 
         val fails = failedWords.get(reqID)
         if (fails == null){

@@ -59,8 +59,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         start = System.nanoTime()
     }
 
-    override fun buildRequest(template: String, payload: String?, learnBoring: Int?): Request {
-        return Request(template.replace("Connection: close", "Connection: keep-alive"), payload, learnBoring ?: 0)
+    override fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?): Request {
+        return Request(template.replace("Connection: close", "Connection: keep-alive"), payloads, learnBoring ?: 0)
     }
 
     private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, retryQueue: LinkedBlockingQueue<Request>, completedLatch: CountDownLatch, baseReadFreq: Int, baseRequestsPerConnection: Int, connectedLatch: CountDownLatch) {
@@ -272,10 +272,10 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                     // todo distinguish couldn't send vs couldn't read
                     val activeRequest = inflight.peek()
                     if (activeRequest != null) {
-                        val activeWord = activeRequest.word ?: "(null)"
+                        val activeWord = activeRequest.words.joinToString(separator="/")
                         if (shouldRetry(activeRequest)) {
                             if (reqWithResponse != null) {
-                                Utils.out("Autorecovering error after " + answeredRequests + " answered requests. After '" + reqWithResponse.word + "' during '" + activeWord + "'")
+                                Utils.out("Autorecovering error after " + answeredRequests + " answered requests. After '" + reqWithResponse.words.joinToString(separator="/") + "' during '" + activeWord + "'")
                             } else {
                                 Utils.out("Autorecovering first-request error during '" + activeWord + "'")
                             }
