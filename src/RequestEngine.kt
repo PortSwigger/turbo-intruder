@@ -49,9 +49,14 @@ abstract class RequestEngine {
 
     fun queue(template: String, payloads: List<String?>, learnBoring: Int?, callback: ((Request, Boolean) -> Boolean)?) {
 
-        if (!payloads.isEmpty() && !template.contains("%s")) {
+        if (!template.contains("%s")) {
             Utils.out("Add %s to the request where you want the payload to go.")
             throw Exception("Add %s to the request where you want the payload to go.")
+        }
+
+        if ((payloads.isEmpty()) || (payloads.size == 1 && payloads[0] == null)) {
+            Utils.out("Add payloads to send requests")
+            throw Exception("Add payloads to send requests")
         }
 
         if (learnBoring != 0 && !Utils.gotBurp) {

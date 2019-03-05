@@ -64,9 +64,8 @@ class RequestEngine:
 
 
     def queue(self, template, payloads=None, learn=None, callback=None):
-        if payloads != None:
-            if(not isinstance(payloads, list)):
-                payloads = [payloads]
+        if(not isinstance(payloads, list)):
+            payloads = [payloads]
         self.engine.queue(template, payloads, learn, callback)
 
 
