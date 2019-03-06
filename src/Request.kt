@@ -6,7 +6,7 @@ import java.util.*
 import java.util.Arrays.asList
 import kotlin.collections.HashMap
 
-open class Request(val template: String, val word: String?, val learnBoring: Int) {
+open class Request(val template: String, val words: List<String?>, val learnBoring: Int) {
 
     var response: String? = null
     var details: IResponseVariations? = null
@@ -58,14 +58,14 @@ open class Request(val template: String, val word: String?, val learnBoring: Int
         }
     }
 
-    constructor(template: String): this(template, null, 0)
+    constructor(template: String): this(template, emptyList<String>(), 0)
 
     fun getBurpRequest(): IHttpRequestResponse {
         return BurpRequest(this)
     }
 
     fun getRequest(): String {
-        if (word == null) {
+        if (words.isEmpty()) {
             return template
         }
 
@@ -73,13 +73,17 @@ open class Request(val template: String, val word: String?, val learnBoring: Int
             Utils.out("Bad base request - nowhere to inject payload")
         }
 
-        val req = template.replace("%s", word)
+        var req = template
+
+        for (w in words){
+            req = req.replaceFirst("%s", w.toString(), false)
+        }
 
         if (req.contains("%s")) {
             Utils.out("Bad base request - contains too many %s")
         }
 
-        return template.replace("%s", word)
+        return req
     }
 
     fun getRequestAsBytes(): ByteArray {

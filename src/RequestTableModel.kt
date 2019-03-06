@@ -35,7 +35,7 @@ class RequestTableModel : AbstractTableModel() {
 
         return when (columnIndex) {
             0 -> rowIndex
-            1 -> request.word
+            1 -> request.words.joinToString(separator="/")
             2 ->  request.code
             3 -> request.wordcount
             4 -> request.length
