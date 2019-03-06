@@ -220,6 +220,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             }
                         }
                         else {
+                            Utils.err("Response has no content-length - doing a one-second socket read instead. This is slow!")
                             socket.soTimeout = 1000
                             try {
                                 while (true) {

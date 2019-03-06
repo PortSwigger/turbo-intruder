@@ -1,4 +1,5 @@
 # This is just for making sure the engine works during development
+# Launch with java -jar build/libs/turbo-intruder-all.jar resources/examples/test.py /dev/null z z
 def queueRequests(target, wordlists):
     engine = RequestEngine(endpoint='https://hackxor.net:443',
                            concurrentConnections=1,
