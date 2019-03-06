@@ -47,16 +47,16 @@ abstract class RequestEngine {
         queue(template, payloads, 0, null)
     }
 
-    fun queue(template: String, payloads: List<String?>, learnBoring: Int?, callback: ((Request, Boolean) -> Boolean)?) {
+    fun queue(template: String, payloads: List<String?>, learnBoring: Int, callback: ((Request, Boolean) -> Boolean)?) {
 
-        if (!template.contains("%s")) {
-            Utils.out("Add %s to the request where you want the payload to go.")
-            throw Exception("Add %s to the request where you want the payload to go.")
+        val noPayload = payloads.isEmpty()
+        val noMarker = !template.contains("%s")
+
+        if (noMarker && !noPayload) {
+            throw Exception("The request has payloads specified, but no %s injection markers")
         }
-
-        if ((payloads.isEmpty()) || (payloads.size == 1 && payloads[0] == null)) {
-            Utils.out("Add payloads to send requests")
-            throw Exception("Add payloads to send requests")
+        if (!noMarker && noPayload) {
+            throw Exception("The request has a %s injection point, but no payloads specified")
         }
 
         if (learnBoring != 0 && !Utils.gotBurp) {
@@ -138,7 +138,8 @@ abstract class RequestEngine {
     fun statusString(): String {
         val duration = Math.ceil(((System.nanoTime().toFloat() - start) / 1000000000).toDouble()).toInt()
         val requests = successfulRequests.get().toFloat()
-        var statusString = String.format("Reqs: %d | Queued: %d | Duration: %d |RPS: %.0f | Connections: %d | Retries: %d | Fails: %d | Next: %s", requests.toInt(), requestQueue.count(), duration, requests / duration, connections.get(), retries.get(), permaFails.get(), requestQueue.peek().words.joinToString(separator="/"))
+        val nextWord = requestQueue?.peek()?.words?.joinToString(separator="/")
+        var statusString = String.format("Reqs: %d | Queued: %d | Duration: %d |RPS: %.0f | Connections: %d | Retries: %d | Fails: %d | Next: %s", requests.toInt(), requestQueue.count(), duration, requests / duration, connections.get(), retries.get(), permaFails.get(), nextWord)
         val state = attackState.get()
         if (state < 3) {
             return statusString

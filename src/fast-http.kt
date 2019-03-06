@@ -63,8 +63,10 @@ class RequestEngine:
         self.engine.setOutput(outputHandler)
 
 
-    def queue(self, template, payloads=None, learn=None, callback=None):
-        if(not isinstance(payloads, list)):
+    def queue(self, template, payloads=None, learn=0, callback=None):
+        if payloads == None:
+            payloads = []
+        elif(not isinstance(payloads, list)):
             payloads = [payloads]
         self.engine.queue(template, payloads, learn, callback)
 
