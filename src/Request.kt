@@ -80,7 +80,8 @@ open class Request(val template: String, val words: List<String?>, val learnBori
         }
 
         if (req.contains("%s")) {
-            Utils.out("Bad base request - contains too many %s")
+
+            Utils.out("Bad base request "+words.size+" words and more %s")
         }
 
         return req

@@ -43,6 +43,10 @@ abstract class RequestEngine {
         queue(req, emptyList<String>(), 0, null)
     }
 
+    fun queue(req: String, payload: String) {
+        queue(req, listOf(payload), 0, null)
+    }
+
     fun queue(template: String, payloads:  List<String?>) {
         queue(template, payloads, 0, null)
     }
