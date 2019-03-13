@@ -67,7 +67,7 @@ class RequestEngine:
         if payloads == None:
             payloads = []
         elif(not isinstance(payloads, list)):
-            payloads = [payloads]
+            payloads = [str(payloads)]
         self.engine.queue(template, payloads, learn, callback)
 
 
