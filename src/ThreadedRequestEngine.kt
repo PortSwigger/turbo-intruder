@@ -330,7 +330,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         val chunkLengthStart = 0
         val chunkLengthEnd = buf.indexOf("\r\n")
         if(chunkLengthEnd == -1) {
-            throw RuntimeException("Coulnd't find the chunk length. Response size may be unspecified - try Burp request engine instead?")
+            return Result(-1, -1)
+            //throw RuntimeException("Coulnd't find the chunk length. Response size may be unspecified - try Burp request engine instead?")
         }
 
         try {
