@@ -12,7 +12,7 @@ import javax.net.SocketFactory
 import javax.net.ssl.*
 import kotlin.concurrent.thread
 
-open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, val timeout: Int): RequestEngine() {
+open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, val timeout: Int, override var readCallback: ((String) -> Boolean)?): RequestEngine() {
 
     private val connectedLatch = CountDownLatch(threads)
 
@@ -158,18 +158,21 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                     }
 
-                    val read = ByteArray(1024)
+                    val readBuffer = ByteArray(1024)
                     var buffer = ""
 
                     for (k in 1..readCount) {
 
                         var bodyStart = buffer.indexOf("\r\n\r\n")
                         while (bodyStart == -1) {
-                            val len = socket.getInputStream().read(read)
+                            val len = socket.getInputStream().read(readBuffer)
                             if(len == -1) {
                                 break
                             }
-                            buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
+
+                            val read = String(readBuffer.copyOfRange(0, len), Charsets.ISO_8859_1)
+                            triggerReadCallback(read)
+                            buffer += read
                             bodyStart = buffer.indexOf("\r\n\r\n")
                         }
 
@@ -189,8 +192,10 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             val responseLength = bodyStart + contentLength + 4
 
                             while (buffer.length < responseLength) {
-                                val len = socket.getInputStream().read(read)
-                                buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
+                                val len = socket.getInputStream().read(readBuffer)
+                                val read =  String(readBuffer.copyOfRange(0, len), Charsets.ISO_8859_1)
+                                triggerReadCallback(read)
+                                buffer += read
                             }
 
                             body = buffer.substring(bodyStart + 4, responseLength)
@@ -203,11 +208,13 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             while (true) {
                                 var chunk = getNextChunkLength(buffer)
                                 while (chunk.length == -1 || buffer.length < (chunk.length+2)) {
-                                    val len = socket.getInputStream().read(read)
+                                    val len = socket.getInputStream().read(readBuffer)
                                     if (len == -1) {
                                         throw RuntimeException("Chunked response finished unexpectedly")
                                     }
-                                    buffer += String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
+                                    val read = String(readBuffer.copyOfRange(0, len), Charsets.ISO_8859_1)
+                                    triggerReadCallback(read)
+                                    buffer += read
                                     chunk = getNextChunkLength(buffer)
                                 }
 
@@ -224,11 +231,11 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             socket.soTimeout = 1000
                             try {
                                 while (true) {
-                                    val len = socket.getInputStream().read(read)
+                                    val len = socket.getInputStream().read(readBuffer)
                                     if (len == -1) {
                                         break
                                     }
-                                    buffer = String(read.copyOfRange(0, len), Charsets.ISO_8859_1)
+                                    buffer = String(readBuffer.copyOfRange(0, len), Charsets.ISO_8859_1)
                                     body += buffer
                                 }
                             } catch (ex: SocketTimeoutException) {

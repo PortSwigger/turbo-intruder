@@ -23,6 +23,7 @@ abstract class RequestEngine {
     lateinit var outputHandler: OutputHandler
     lateinit var requestQueue: LinkedBlockingQueue<Request>
     abstract val callback: (Request, Boolean) -> Boolean
+    abstract var readCallback: ((String) -> Boolean)?
     abstract val maxRetriesPerRequest: Int
     lateinit var target: URL
 
@@ -38,6 +39,10 @@ abstract class RequestEngine {
     abstract fun start(timeout: Int = 10)
 
     abstract fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?): Request
+
+    fun triggerReadCallback(data: String) {
+        readCallback?.invoke(data)
+    }
 
     fun queue(req: String) {
         queue(req, emptyList<String>(), 0, null)
