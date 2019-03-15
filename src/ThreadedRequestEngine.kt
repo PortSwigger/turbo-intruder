@@ -12,7 +12,7 @@ import javax.net.SocketFactory
 import javax.net.ssl.*
 import kotlin.concurrent.thread
 
-open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, val timeout: Int, override var readCallback: ((String) -> Boolean)?): RequestEngine() {
+open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, val timeout: Int, override var readCallback: ((String) -> Boolean)?, val readSize: Int): RequestEngine() {
 
     private val connectedLatch = CountDownLatch(threads)
 
@@ -108,6 +108,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                 //(socket as SSLSocket).session.peerCertificates
                 socket!!.soTimeout = timeout * 1000
                 socket.tcpNoDelay = true
+                socket.receiveBufferSize = readSize
                 // todo tweak other TCP options for max performance
 
                 if(!connected) {
@@ -158,7 +159,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                     }
 
-                    val readBuffer = ByteArray(1024)
+                    val readBuffer = ByteArray(readSize)
                     var buffer = ""
 
                     for (k in 1..readCount) {
