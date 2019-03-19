@@ -64,12 +64,16 @@ class RequestEngine:
         self.engine.setOutput(outputHandler)
 
 
-    def queue(self, template, payloads=None, learn=0, callback=None):
+    def queue(self, template, payloads=None, learn=0, callback=None, gate=None):
         if payloads == None:
             payloads = []
         elif(not isinstance(payloads, list)):
             payloads = [str(payloads)]
-        self.engine.queue(template, payloads, learn, callback)
+        self.engine.queue(template, payloads, learn, callback, gate)
+
+
+    def openGate(self, gate):
+        self.engine.openGate(gate)
 
 
     def start(self, timeout=5):

@@ -153,7 +153,18 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         if (req == null) break
 
                         inflight.addLast(req)
-                        socket.getOutputStream().write(req.getRequestAsBytes())
+                        val byteReq = req.getRequestAsBytes()
+                        val outputstream = socket.getOutputStream()
+                        if (req.gate != null) {
+
+                            outputstream.write(byteReq, 0, byteReq.lastIndex-1)
+                            req.gate!!.waitForGo()
+                            outputstream.write(byteReq.get(byteReq.lastIndex).toInt())
+                        }
+                        else {
+                            outputstream.write(byteReq)
+                        }
+
                         readCount++
                         requestsSent++
 

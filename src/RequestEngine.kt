@@ -26,6 +26,7 @@ abstract class RequestEngine {
     abstract var readCallback: ((String) -> Boolean)?
     abstract val maxRetriesPerRequest: Int
     lateinit var target: URL
+    private val floodgates = HashMap<String, Floodgate>()
 
     fun invokeCallback(req: Request, interesting: Boolean){
         try {
@@ -45,18 +46,18 @@ abstract class RequestEngine {
     }
 
     fun queue(req: String) {
-        queue(req, emptyList<String>(), 0, null)
+        queue(req, emptyList<String>(), 0, null, null)
     }
 
     fun queue(req: String, payload: String) {
-        queue(req, listOf(payload), 0, null)
+        queue(req, listOf(payload), 0, null, null)
     }
 
     fun queue(template: String, payloads:  List<String?>) {
-        queue(template, payloads, 0, null)
+        queue(template, payloads, 0, null, null)
     }
 
-    fun queue(template: String, payloads: List<String?>, learnBoring: Int, callback: ((Request, Boolean) -> Boolean)?) {
+    fun queue(template: String, payloads: List<String?>, learnBoring: Int, callback: ((Request, Boolean) -> Boolean)?, gateName: String?) {
 
         val noPayload = payloads.isEmpty()
         val noMarker = !template.contains("%s")
@@ -75,6 +76,19 @@ abstract class RequestEngine {
         val request = buildRequest(template, payloads, learnBoring)
         request.engine = this
         request.callback = callback
+
+
+        if (gateName != null) {
+            synchronized(gateName) {
+                request.gate = floodgates[gateName] ?: Floodgate()
+
+                if (floodgates.containsKey(gateName)) {
+                    floodgates[gateName]!!.addWaiter()
+                } else {
+                    floodgates[gateName] = request.gate!!
+                }
+            }
+        }
 
         val state = attackState.get()
 
@@ -100,6 +114,9 @@ abstract class RequestEngine {
         }
     }
 
+    open fun openGate(gateName: String) {
+        floodgates[gateName]!!.open()
+    }
 
 
     open fun showStats(timeout: Int = -1) {

@@ -13,6 +13,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
     var engine: RequestEngine? = null
     var connectionID: Int? = null
     var callback: ((Request, Boolean) -> Boolean)? = null
+    var gate: Floodgate? = null
 
     private val attributes: HashMap<String, Any> = HashMap()
 
