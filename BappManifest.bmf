@@ -9,4 +9,4 @@ ProOnly: False
 Author: James 'albinowax' Kettle, PortSwigger Web Security
 ShortDescription: Send large numbers of HTTP requests and analyze the results
 EntryPoint: build/libs/turbo-intruder-all.jar
-BuildCommand: gradle fatJar
+BuildCommand: ./gradlew fatJar
