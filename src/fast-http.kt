@@ -102,6 +102,8 @@ fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: S
         if (Utils.gotBurp) {
             pyInterp.set("callbacks", Utils.callbacks)
             pyInterp.set("helpers", Utils.callbacks.helpers)
+            pyInterp.setOut(Utils.callbacks.stdout)
+            pyInterp.setErr(Utils.callbacks.stderr)
         }
         pyInterp.exec(Scripts.SCRIPTENVIRONMENT)
         pyInterp.exec(code)
