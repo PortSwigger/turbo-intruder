@@ -158,15 +158,9 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         if (req.gate != null) {
 
                             val withHold = 5
-                            Utils.out("Starting request")
-
-                            Utils.callbacks.stdout.write(byteReq, 0, byteReq.size-withHold)
                             outputstream.write(byteReq, 0, byteReq.size-withHold)
                             req.gate!!.waitForGo()
-                            Utils.callbacks.stdout.write(byteReq, byteReq.size-withHold, withHold)
                             outputstream.write(byteReq, byteReq.size-withHold, withHold)
-                            Utils.out("\n...request completed")
-                            //outputstream.write(byteReq.get(byteReq.lastIndex).toInt())
                         }
                         else {
                             outputstream.write(byteReq)

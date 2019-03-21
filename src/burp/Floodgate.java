@@ -8,23 +8,36 @@ public class Floodgate {
     final private AtomicBoolean isOpen = new AtomicBoolean(false);
 
     // the python thread will set here
-    void open() throws InterruptedException {
+    void open() {
         if (isOpen.get()) {
             Utils.out("Gate is already open");
             return;
         }
 
-        while (remaining.get() > 0) {
-            Utils.out("Threads remaining: "+remaining.get());
-            synchronized (remaining) {
-                remaining.wait();
-            }
+        if (remaining.get() > 0) {
+            new Thread(() -> {
+                while (remaining.get() > 0) {
+                    //Utils.out("Threads remaining: "+remaining.get());
+                    synchronized (remaining) {
+                        try {
+                            remaining.wait();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+                makeOpen();
+            }).start();
         }
+        else {
+            makeOpen();
+        }
+    }
 
+    private void makeOpen() {
         synchronized (isOpen) {
             isOpen.set(true);
             isOpen.notifyAll();
-            //Utils.out("Gate opened");
         }
     }
 
