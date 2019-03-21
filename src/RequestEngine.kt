@@ -138,7 +138,9 @@ abstract class RequestEngine {
             success = completedLatch.await(timeout.toLong(), TimeUnit.SECONDS)
         }
         else {
-            completedLatch.await()
+            while (completedLatch.count > 0 && !Utils.unloaded && attackState.get() < 3) {
+                completedLatch.await(10, TimeUnit.SECONDS)
+            }
         }
 
         if (attackState.get() == 3) {

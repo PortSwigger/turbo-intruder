@@ -157,7 +157,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         val outputstream = socket.getOutputStream()
                         if (req.gate != null) {
 
-                            val withHold = 5
+                            val withHold = 1
                             outputstream.write(byteReq, 0, byteReq.size-withHold)
                             req.gate!!.waitForGo()
                             outputstream.write(byteReq, byteReq.size-withHold, withHold)
