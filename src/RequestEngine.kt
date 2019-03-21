@@ -119,6 +119,10 @@ abstract class RequestEngine {
     }
 
     open fun openGate(gateName: String) {
+        //Utils.out("Opening gate "+gateName)
+        if (!floodgates.containsKey(gateName)) {
+            throw Exception("Unrecognised gate name in openGate() invocation")
+        }
         floodgates[gateName]!!.open()
     }
 
