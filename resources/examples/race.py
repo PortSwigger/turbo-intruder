@@ -12,7 +12,9 @@ def queueRequests(target, wordlists):
     # open TCP connections and send partial requests
     engine.start(timeout=5)
 
-    # send the final byte of each request
+    # wait until every 'race1' tagged request is ready
+    # then send the final byte of each request
+    # (this method is non-blocking, just like queue)
     engine.openGate('race1')
 
     engine.complete(timeout=60)
