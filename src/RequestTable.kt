@@ -35,11 +35,11 @@ class ConsolePrinter: OutputHandler {
     private val requestID = AtomicInteger(0)
 
     init {
-        Utils.out("ID | Word | Status | Wordcount | Length")
+        Utils.out("ID | Word | Status | Wordcount | Length | Time")
     }
 
     override fun add(req: Request) {
-        Utils.out(String.format("%s | %s | %s | %s | %s ", requestID.incrementAndGet(), req.words.joinToString(separator="/"), req.code, req.wordcount, req.length))
+        Utils.out(String.format("%s | %s | %s | %s | %s | %s", requestID.incrementAndGet(), req.words.joinToString(separator="/"), req.code, req.wordcount, req.length, req.time))
     }
 }
 

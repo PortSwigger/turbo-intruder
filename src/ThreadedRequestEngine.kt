@@ -130,6 +130,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                     }
 
                     var readCount = 0
+                    var startTime: Long = 0
+                    var endTime: Long = 0
                     for (j in 1..readFreq) {
                         if (requestsSent >= requestsPerConnection) {
                             break
@@ -156,14 +158,15 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         val byteReq = req.getRequestAsBytes()
                         val outputstream = socket.getOutputStream()
                         if (req.gate != null) {
-
                             val withHold = 1
                             outputstream.write(byteReq, 0, byteReq.size-withHold)
                             req.gate!!.waitForGo()
+                            startTime = System.nanoTime()
                             outputstream.write(byteReq, byteReq.size-withHold, withHold)
                         }
                         else {
                             outputstream.write(byteReq)
+                            startTime = System.nanoTime()
                         }
 
                         readCount++
@@ -182,6 +185,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             if(len == -1) {
                                 break
                             }
+                            endTime = System.nanoTime()
 
                             val read = String(readBuffer.copyOfRange(0, len), Charsets.ISO_8859_1)
                             triggerReadCallback(read)
@@ -275,6 +279,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         successfulRequests.getAndIncrement()
                         reqWithResponse.response = msg
                         reqWithResponse.connectionID = connectionID
+                        reqWithResponse.time = (endTime - startTime) / 1000000 // convert to NS and lose precision
 
                         answeredRequests += 1
                         val interesting = processResponse(reqWithResponse, (reqWithResponse.response as String).toByteArray(Charsets.ISO_8859_1))

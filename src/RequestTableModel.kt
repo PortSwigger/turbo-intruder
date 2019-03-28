@@ -26,6 +26,7 @@ class RequestTableModel : AbstractTableModel() {
             2 -> java.lang.Integer::class.java
             3 -> java.lang.Integer::class.java
             4 -> java.lang.Integer::class.java
+            5 -> java.lang.Long::class.java
             else -> throw RuntimeException()
         }
     }
@@ -39,6 +40,7 @@ class RequestTableModel : AbstractTableModel() {
             2 ->  request.code
             3 -> request.wordcount
             4 -> request.length
+            5 -> request.time
             else -> null
         }
     }
@@ -63,6 +65,6 @@ class RequestTableModel : AbstractTableModel() {
     }
 
     companion object {
-        internal var columns = Arrays.asList("Row", "Payload", "Status", "Words", "Length")
+        internal var columns = Arrays.asList("Row", "Payload", "Status", "Words", "Length", "Time")
     }
 }
