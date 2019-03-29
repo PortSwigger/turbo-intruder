@@ -1,6 +1,7 @@
 package burp
 import java.util.*
 import kotlin.concurrent.thread
+import kotlin.math.sqrt
 import java.awt.*
 import java.awt.event.ActionEvent
 import java.awt.event.ActionListener
@@ -14,17 +15,17 @@ import java.util.concurrent.ConcurrentHashMap
 
 class Scripts() {
     companion object {
-        val SCRIPTENVIRONMENT = """import burp.RequestEngine, burp.Args, string, random, time
+        val SCRIPTENVIRONMENT = """import burp.RequestEngine, burp.Args, string, random, time, math
 
 def mean(data):
     return sum(data)/len(data)
 
 def stddev(data):
     if len(data) == 1:
-        return data[0]
+        return 0
     avg = mean(data)
     base = sum((entry-avg)**2 for entry in data)
-    return (base/(len(data)-1))**2
+    return math.sqrt(base/(len(data)-1))
 
 def randstr(length=12, allow_digits=True):
     candidates = string.ascii_lowercase
