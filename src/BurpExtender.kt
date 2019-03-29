@@ -2,7 +2,7 @@ package burp
 
 class BurpExtender(): IBurpExtender, IExtensionStateListener {
 
-    val version = "1.0.7"
+    val version = "1.0.9"
 
     override fun extensionUnloaded() {
         Utils.unloaded = true
