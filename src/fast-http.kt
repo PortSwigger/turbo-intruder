@@ -16,6 +16,16 @@ class Scripts() {
     companion object {
         val SCRIPTENVIRONMENT = """import burp.RequestEngine, burp.Args, string, random, time
 
+def mean(data):
+    return sum(data)/len(data)
+
+def stddev(data):
+    if len(data) == 1:
+        return data[0]
+    avg = mean(data)
+    base = sum((entry-avg)**2 for entry in data)
+    return (base/(len(data)-1))**2
+
 def randstr(length=12, allow_digits=True):
     candidates = string.ascii_lowercase
     if allow_digits:
