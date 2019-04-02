@@ -10,7 +10,8 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.zip.GZIPInputStream
 
-abstract class RequestEngine {
+abstract class RequestEngine: IExtensionStateListener {
+
     var start: Long = System.nanoTime()
     val failedWords = HashMap<String, AtomicInteger>()
     var successfulRequests = AtomicInteger(0)
@@ -27,6 +28,16 @@ abstract class RequestEngine {
     abstract val maxRetriesPerRequest: Int
     lateinit var target: URL
     private val floodgates = HashMap<String, Floodgate>()
+
+    init {
+        if (Utils.gotBurp) {
+            Utils.callbacks.registerExtensionStateListener(this)
+        }
+    }
+
+    override fun extensionUnloaded() {
+        cancel()
+    }
 
     fun invokeCallback(req: Request, interesting: Boolean){
         try {
