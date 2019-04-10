@@ -361,7 +361,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
         try {
             val skip = 2+chunkLengthEnd-chunkLengthStart
-            return Result(skip, Integer.parseInt(buf.substring(chunkLengthStart, chunkLengthEnd), 16)+skip)
+            return Result(skip, Integer.parseInt(buf.substring(chunkLengthStart, chunkLengthEnd).trim(), 16)+skip)
         } catch (e: NumberFormatException) {
             throw RuntimeException("Can't parse followup chunk length '"+buf.substring(chunkLengthStart, chunkLengthEnd)+"' in "+buf)
         }
