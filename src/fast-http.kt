@@ -152,7 +152,7 @@ class OfferTurboIntruder(): IContextMenuFactory {
         if (invocation != null && invocation.selectedMessages[0] != null) {
             val probeButton = JMenuItem("Send to turbo intruder")
             val bounds = invocation.selectionBounds ?: IntArray(0)
-            probeButton.addActionListener(TurboIntruderFrame(invocation.selectedMessages[0], bounds))
+            probeButton.addActionListener(TurboIntruderFrame(invocation.selectedMessages[0], bounds, null))
             options.add(probeButton)
         }
         return options
@@ -174,7 +174,7 @@ class MessageController(val req: IHttpRequestResponse): IMessageEditorController
 
 }
 
-class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds: IntArray): ActionListener, JFrame("Turbo Intruder - " + inputRequest.httpService.host)  {
+class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds: IntArray, val fixedScript: String?): ActionListener, JFrame("Turbo Intruder - " + inputRequest.httpService.host)  {
     private val req = Utils.callbacks.saveBuffersToTempFiles(inputRequest)
 
 
@@ -189,22 +189,28 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             pane.setDividerLocation(0.25)
             val textEditor = Utils.callbacks.createTextEditor()
             val messageEditor = Utils.callbacks.createMessageEditor(MessageController(req), true)
-
             var baseInput = ""
-            if(!selectionBounds.isEmpty() && selectionBounds[0] != selectionBounds[1]) {
-                messageEditor.setMessage(req.request.copyOfRange(0, selectionBounds[0]) + ("%s".toByteArray()) + req.request.copyOfRange(selectionBounds[1], req.request.size), true)
-                baseInput = String(req.request.copyOfRange(selectionBounds[0], selectionBounds[1]), Charsets.ISO_8859_1)
-            } else {
+
+            if (fixedScript != null) {
                 messageEditor.setMessage(req.request, true)
-            }
-
-
-            val defaultScript = Utils.callbacks.loadExtensionSetting("defaultScript")
-            if (defaultScript == null){
-                textEditor.text = Scripts.SAMPLEBURPSCRIPT.toByteArray()
+                textEditor.text = fixedScript.toByteArray()
             }
             else {
-                textEditor.text = defaultScript.toByteArray()
+
+                if (!selectionBounds.isEmpty() && selectionBounds[0] != selectionBounds[1]) {
+                    messageEditor.setMessage(req.request.copyOfRange(0, selectionBounds[0]) + ("%s".toByteArray()) + req.request.copyOfRange(selectionBounds[1], req.request.size), true)
+                    baseInput = String(req.request.copyOfRange(selectionBounds[0], selectionBounds[1]), Charsets.ISO_8859_1)
+                } else {
+                    messageEditor.setMessage(req.request, true)
+                }
+
+
+                val defaultScript = Utils.callbacks.loadExtensionSetting("defaultScript")
+                if (defaultScript == null) {
+                    textEditor.text = Scripts.SAMPLEBURPSCRIPT.toByteArray()
+                } else {
+                    textEditor.text = defaultScript.toByteArray()
+                }
             }
 
             textEditor.setEditable(true)
