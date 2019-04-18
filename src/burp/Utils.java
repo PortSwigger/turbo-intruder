@@ -35,4 +35,12 @@ public class Utils {
         }
     }
 
+    static String getHeaders(String request) {
+        int bodyStart = request.indexOf("\r\n\r\n");
+        if (bodyStart < 0) {
+            return request;
+        }
+        return request.substring(0, bodyStart);
+    }
+
 }

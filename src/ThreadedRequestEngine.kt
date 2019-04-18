@@ -60,7 +60,10 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
     }
 
     override fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?): Request {
-        return Request(template.replace("Connection: close", "Connection: keep-alive"), payloads, learnBoring ?: 0)
+        if(Utils.getHeaders(template).contains("Connection: close")) {
+            return Request(template.replaceFirst("Connection: close", "Connection: keep-alive"), payloads, learnBoring ?: 0)
+        }
+        return Request(template, payloads, learnBoring ?: 0)
     }
 
     private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, retryQueue: LinkedBlockingQueue<Request>, completedLatch: CountDownLatch, baseReadFreq: Int, baseRequestsPerConnection: Int, connectedLatch: CountDownLatch) {

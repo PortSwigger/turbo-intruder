@@ -98,7 +98,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
     }
 
     fun fixContentLength(request: ByteArray): ByteArray {
-        if (String(request).contains("Content-Length: ")) {
+        if (Utils.getHeaders(String(request)).contains("Content-Length: ")) {
             val start = getBodyStart(request)
             val contentLength = request.size - start
             try {
