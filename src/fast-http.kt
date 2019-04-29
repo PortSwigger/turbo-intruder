@@ -42,7 +42,7 @@ class Engine:
 
 class RequestEngine:
 
-    def __init__(self, endpoint, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=100, timeout=5, maxRetriesPerRequest=3, readCallback=None, readSize = 1024):
+    def __init__(self, endpoint, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=100, timeout=5, maxRetriesPerRequest=3, readCallback=None, readSize=1024, resumeSSL=True):
         concurrentConnections = int(concurrentConnections)
         requestsPerConnection = int(requestsPerConnection)
 
@@ -63,7 +63,7 @@ class RequestEngine:
                 print('Read callbacks are not supported in the Burp request engine. Try Engine.THREADED instead.')
             self.engine = burp.BurpRequestEngine(endpoint, concurrentConnections, maxQueueSize, maxRetriesPerRequest, callback, readCallback)
         elif(engine == Engine.THREADED):
-            self.engine = burp.ThreadedRequestEngine(endpoint, concurrentConnections, maxQueueSize, readFreq, requestsPerConnection, maxRetriesPerRequest, callback, timeout, readCallback, readSize)
+            self.engine = burp.ThreadedRequestEngine(endpoint, concurrentConnections, maxQueueSize, readFreq, requestsPerConnection, maxRetriesPerRequest, callback, timeout, readCallback, readSize, resumeSSL)
         elif(engine == Engine.ASYNC):
             self.engine = burp.AsyncRequestEngine(endpoint, concurrentConnections, readFreq, requestsPerConnection, False, callback)
         elif(engine == Engine.HTTP2):
@@ -152,7 +152,7 @@ class OfferTurboIntruder(): IContextMenuFactory {
         if (invocation != null && invocation.selectedMessages[0] != null) {
             val probeButton = JMenuItem("Send to turbo intruder")
             val bounds = invocation.selectionBounds ?: IntArray(0)
-            probeButton.addActionListener(TurboIntruderFrame(invocation.selectedMessages[0], bounds, null))
+            probeButton.addActionListener(TurboIntruderFrame(invocation.selectedMessages[0], bounds, null, null))
             options.add(probeButton)
         }
         return options
@@ -174,7 +174,7 @@ class MessageController(val req: IHttpRequestResponse): IMessageEditorController
 
 }
 
-class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds: IntArray, val fixedScript: String?): ActionListener, JFrame("Turbo Intruder - " + inputRequest.httpService.host)  {
+class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds: IntArray, val fixedScript: String?, val requestOverride: ByteArray?): ActionListener, JFrame("Turbo Intruder - " + inputRequest.httpService.host)  {
     private val req = Utils.callbacks.saveBuffersToTempFiles(inputRequest)
 
 
@@ -192,8 +192,8 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             var baseInput = ""
 
             if (fixedScript != null) {
-                messageEditor.setMessage(req.request, true)
                 textEditor.text = fixedScript.toByteArray()
+                messageEditor.setMessage(requestOverride?: req.request, true)
             }
             else {
 

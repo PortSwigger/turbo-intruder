@@ -12,7 +12,7 @@ import javax.net.SocketFactory
 import javax.net.ssl.*
 import kotlin.concurrent.thread
 
-open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, val timeout: Int, override var readCallback: ((String) -> Boolean)?, val readSize: Int): RequestEngine() {
+open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, val timeout: Int, override var readCallback: ((String) -> Boolean)?, val readSize: Int, val resumeSSL: Boolean): RequestEngine() {
 
     private val connectedLatch = CountDownLatch(threads)
 
@@ -67,15 +67,16 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
     }
 
     private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, retryQueue: LinkedBlockingQueue<Request>, completedLatch: CountDownLatch, baseReadFreq: Int, baseRequestsPerConnection: Int, connectedLatch: CountDownLatch) {
-        var readFreq = baseReadFreq
+        val readFreq = baseReadFreq
         val inflight = ArrayDeque<Request>()
-        var requestsPerConnection = baseRequestsPerConnection
+        val requestsPerConnection = baseRequestsPerConnection
         var connected = false
         var reqWithResponse: Request? = null
         var answeredRequests = 0
         val badWords = HashSet<String>()
         var consecutiveFailedConnections = 0
-        var reuseSSL = true
+
+        var reuseSSL = resumeSSL
 
         while (!Utils.unloaded) {
             try {
@@ -294,7 +295,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                 }
             } catch (ex: Exception) {
 
-                if (ex is SSLHandshakeException && reuseSSL) {
+                if (reuseSSL && (ex is SSLHandshakeException || ex is SSLException)) {
                     reuseSSL = false
                 }
                 else {
