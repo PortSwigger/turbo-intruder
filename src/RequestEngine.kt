@@ -170,6 +170,9 @@ abstract class RequestEngine: IExtensionStateListener {
     }
 
     fun cancel() {
+        if (Utils.gotBurp) {
+            Utils.callbacks.removeExtensionStateListener(this)
+        }
         attackState.set(3)
         Utils.out("Cancelled attack")
         showSummary()
