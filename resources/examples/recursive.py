@@ -9,4 +9,4 @@ def handleResponse(req, interesting):
     if '404 Not Found' not in req.response:
         table.add(req)
         for word in open('/usr/share/dict/words'):
-            req.engine.queue(req.template, req.word+'/'+word.rstrip())
+            req.engine.queue(req.template, req.words[0]+'/'+word.rstrip())
