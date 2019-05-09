@@ -116,15 +116,23 @@ abstract class RequestEngine: IExtensionStateListener {
             timeout = 1
         }
 
-        val queued = requestQueue.offer(request, timeout, TimeUnit.SECONDS)
+        var queued = false
+        var attempt = 0L
+        while (!queued && attackState.get() <= 2 && attempt < timeout) {
+            queued = requestQueue.offer(request, 1, TimeUnit.SECONDS)
+            attempt += 1
+        }
+
         if (!queued) {
             if (state == 0 && requestQueue.size == 100) {
                 Utils.out("Looks like a non-streaming attack, unlimiting the queue")
                 requestQueue = LinkedBlockingQueue(requestQueue)
             }
-            else {
+            else if (attempt == timeout) {
                 Utils.out("Timeout queuing request. Aborting.")
                 this.cancel()
+            } else {
+                // the attack has been cancelled so we don't need to do anything
             }
         }
     }
@@ -173,9 +181,11 @@ abstract class RequestEngine: IExtensionStateListener {
         if (Utils.gotBurp) {
             Utils.callbacks.removeExtensionStateListener(this)
         }
-        attackState.set(3)
-        Utils.out("Cancelled attack")
-        showSummary()
+        if (attackState.get() != 3) {
+            attackState.set(3)
+            Utils.out("Cancelled attack")
+            showSummary()
+        }
     }
 
     fun showSummary() {
