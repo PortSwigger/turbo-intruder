@@ -181,7 +181,7 @@ abstract class RequestEngine: IExtensionStateListener {
         if (Utils.gotBurp && !Utils.unloaded) {
             Utils.callbacks.removeExtensionStateListener(this)
         }
-        
+
         if (attackState.get() != 3) {
             attackState.set(3)
             Utils.out("Cancelled attack")

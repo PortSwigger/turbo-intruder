@@ -134,6 +134,12 @@ open class Request(val template: String, val words: List<String?>, val learnBori
         val end = request.size
         while (i < end) {
             val line_start = i
+
+            // Make ' foo: bar' get interpreted as 'foo: bar'
+            if (request[i] == ' '.toByte()) {
+                i++
+            }
+
             while (i < end && request[i++] != ' '.toByte()) {
             }
             val header_name = Arrays.copyOfRange(request, line_start, i - 2)

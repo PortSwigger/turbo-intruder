@@ -33,6 +33,15 @@ def randstr(length=12, allow_digits=True):
         candidates += string.digits
     return ''.join(random.choice(candidates) for x in range(length))
 
+def queueForever(engine, req):
+    # infinitely-running bruteforce (a, b ... aaa, aab etc)
+    seed = 0
+    while True:
+        batch = []
+        seed = wordlists.bruteforce.generate(seed, 5000, batch)
+        for word in batch:
+            engine.queue(target.req, word)
+
 class Engine:
     BURP = 1
     THREADED = 2
