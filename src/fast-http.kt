@@ -293,7 +293,7 @@ fun main(args : Array<String>) {
     try {
         val scriptFile = args[0]
         val code = File(scriptFile).readText()
-        val req = File(args[1]).readText()
+        var req = File(args[1]).readText()
         val endpoint = args[2]
         val baseInput = args[3]
         val attackHandler = AttackHandler()
@@ -301,6 +301,10 @@ fun main(args : Array<String>) {
             Utils.out(attackHandler.statusString())
         })
         Utils.out("Please note that Turbo Intruder's SSL/TLS handling may differ slightly when run outside Burp Suite.")
+        if(!req.contains("\r\n")) {
+            Utils.out("TURBO NOTICE: The input request appears to be using \\n instead of \\r\\n as a line-ending. Consider changing your text-editor settings. Normalising...")
+            req = req.replace("\n", "\r\n")
+        }
         val outputHandler = ConsolePrinter()
         evalJython(code, req, endpoint, baseInput, outputHandler, attackHandler)
     }
