@@ -147,8 +147,9 @@ fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: S
             if (message == null) {
                 message = ex.toString()
             }
-            handler.overrideStatus("Error, check extender for full details: "+message)
-            Utils.out("Error launching attack - bad python?")
+            handler.overrideStatus("User Python error, check extender for full details: "+message)
+            Utils.out("There was an error executing your Python script. This is probably due to a flaw in your script, rather than a bug in Turbo Intruder :)")
+            Utils.out("For your convenience, here's the full stack trace:")
             Utils.out(stackTrace.toString())
         }
         handler.abort()
