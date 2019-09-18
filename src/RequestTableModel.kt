@@ -65,6 +65,6 @@ class RequestTableModel : AbstractTableModel() {
     }
 
     companion object {
-        internal var columns = Arrays.asList("Row", "Payload", "Status", "Words", "Length", "Time")
+        internal val columns = listOf("Row", "Payload", "Status", "Words", "Length", "Time")
     }
 }
