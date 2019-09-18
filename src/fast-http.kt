@@ -269,7 +269,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             this.addWindowListener(object : WindowAdapter() {
                 override fun windowClosing(e: WindowEvent) {
                     handler.abort()
-                    e.getWindow().dispose()
+                    e.window.dispose()
                 }
             })
 

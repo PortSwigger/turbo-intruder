@@ -64,20 +64,20 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
 
         issueTable.rowSorter = TableRowSorter(model)
 
-        issueTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF)
+        issueTable.autoResizeMode = JTable.AUTO_RESIZE_OFF
         //issueTable.getColumnModel().getColumn(0).setPreferredWidth(500)
 
-        issueTable.getSelectionModel().addListSelectionListener({
-            val req = model.getRequest(issueTable.convertRowIndexToModel(issueTable.getSelectedRow()))
+        issueTable.selectionModel.addListSelectionListener {
+            val req = model.getRequest(issueTable.convertRowIndexToModel(issueTable.selectedRow))
             setCurrentRequest(req!!)
-        })
+        }
 
         requestListView = JScrollPane(issueTable)
 
         requestEditor = Utils.callbacks.createMessageEditor(controller, false)
         responseEditor = Utils.callbacks.createMessageEditor(controller, false)
         bottomSplit = JSplitPane(JSplitPane.HORIZONTAL_SPLIT, requestEditor.getComponent(), responseEditor.getComponent())
-        bottomSplit.setResizeWeight(0.5)
+        bottomSplit.resizeWeight = 0.5
 
 
         val splitPane = JSplitPane(JSplitPane.VERTICAL_SPLIT, requestListView, bottomSplit)
@@ -99,7 +99,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         statusPanel.preferredSize = Dimension(this.getWidth(), 30)
         statusPanel.layout = BoxLayout(statusPanel, BoxLayout.X_AXIS)
         val statusLabel = JLabel("")
-        statusLabel.setHorizontalAlignment(SwingConstants.LEFT)
+        statusLabel.horizontalAlignment = SwingConstants.LEFT
         statusPanel.add(statusLabel)
 
         val updateStatusbar = UpdateStatusbar(statusLabel, handler)
