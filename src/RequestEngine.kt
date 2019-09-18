@@ -20,7 +20,7 @@ abstract class RequestEngine: IExtensionStateListener {
     lateinit var completedLatch: CountDownLatch
     private val baselines = LinkedList<SafeResponseVariations>()
     val retries = AtomicInteger(0)
-    val permaFails= AtomicInteger(0)
+    val permaFails = AtomicInteger(0)
     lateinit var outputHandler: OutputHandler
     lateinit var requestQueue: LinkedBlockingQueue<Request>
     abstract val callback: (Request, Boolean) -> Boolean
