@@ -14,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 class Scripts() {
     companion object {
-        val SCRIPTENVIRONMENT = """import burp.RequestEngine, burp.Args, string, random, time, math
+        const val SCRIPTENVIRONMENT = """import burp.RequestEngine, burp.Args, string, random, time, math
 
 def mean(data):
     return sum(data)/len(data)
