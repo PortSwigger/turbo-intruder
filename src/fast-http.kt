@@ -207,7 +207,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             }
             else {
 
-                if (!selectionBounds.isEmpty() && selectionBounds[0] != selectionBounds[1]) {
+                if (selectionBounds.isNotEmpty() && selectionBounds[0] != selectionBounds[1]) {
                     messageEditor.setMessage(req.request.copyOfRange(0, selectionBounds[0]) + ("%s".toByteArray()) + req.request.copyOfRange(selectionBounds[1], req.request.size), true)
                     baseInput = String(req.request.copyOfRange(selectionBounds[0], selectionBounds[1]), Charsets.ISO_8859_1)
                 } else {
