@@ -321,7 +321,7 @@ abstract class RequestEngine: IExtensionStateListener {
     }
 
     fun decompress(compressed: ByteArray): String {
-        if (compressed.size == 0) {
+        if (compressed.isEmpty()) {
             return ""
         }
 

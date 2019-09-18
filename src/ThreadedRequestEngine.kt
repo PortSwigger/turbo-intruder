@@ -352,7 +352,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
     data class Result(val skip: Int, val length: Int)
 
     fun getNextChunkLength(buf: String): Result {
-        if (buf.length == 0) {
+        if (buf.isEmpty()) {
             return Result(-1, -1)
         }
 
