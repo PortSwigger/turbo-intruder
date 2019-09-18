@@ -203,14 +203,10 @@ abstract class RequestEngine: IExtensionStateListener {
         val nextWord = requestQueue?.peek()?.words?.joinToString(separator="/")
         var statusString = String.format("Reqs: %d | Queued: %d | Duration: %d |RPS: %.0f | Connections: %d | Retries: %d | Fails: %d | Next: %s", requests.toInt(), requestQueue.count(), duration, requests / duration, connections.get(), retries.get(), permaFails.get(), nextWord)
         val state = attackState.get()
-        if (state < 3) {
-            return statusString
-        }
-        else if (state == 3) {
-            return statusString + " | Cancelled"
-        }
-        else {
-            return statusString + " | Completed"
+        return when {
+            state < 3 -> statusString
+            state == 3 -> statusString + " | Cancelled"
+            else -> statusString + " | Completed"
         }
     }
 

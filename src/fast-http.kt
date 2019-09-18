@@ -236,30 +236,32 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
             button.addActionListener {
                 thread {
-                    if (button.text == "Halt") {
-                        handler.abort()
-                        button.text = "Configure"
-                    }
-                    else if (button.text == "Configure") {
-                        handler.abort()
-                        handler = AttackHandler()
-                        pane.bottomComponent = textEditor.component
-                        pane.setDividerLocation(0.25)
-                        button.text = "Attack"
-                        this.title = "Turbo Intruder - " + req.httpService.host
-                    }
-                    else {
-                        button.text = "Halt"
-                        val requestTable = RequestTable(req.httpService, handler)
-                        pane.bottomComponent = requestTable
-                        val script = String(textEditor.text)
-                        Utils.callbacks.saveExtensionSetting("defaultScript", script)
-                        Utils.callbacks.helpers
-                        val baseRequest = Utils.callbacks.helpers.bytesToString(messageEditor.message)
-                        val service = req.httpService
-                        val target = service.protocol + "://" + service.host + ":" + service.port
-                        this.title += " - running"
-                        evalJython(script, baseRequest, target, baseInput, requestTable, handler)
+                    when {
+                        button.text == "Halt" -> {
+                            handler.abort()
+                            button.text = "Configure"
+                        }
+                        button.text == "Configure" -> {
+                            handler.abort()
+                            handler = AttackHandler()
+                            pane.bottomComponent = textEditor.component
+                            pane.setDividerLocation(0.25)
+                            button.text = "Attack"
+                            this.title = "Turbo Intruder - " + req.httpService.host
+                        }
+                        else -> {
+                            button.text = "Halt"
+                            val requestTable = RequestTable(req.httpService, handler)
+                            pane.bottomComponent = requestTable
+                            val script = String(textEditor.text)
+                            Utils.callbacks.saveExtensionSetting("defaultScript", script)
+                            Utils.callbacks.helpers
+                            val baseRequest = Utils.callbacks.helpers.bytesToString(messageEditor.message)
+                            val service = req.httpService
+                            val target = service.protocol + "://" + service.host + ":" + service.port
+                            this.title += " - running"
+                            evalJython(script, baseRequest, target, baseInput, requestTable, handler)
+                        }
                     }
                 }
             }
