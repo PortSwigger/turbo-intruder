@@ -289,7 +289,7 @@ abstract class RequestEngine: IExtensionStateListener {
 
         val reqID = req.getRequest().hashCode().toString()
 
-        val fails = failedWords.get(reqID)
+        val fails = failedWords[reqID]
         if (fails == null){
             failedWords[reqID] = AtomicInteger(1)
         }
