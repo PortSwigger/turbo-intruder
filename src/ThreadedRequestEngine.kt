@@ -305,9 +305,9 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         val activeWord = activeRequest.words.joinToString(separator="/")
                         if (shouldRetry(activeRequest)) {
                             if (reqWithResponse != null) {
-                                Utils.out("Autorecovering error after " + answeredRequests + " answered requests. After '" + reqWithResponse.words.joinToString(separator="/") + "' during '" + activeWord + "'")
+                                Utils.out("Autorecovering error after $answeredRequests answered requests. After '${reqWithResponse.words.joinToString(separator = "/")}' during '$activeWord'")
                             } else {
-                                Utils.out("Autorecovering first-request error during '" + activeWord + "'")
+                                Utils.out("Autorecovering first-request error during '$activeWord'")
                             }
                         } else {
                             ex.printStackTrace()
@@ -316,7 +316,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             invokeCallback(badReq, true)
                         }
                     } else {
-                        Utils.out("Autorecovering error with empty queue: " + ex.message)
+                        Utils.out("Autorecovering error with empty queue: ${ex.message}")
                         ex.printStackTrace()
                     }
                 }
@@ -341,7 +341,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         try {
             return buf.substring(cstart, cend).toInt()
         } catch (e: NumberFormatException) {
-            throw RuntimeException("Can't parse content length in "+buf)
+            throw RuntimeException("Can't parse content length in $buf")
         }
     }
 
@@ -367,7 +367,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
             val skip = 2+chunkLengthEnd-chunkLengthStart
             return Result(skip, Integer.parseInt(buf.substring(chunkLengthStart, chunkLengthEnd).trim(), 16)+skip)
         } catch (e: NumberFormatException) {
-            throw RuntimeException("Can't parse followup chunk length '"+buf.substring(chunkLengthStart, chunkLengthEnd)+"' in "+buf)
+            throw RuntimeException("Can't parse followup chunk length '${buf.substring(chunkLengthStart, chunkLengthEnd)}' in $buf")
         }
     }
 

@@ -64,10 +64,10 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
             var resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes())
             connections.incrementAndGet()
             while (resp.response == null && shouldRetry(req)) {
-                Utils.out("Retrying "+req.words)
+                Utils.out("Retrying ${req.words}")
                 resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes())
                 connections.incrementAndGet()
-                Utils.out("Retried "+req.words)
+                Utils.out("Retried ${req.words}")
             }
 
             if(resp.response == null) {

@@ -43,7 +43,7 @@ abstract class RequestEngine: IExtensionStateListener {
         try {
             req.invokeCallback(interesting)
         } catch (ex: Exception){
-            Utils.out("Error in user-defined callback: "+ex)
+            Utils.out("Error in user-defined callback: $ex")
             permaFails.incrementAndGet()
         }
     }
@@ -192,7 +192,7 @@ abstract class RequestEngine: IExtensionStateListener {
     fun showSummary() {
         val duration = System.nanoTime().toFloat() - start
         val requests = successfulRequests.get().toFloat()
-        Utils.err("Sent " + requests.toInt() + " requests in "+duration / 1000000000 + " seconds")
+        Utils.err("Sent ${requests.toInt()} requests in ${duration / 1000000000} seconds")
         Utils.err(String.format("RPS: %.0f\n", requests / Math.ceil((duration / 1000000000).toDouble())))
     }
 
