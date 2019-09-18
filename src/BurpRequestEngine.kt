@@ -49,7 +49,7 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
 
 
         while(attackState.get() < 3 && !Utils.unloaded) {
-            val req = requestQueue.poll(100, TimeUnit.MILLISECONDS);
+            val req = requestQueue.poll(100, TimeUnit.MILLISECONDS)
 
             if(req == null) {
                 if (attackState.get() == 2) {

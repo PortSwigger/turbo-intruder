@@ -29,7 +29,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         }
 
         completedLatch = CountDownLatch(threads)
-        val retryQueue = LinkedBlockingQueue<Request>();
+        val retryQueue = LinkedBlockingQueue<Request>()
         val ipAddress = InetAddress.getByName(target.host)
         val port = if (target.port == -1) { target.defaultPort } else { target.port }
 
@@ -143,7 +143,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                         var req = retryQueue.poll()
                         while (req == null) {
-                            req = requestQueue.poll(100, TimeUnit.MILLISECONDS);
+                            req = requestQueue.poll(100, TimeUnit.MILLISECONDS)
 
                             if (req == null) {
                                 if (readCount > 0) {

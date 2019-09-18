@@ -232,7 +232,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             messageEditor.component.preferredSize = Dimension(1000, 150)
             textEditor.component.preferredSize = Dimension(1000, 400)
 
-            val button = JButton("Attack");
+            val button = JButton("Attack")
             var handler = AttackHandler()
 
             button.addActionListener {
