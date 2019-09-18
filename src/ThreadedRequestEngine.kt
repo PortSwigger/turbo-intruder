@@ -49,8 +49,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
     fun createSSLSocketFactory(): SSLSocketFactory {
         val trustingSslContext = SSLContext.getInstance("TLS")
         trustingSslContext.init(null, arrayOf<TrustManager>(TrustingTrustManager()), null)
-        val trustingSslSocketFactory = trustingSslContext.socketFactory
-        return trustingSslSocketFactory
+        return trustingSslContext.socketFactory
     }
 
     override fun start(timeout: Int) {
