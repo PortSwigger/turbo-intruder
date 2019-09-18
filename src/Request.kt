@@ -32,20 +32,14 @@ open class Request(val template: String, val words: List<String?>, val learnBori
     }
 
     fun getAttribute(name: String): Any? {
-        if (name in attributes) {
-            return attributes.get(name)
+        return attributes.getOrPut(name) {
+            when(name) {
+                "length" -> response?.length ?: 0
+                "wordcount" -> (response ?: "").split(Regex("[^a-zA-Z0-9]")).size
+                "code" -> calculateCode()
+                else -> "Unknown attribute"
+            }
         }
-
-        val result = when(name) {
-            "length" -> response?.length ?: 0
-            "wordcount" -> (response ?: "").split(Regex("[^a-zA-Z0-9]")).size
-            "code" -> calculateCode()
-            else -> "Unknown attribute"
-        }
-
-        attributes.put(name, result)
-
-        return result
     }
 
     fun calculateCode(): Int {
