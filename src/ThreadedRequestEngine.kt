@@ -21,11 +21,11 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
     init {
         target = URL(url)
 
-        if (maxQueueSize > 0) {
-            requestQueue = LinkedBlockingQueue<Request>(maxQueueSize)
+        requestQueue = if (maxQueueSize > 0) {
+            LinkedBlockingQueue(maxQueueSize)
         }
         else {
-            requestQueue = LinkedBlockingQueue<Request>()
+            LinkedBlockingQueue()
         }
 
         completedLatch = CountDownLatch(threads)
@@ -272,11 +272,10 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         }
 
                         var msg = headers
-                        if(shouldGzip) {
-                            msg += decompress(body.toByteArray(Charsets.ISO_8859_1))
-                        }
-                        else {
-                            msg += body
+                        msg += if (shouldGzip) {
+                            decompress(body.toByteArray(Charsets.ISO_8859_1))
+                        } else {
+                            body
                         }
 
                         reqWithResponse = inflight.removeFirst()

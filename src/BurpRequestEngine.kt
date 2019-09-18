@@ -11,11 +11,11 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
     private val threadPool = ArrayList<Thread>()
 
     init {
-        if (maxQueueSize > 0) {
-            requestQueue = LinkedBlockingQueue<Request>(maxQueueSize)
+        requestQueue = if (maxQueueSize > 0) {
+            LinkedBlockingQueue(maxQueueSize)
         }
         else {
-            requestQueue = LinkedBlockingQueue<Request>()
+            LinkedBlockingQueue()
         }
 
         completedLatch = CountDownLatch(threads)
