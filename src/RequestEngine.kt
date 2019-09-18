@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.zip.GZIPInputStream
+import kotlin.math.ceil
 
 abstract class RequestEngine: IExtensionStateListener {
 
@@ -193,11 +194,11 @@ abstract class RequestEngine: IExtensionStateListener {
         val duration = System.nanoTime().toFloat() - start
         val requests = successfulRequests.get().toFloat()
         Utils.err("Sent ${requests.toInt()} requests in ${duration / 1000000000} seconds")
-        Utils.err(String.format("RPS: %.0f\n", requests / Math.ceil((duration / 1000000000).toDouble())))
+        Utils.err(String.format("RPS: %.0f\n", requests / ceil((duration / 1000000000).toDouble())))
     }
 
     fun statusString(): String {
-        val duration = Math.ceil(((System.nanoTime().toFloat() - start) / 1000000000).toDouble()).toInt()
+        val duration = ceil(((System.nanoTime().toFloat() - start) / 1000000000).toDouble()).toInt()
         val requests = successfulRequests.get().toFloat()
         val nextWord = requestQueue?.peek()?.words?.joinToString(separator="/")
         var statusString = String.format("Reqs: %d | Queued: %d | Duration: %d |RPS: %.0f | Connections: %d | Retries: %d | Fails: %d | Next: %s", requests.toInt(), requestQueue.count(), duration, requests / duration, connections.get(), retries.get(), permaFails.get(), nextWord)
