@@ -56,10 +56,10 @@ class RequestTableModel : AbstractTableModel() {
 
 
     fun getRequest(index: Int): Request? {
-        try {
-            return requests[index]
+        return try {
+            requests[index]
         } catch (ex: ArrayIndexOutOfBoundsException) {
-            return null
+            null
         }
 
     }
