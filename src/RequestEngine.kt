@@ -99,7 +99,7 @@ abstract class RequestEngine: IExtensionStateListener {
                     floodgates[gateName] = request.gate!!
                 }
 
-                if (this is ThreadedRequestEngine && request.gate!!.remaining.get() > (this as ThreadedRequestEngine).threads) {
+                if (this is ThreadedRequestEngine && request.gate!!.remaining.get() > this.threads) {
                     throw Exception("You have queued more gated requests than concurrentConnections, so your attack will deadlock. Consider increasing concurrentConnections")
                 }
             }
