@@ -86,7 +86,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                 val socket: Socket?
                 try {
-                    socket = if (url.protocol.equals("https")) {
+                    socket = if (url.protocol == "https") {
                         if (reuseSSL) {
                             trustingSslSocketFactory.createSocket(ipAddress, port)
                         } else {
