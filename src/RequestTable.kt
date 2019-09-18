@@ -119,7 +119,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
 
         val createIssueButton = JMenuItem("Report as issue")
         createIssueButton.addActionListener {
-            val reqs = getSelectedRequests().map{ it.getBurpRequest() }
+            val reqs = getSelectedRequests().map(Request::getBurpRequest)
             val service = reqs[0].httpService
             val baseReq = StubRequest(Utils.callbacks.helpers.stringToBytes(handler.baseRequest), service)
             val url = URL(service.protocol + "://" + service.host + ":" +service.port)
