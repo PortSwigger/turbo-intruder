@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.zip.GZIPInputStream
+import kotlin.math.ceil
 
 abstract class RequestEngine: IExtensionStateListener {
 
@@ -20,7 +21,7 @@ abstract class RequestEngine: IExtensionStateListener {
     lateinit var completedLatch: CountDownLatch
     private val baselines = LinkedList<SafeResponseVariations>()
     val retries = AtomicInteger(0)
-    val permaFails= AtomicInteger(0)
+    val permaFails = AtomicInteger(0)
     lateinit var outputHandler: OutputHandler
     lateinit var requestQueue: LinkedBlockingQueue<Request>
     abstract val callback: (Request, Boolean) -> Boolean
@@ -43,7 +44,7 @@ abstract class RequestEngine: IExtensionStateListener {
         try {
             req.invokeCallback(interesting)
         } catch (ex: Exception){
-            Utils.out("Error in user-defined callback: "+ex)
+            Utils.out("Error in user-defined callback: $ex")
             permaFails.incrementAndGet()
         }
     }
@@ -99,7 +100,7 @@ abstract class RequestEngine: IExtensionStateListener {
                     floodgates[gateName] = request.gate!!
                 }
 
-                if (this is ThreadedRequestEngine && request.gate!!.remaining.get() > (this as ThreadedRequestEngine).threads) {
+                if (this is ThreadedRequestEngine && request.gate!!.remaining.get() > this.threads) {
                     throw Exception("You have queued more gated requests than concurrentConnections, so your attack will deadlock. Consider increasing concurrentConnections")
                 }
             }
@@ -192,24 +193,20 @@ abstract class RequestEngine: IExtensionStateListener {
     fun showSummary() {
         val duration = System.nanoTime().toFloat() - start
         val requests = successfulRequests.get().toFloat()
-        Utils.err("Sent " + requests.toInt() + " requests in "+duration / 1000000000 + " seconds")
-        Utils.err(String.format("RPS: %.0f\n", requests / Math.ceil((duration / 1000000000).toDouble())))
+        Utils.err("Sent ${requests.toInt()} requests in ${duration / 1000000000} seconds")
+        Utils.err(String.format("RPS: %.0f\n", requests / ceil((duration / 1000000000).toDouble())))
     }
 
     fun statusString(): String {
-        val duration = Math.ceil(((System.nanoTime().toFloat() - start) / 1000000000).toDouble()).toInt()
+        val duration = ceil(((System.nanoTime().toFloat() - start) / 1000000000).toDouble()).toInt()
         val requests = successfulRequests.get().toFloat()
-        val nextWord = requestQueue?.peek()?.words?.joinToString(separator="/")
-        var statusString = String.format("Reqs: %d | Queued: %d | Duration: %d |RPS: %.0f | Connections: %d | Retries: %d | Fails: %d | Next: %s", requests.toInt(), requestQueue.count(), duration, requests / duration, connections.get(), retries.get(), permaFails.get(), nextWord)
+        val nextWord = requestQueue.peek()?.words?.joinToString(separator="/")
+        val statusString = String.format("Reqs: %d | Queued: %d | Duration: %d |RPS: %.0f | Connections: %d | Retries: %d | Fails: %d | Next: %s", requests.toInt(), requestQueue.count(), duration, requests / duration, connections.get(), retries.get(), permaFails.get(), nextWord)
         val state = attackState.get()
-        if (state < 3) {
-            return statusString
-        }
-        else if (state == 3) {
-            return statusString + " | Cancelled"
-        }
-        else {
-            return statusString + " | Completed"
+        return when {
+            state < 3 -> statusString
+            state == 3 -> statusString + " | Cancelled"
+            else -> statusString + " | Completed"
         }
     }
 
@@ -288,7 +285,7 @@ abstract class RequestEngine: IExtensionStateListener {
 
         val reqID = req.getRequest().hashCode().toString()
 
-        val fails = failedWords.get(reqID)
+        val fails = failedWords[reqID]
         if (fails == null){
             failedWords[reqID] = AtomicInteger(1)
         }
@@ -321,7 +318,7 @@ abstract class RequestEngine: IExtensionStateListener {
     }
 
     fun decompress(compressed: ByteArray): String {
-        if (compressed.size == 0) {
+        if (compressed.isEmpty()) {
             return ""
         }
 

@@ -56,15 +56,15 @@ class RequestTableModel : AbstractTableModel() {
 
 
     fun getRequest(index: Int): Request? {
-        try {
-            return requests[index]
+        return try {
+            requests[index]
         } catch (ex: ArrayIndexOutOfBoundsException) {
-            return null
+            null
         }
 
     }
 
     companion object {
-        internal var columns = Arrays.asList("Row", "Payload", "Status", "Words", "Length", "Time")
+        internal val columns = listOf("Row", "Payload", "Status", "Words", "Length", "Time")
     }
 }

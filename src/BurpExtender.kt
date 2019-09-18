@@ -14,6 +14,6 @@ class BurpExtender(): IBurpExtender, IExtensionStateListener {
         callbacks.registerScannerCheck(Utils.witnessedWords)
         callbacks.registerExtensionStateListener(this)
         callbacks.setExtensionName("Turbo Intruder")
-        Utils.out("Loaded Turbo Intruder v${version}")
+        Utils.out("Loaded Turbo Intruder v$version")
     }
 }

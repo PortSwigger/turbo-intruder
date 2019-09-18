@@ -21,15 +21,15 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
     init {
         target = URL(url)
 
-        if (maxQueueSize > 0) {
-            requestQueue = LinkedBlockingQueue<Request>(maxQueueSize)
+        requestQueue = if (maxQueueSize > 0) {
+            LinkedBlockingQueue(maxQueueSize)
         }
         else {
-            requestQueue = LinkedBlockingQueue<Request>()
+            LinkedBlockingQueue()
         }
 
         completedLatch = CountDownLatch(threads)
-        val retryQueue = LinkedBlockingQueue<Request>();
+        val retryQueue = LinkedBlockingQueue<Request>()
         val ipAddress = InetAddress.getByName(target.host)
         val port = if (target.port == -1) { target.defaultPort } else { target.port }
 
@@ -49,8 +49,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
     fun createSSLSocketFactory(): SSLSocketFactory {
         val trustingSslContext = SSLContext.getInstance("TLS")
         trustingSslContext.init(null, arrayOf<TrustManager>(TrustingTrustManager()), null)
-        val trustingSslSocketFactory = trustingSslContext.socketFactory
-        return trustingSslSocketFactory
+        return trustingSslContext.socketFactory
     }
 
     override fun start(timeout: Int) {
@@ -87,7 +86,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                 val socket: Socket?
                 try {
-                    socket = if (url.protocol.equals("https")) {
+                    socket = if (url.protocol == "https") {
                         if (reuseSSL) {
                             trustingSslSocketFactory.createSocket(ipAddress, port)
                         } else {
@@ -108,7 +107,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                     Thread.sleep(sleep.toLong() * 200)
                     continue
                 }
-                var connectionID = connections.incrementAndGet()
+                val connectionID = connections.incrementAndGet()
                 //(socket as SSLSocket).session.peerCertificates
                 socket!!.soTimeout = timeout * 1000
                 socket.tcpNoDelay = true
@@ -143,7 +142,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                         var req = retryQueue.poll()
                         while (req == null) {
-                            req = requestQueue.poll(100, TimeUnit.MILLISECONDS);
+                            req = requestQueue.poll(100, TimeUnit.MILLISECONDS)
 
                             if (req == null) {
                                 if (readCount > 0) {
@@ -272,11 +271,10 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         }
 
                         var msg = headers
-                        if(shouldGzip) {
-                            msg += decompress(body.toByteArray(Charsets.ISO_8859_1))
-                        }
-                        else {
-                            msg += body
+                        msg += if (shouldGzip) {
+                            decompress(body.toByteArray(Charsets.ISO_8859_1))
+                        } else {
+                            body
                         }
 
                         reqWithResponse = inflight.removeFirst()
@@ -305,9 +303,9 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         val activeWord = activeRequest.words.joinToString(separator="/")
                         if (shouldRetry(activeRequest)) {
                             if (reqWithResponse != null) {
-                                Utils.out("Autorecovering error after " + answeredRequests + " answered requests. After '" + reqWithResponse.words.joinToString(separator="/") + "' during '" + activeWord + "'")
+                                Utils.out("Autorecovering error after $answeredRequests answered requests. After '${reqWithResponse.words.joinToString(separator = "/")}' during '$activeWord'")
                             } else {
-                                Utils.out("Autorecovering first-request error during '" + activeWord + "'")
+                                Utils.out("Autorecovering first-request error during '$activeWord'")
                             }
                         } else {
                             ex.printStackTrace()
@@ -316,7 +314,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             invokeCallback(badReq, true)
                         }
                     } else {
-                        Utils.out("Autorecovering error with empty queue: " + ex.message)
+                        Utils.out("Autorecovering error with empty queue: ${ex.message}")
                         ex.printStackTrace()
                     }
                 }
@@ -341,7 +339,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         try {
             return buf.substring(cstart, cend).toInt()
         } catch (e: NumberFormatException) {
-            throw RuntimeException("Can't parse content length in "+buf)
+            throw RuntimeException("Can't parse content length in $buf")
         }
     }
 
@@ -352,7 +350,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
     data class Result(val skip: Int, val length: Int)
 
     fun getNextChunkLength(buf: String): Result {
-        if (buf.length == 0) {
+        if (buf.isEmpty()) {
             return Result(-1, -1)
         }
 
@@ -360,14 +358,14 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         val chunkLengthEnd = buf.indexOf("\r\n")
         if(chunkLengthEnd == -1) {
             return Result(-1, -1)
-            //throw RuntimeException("Coulnd't find the chunk length. Response size may be unspecified - try Burp request engine instead?")
+            //throw RuntimeException("Couldn't find the chunk length. Response size may be unspecified - try Burp request engine instead?")
         }
 
         try {
             val skip = 2+chunkLengthEnd-chunkLengthStart
             return Result(skip, Integer.parseInt(buf.substring(chunkLengthStart, chunkLengthEnd).trim(), 16)+skip)
         } catch (e: NumberFormatException) {
-            throw RuntimeException("Can't parse followup chunk length '"+buf.substring(chunkLengthStart, chunkLengthEnd)+"' in "+buf)
+            throw RuntimeException("Can't parse followup chunk length '${buf.substring(chunkLengthStart, chunkLengthEnd)}' in $buf")
         }
     }
 

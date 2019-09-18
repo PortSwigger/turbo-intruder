@@ -11,11 +11,11 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
     private val threadPool = ArrayList<Thread>()
 
     init {
-        if (maxQueueSize > 0) {
-            requestQueue = LinkedBlockingQueue<Request>(maxQueueSize)
+        requestQueue = if (maxQueueSize > 0) {
+            LinkedBlockingQueue(maxQueueSize)
         }
         else {
-            requestQueue = LinkedBlockingQueue<Request>()
+            LinkedBlockingQueue()
         }
 
         completedLatch = CountDownLatch(threads)
@@ -49,7 +49,7 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
 
 
         while(attackState.get() < 3 && !Utils.unloaded) {
-            val req = requestQueue.poll(100, TimeUnit.MILLISECONDS);
+            val req = requestQueue.poll(100, TimeUnit.MILLISECONDS)
 
             if(req == null) {
                 if (attackState.get() == 2) {
@@ -64,10 +64,10 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
             var resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes())
             connections.incrementAndGet()
             while (resp.response == null && shouldRetry(req)) {
-                Utils.out("Retrying "+req.words)
+                Utils.out("Retrying ${req.words}")
                 resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes())
                 connections.incrementAndGet()
-                Utils.out("Retried "+req.words)
+                Utils.out("Retried ${req.words}")
             }
 
             if(resp.response == null) {

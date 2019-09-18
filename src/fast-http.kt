@@ -1,7 +1,6 @@
 package burp
 import java.util.*
 import kotlin.concurrent.thread
-import kotlin.math.sqrt
 import java.awt.*
 import java.awt.event.ActionEvent
 import java.awt.event.ActionListener
@@ -15,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 class Scripts() {
     companion object {
-        val SCRIPTENVIRONMENT = """import burp.RequestEngine, burp.Args, string, random, time, math
+        const val SCRIPTENVIRONMENT = """import burp.RequestEngine, burp.Args, string, random, time, math
 
 def mean(data):
     return sum(data)/len(data)
@@ -147,7 +146,7 @@ fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: S
             if (message == null) {
                 message = ex.toString()
             }
-            handler.overrideStatus("User Python error, check extender for full details: "+message)
+            handler.overrideStatus("User Python error, check extender for full details: $message")
             Utils.out("There was an error executing your Python script. This is probably due to a flaw in your script, rather than a bug in Turbo Intruder :)")
             Utils.out("If you think it is a Turbo Intruder issue, try out this script: https://raw.githubusercontent.com/PortSwigger/turbo-intruder/master/resources/examples/debug.py")
             Utils.out("For your convenience, here's the full stack trace:")
@@ -208,7 +207,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             }
             else {
 
-                if (!selectionBounds.isEmpty() && selectionBounds[0] != selectionBounds[1]) {
+                if (selectionBounds.isNotEmpty() && selectionBounds[0] != selectionBounds[1]) {
                     messageEditor.setMessage(req.request.copyOfRange(0, selectionBounds[0]) + ("%s".toByteArray()) + req.request.copyOfRange(selectionBounds[1], req.request.size), true)
                     baseInput = String(req.request.copyOfRange(selectionBounds[0], selectionBounds[1]), Charsets.ISO_8859_1)
                 } else {
@@ -232,35 +231,37 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             messageEditor.component.preferredSize = Dimension(1000, 150)
             textEditor.component.preferredSize = Dimension(1000, 400)
 
-            val button = JButton("Attack");
+            val button = JButton("Attack")
             var handler = AttackHandler()
 
             button.addActionListener {
                 thread {
-                    if (button.text == "Halt") {
-                        handler.abort()
-                        button.text = "Configure"
-                    }
-                    else if (button.text == "Configure") {
-                        handler.abort()
-                        handler = AttackHandler()
-                        pane.bottomComponent = textEditor.component
-                        pane.setDividerLocation(0.25)
-                        button.text = "Attack"
-                        this.title = "Turbo Intruder - " + req.httpService.host
-                    }
-                    else {
-                        button.text = "Halt"
-                        val requestTable = RequestTable(req.httpService, handler)
-                        pane.bottomComponent = requestTable
-                        val script = String(textEditor.text)
-                        Utils.callbacks.saveExtensionSetting("defaultScript", script)
-                        Utils.callbacks.helpers
-                        val baseRequest = Utils.callbacks.helpers.bytesToString(messageEditor.message)
-                        val service = req.httpService
-                        val target = service.protocol + "://" + service.host + ":" + service.port
-                        this.title += " - running"
-                        evalJython(script, baseRequest, target, baseInput, requestTable, handler)
+                    when {
+                        button.text == "Halt" -> {
+                            handler.abort()
+                            button.text = "Configure"
+                        }
+                        button.text == "Configure" -> {
+                            handler.abort()
+                            handler = AttackHandler()
+                            pane.bottomComponent = textEditor.component
+                            pane.setDividerLocation(0.25)
+                            button.text = "Attack"
+                            this.title = "Turbo Intruder - " + req.httpService.host
+                        }
+                        else -> {
+                            button.text = "Halt"
+                            val requestTable = RequestTable(req.httpService, handler)
+                            pane.bottomComponent = requestTable
+                            val script = String(textEditor.text)
+                            Utils.callbacks.saveExtensionSetting("defaultScript", script)
+                            Utils.callbacks.helpers
+                            val baseRequest = Utils.callbacks.helpers.bytesToString(messageEditor.message)
+                            val service = req.httpService
+                            val target = service.protocol + "://" + service.host + ":" + service.port
+                            this.title += " - running"
+                            evalJython(script, baseRequest, target, baseInput, requestTable, handler)
+                        }
                     }
                 }
             }
@@ -268,7 +269,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             this.addWindowListener(object : WindowAdapter() {
                 override fun windowClosing(e: WindowEvent) {
                     handler.abort()
-                    e.getWindow().dispose()
+                    e.window.dispose()
                 }
             })
 
