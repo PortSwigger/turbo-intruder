@@ -3,7 +3,6 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.lang.Exception
 import java.util.*
-import java.util.Arrays.asList
 import kotlin.collections.HashMap
 
 open class Request(val template: String, val words: List<String?>, val learnBoring: Int) {
