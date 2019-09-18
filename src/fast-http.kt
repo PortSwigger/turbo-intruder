@@ -1,7 +1,6 @@
 package burp
 import java.util.*
 import kotlin.concurrent.thread
-import kotlin.math.sqrt
 import java.awt.*
 import java.awt.event.ActionEvent
 import java.awt.event.ActionListener
