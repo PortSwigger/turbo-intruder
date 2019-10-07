@@ -201,7 +201,7 @@ abstract class RequestEngine: IExtensionStateListener {
         val duration = ceil(((System.nanoTime().toFloat() - start) / 1000000000).toDouble()).toInt()
         val requests = successfulRequests.get().toFloat()
         val nextWord = requestQueue.peek()?.words?.joinToString(separator="/")
-        val statusString = String.format("Reqs: %d | Queued: %d | Duration: %d |RPS: %.0f | Connections: %d | Retries: %d | Fails: %d | Next: %s", requests.toInt(), requestQueue.count(), duration, requests / duration, connections.get(), retries.get(), permaFails.get(), nextWord)
+        val statusString = String.format("Reqs: %d | Queued: %d | Duration: %d | RPS: %.0f | Connections: %d | Retries: %d | Fails: %d | Next: %s", requests.toInt(), requestQueue.count(), duration, requests / duration, connections.get(), retries.get(), permaFails.get(), nextWord)
         val state = attackState.get()
         return when {
             state < 3 -> statusString
