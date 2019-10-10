@@ -38,7 +38,7 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
 
 
     override fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?, label: String?): Request {
-        return Request(template.replace("Connection: keep-alive", "Connection: close"), payloads, learnBoring ?: 0)
+        return Request(template.replace("Connection: keep-alive", "Connection: close"), payloads, learnBoring ?: 0, label)
     }
 
 

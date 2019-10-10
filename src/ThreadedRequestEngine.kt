@@ -60,7 +60,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
     override fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?, label: String?): Request {
         if(Utils.getHeaders(template).contains("Connection: close")) {
-            return Request(template.replaceFirst("Connection: close", "Connection: keep-alive"), payloads, learnBoring ?: 0)
+            return Request(template.replaceFirst("Connection: close", "Connection: keep-alive"), payloads, learnBoring ?: 0, label)
         }
 
         return Request(template, payloads, learnBoring?: 0, label)
