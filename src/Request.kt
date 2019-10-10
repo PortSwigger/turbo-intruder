@@ -5,7 +5,7 @@ import java.lang.Exception
 import java.util.*
 import kotlin.collections.HashMap
 
-open class Request(val template: String, val words: List<String?>, val learnBoring: Int) {
+open class Request(val template: String, val words: List<String?>, val learnBoring: Int, val label: String?) {
 
     var response: String? = null
     var details: IResponseVariations? = null
@@ -53,7 +53,9 @@ open class Request(val template: String, val words: List<String?>, val learnBori
         }
     }
 
-    constructor(template: String): this(template, emptyList<String>(), 0)
+    constructor(template: String): this(template, emptyList<String>(), 0, null)
+    constructor(template: String, words: List<String?>): this(template, words, 0, null)
+    constructor(template: String, words: List<String?>, learnBoring: Int): this(template, words, learnBoring, null)
 
     fun getBurpRequest(): IHttpRequestResponse {
         return BurpRequest(this)

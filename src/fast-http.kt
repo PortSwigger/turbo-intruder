@@ -84,12 +84,12 @@ class RequestEngine:
         self.userState = self.engine.userState
 
 
-    def queue(self, template, payloads=None, learn=0, callback=None, gate=None):
+    def queue(self, template, payloads=None, learn=0, callback=None, gate=None, label=None):
         if payloads == None:
             payloads = []
         elif(not isinstance(payloads, list)):
             payloads = [str(payloads)]
-        self.engine.queue(template, payloads, learn, callback, gate)
+        self.engine.queue(template, payloads, learn, callback, gate, label)
 
 
     def openGate(self, gate):

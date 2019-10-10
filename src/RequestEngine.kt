@@ -56,25 +56,25 @@ abstract class RequestEngine: IExtensionStateListener {
 
     abstract fun start(timeout: Int = 10)
 
-    abstract fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?): Request
+    abstract fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?, label: String?): Request
 
     fun triggerReadCallback(data: String) {
         readCallback?.invoke(data)
     }
 
     fun queue(req: String) {
-        queue(req, emptyList<String>(), 0, null, null)
+        queue(req, emptyList<String>(), 0, null, null, null)
     }
 
     fun queue(req: String, payload: String) {
-        queue(req, listOf(payload), 0, null, null)
+        queue(req, listOf(payload), 0, null, null, null)
     }
 
     fun queue(template: String, payloads:  List<String?>) {
-        queue(template, payloads, 0, null, null)
+        queue(template, payloads, 0, null, null, null)
     }
 
-    fun queue(template: String, payloads: List<String?>, learnBoring: Int, callback: ((Request, Boolean) -> Boolean)?, gateName: String?) {
+    fun queue(template: String, payloads: List<String?>, learnBoring: Int, callback: ((Request, Boolean) -> Boolean)?, gateName: String?, label: String?) {
 
         val noPayload = payloads.isEmpty()
         val noMarker = !template.contains("%s")
@@ -90,7 +90,7 @@ abstract class RequestEngine: IExtensionStateListener {
             throw Exception("Automatic interesting response detection using 'learn=X' isn't support in command line mode.")
         }
 
-        val request = buildRequest(template, payloads, learnBoring)
+        val request = buildRequest(template, payloads, learnBoring, label)
         request.engine = this
         request.callback = callback
 
