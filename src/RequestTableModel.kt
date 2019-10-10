@@ -27,6 +27,7 @@ class RequestTableModel : AbstractTableModel() {
             3 -> java.lang.Integer::class.java
             4 -> java.lang.Integer::class.java
             5 -> java.lang.Long::class.java
+            6 -> String::class.java
             else -> throw RuntimeException()
         }
     }
@@ -41,6 +42,7 @@ class RequestTableModel : AbstractTableModel() {
             3 -> request.wordcount
             4 -> request.length
             5 -> request.time
+            6 -> request.label
             else -> null
         }
     }
@@ -65,6 +67,6 @@ class RequestTableModel : AbstractTableModel() {
     }
 
     companion object {
-        internal val columns = listOf("Row", "Payload", "Status", "Words", "Length", "Time")
+        internal val columns = listOf("Row", "Payload", "Status", "Words", "Length", "Time", "Label")
     }
 }
