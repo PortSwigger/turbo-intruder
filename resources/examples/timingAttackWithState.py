@@ -1,3 +1,4 @@
+# You can test this code on http://portswigger-labs.net/password_reset.php?username=%s
 def queueRequests(target, wordlists):
     engine = RequestEngine(endpoint=target.endpoint,
                            concurrentConnections=1,
