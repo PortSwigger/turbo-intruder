@@ -139,7 +139,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         val requests = ArrayList<Request>()
         val table = issueTable.model as RequestTableModel
         for (index in issueTable.selectedRows) {
-            val req = table.getRequest(index)
+            val req = table.getRequest(issueTable.convertRowIndexToModel(index))
             if (req != null) {
                 requests.add(req)
             }
