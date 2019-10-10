@@ -81,6 +81,7 @@ class RequestEngine:
 
         handler.setRequestEngine(self.engine)
         self.engine.setOutput(outputHandler)
+        self.userState = self.engine.userState
 
 
     def queue(self, template, payloads=None, learn=0, callback=None, gate=None):
@@ -94,12 +95,12 @@ class RequestEngine:
     def openGate(self, gate):
         self.engine.openGate(gate)
 
-
     def start(self, timeout=5):
         self.engine.start(timeout)
 
     def complete(self, timeout=-1):
         self.engine.showStats(timeout)
+
 """
 
         val SAMPLEBURPSCRIPT = Scripts::class.java.getResource("/examples/default.py").readText()

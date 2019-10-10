@@ -16,6 +16,7 @@ abstract class RequestEngine: IExtensionStateListener {
     var start: Long = System.nanoTime()
     val failedWords = HashMap<String, AtomicInteger>()
     var successfulRequests = AtomicInteger(0)
+    val userState = HashMap<String, Any>()
     var connections = AtomicInteger(0)
     val attackState = AtomicInteger(0) // 0 = connecting, 1 = live, 2 = fully queued, 3 = cancelled, 4 = completed
     lateinit var completedLatch: CountDownLatch
@@ -31,6 +32,10 @@ abstract class RequestEngine: IExtensionStateListener {
     private val floodgates = HashMap<String, Floodgate>()
 
     init {
+        if (attackState.get() == 3) {
+            throw Exception("You cannot create a new request engine for a cancelled attack")
+        }
+
         if (Utils.gotBurp) {
             Utils.callbacks.registerExtensionStateListener(this)
         }
