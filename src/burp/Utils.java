@@ -1,4 +1,5 @@
 package burp;
+import java.awt.*;
 import java.io.PrintWriter;
 
 public class Utils {
@@ -9,6 +10,21 @@ public class Utils {
     private static PrintWriter stderr;
     static WordRecorder witnessedWords = new WordRecorder();
     public static boolean unloaded = false;
+
+    public static void setTurboSize(Dimension size) {
+        callbacks.saveExtensionSetting("turboHeight", String.valueOf(size.height));
+        callbacks.saveExtensionSetting("turboWidth", String.valueOf(size.width));
+    }
+
+    public static Dimension getTurboSize() {
+        try {
+            int height = Integer.parseInt(callbacks.loadExtensionSetting("turboHeight"));
+            int width = Integer.parseInt(callbacks.loadExtensionSetting("turboWidth"));
+            return new Dimension(width, height);
+        } catch(Exception e) {
+            return new Dimension(1280, 800);
+        }
+    }
 
     static void setBurpPresent(IBurpExtenderCallbacks incallbacks) {
         gotBurp = true;

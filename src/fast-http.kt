@@ -2,13 +2,10 @@ package burp
 import java.util.*
 import kotlin.concurrent.thread
 import java.awt.*
-import java.awt.event.ActionEvent
-import java.awt.event.ActionListener
 import java.io.*
 import javax.swing.*
 import org.python.util.PythonInterpreter
-import java.awt.event.WindowAdapter
-import java.awt.event.WindowEvent
+import java.awt.event.*
 import java.util.concurrent.ConcurrentHashMap
 
 
@@ -185,6 +182,14 @@ class MessageController(val req: IHttpRequestResponse): IMessageEditorController
 
 }
 
+class RecordResize: ComponentAdapter() {
+    override fun componentResized(e: ComponentEvent?) {
+        super.componentResized(e)
+        Utils.setTurboSize(e?.component?.size)
+    }
+
+}
+
 class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds: IntArray, val fixedScript: String?, val requestOverride: ByteArray?): ActionListener, JFrame("Turbo Intruder - " + inputRequest.httpService.host)  {
     private val req = Utils.callbacks.saveBuffersToTempFiles(inputRequest)
 
@@ -194,7 +199,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
         SwingUtilities.invokeLater {
             val outerpane = JPanel(GridBagLayout())
             outerpane.layout = BorderLayout()
-
+            outerpane.addComponentListener(RecordResize())
 
             val pane = JSplitPane(JSplitPane.VERTICAL_SPLIT)
             pane.setDividerLocation(0.25)
@@ -229,8 +234,9 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             pane.topComponent = messageEditor.component
             pane.bottomComponent = textEditor.component
 
-            messageEditor.component.preferredSize = Dimension(1000, 150)
-            textEditor.component.preferredSize = Dimension(1000, 400)
+            val turboSize = Utils.getTurboSize()
+            messageEditor.component.preferredSize = Dimension(turboSize.width, 200)
+            textEditor.component.preferredSize = Dimension(turboSize.width, turboSize.height-200)
 
             val button = JButton("Attack")
             var handler = AttackHandler()

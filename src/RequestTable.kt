@@ -74,17 +74,19 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
 
         requestListView = JScrollPane(issueTable)
 
+        val turboSize = Utils.getTurboSize()
         requestEditor = Utils.callbacks.createMessageEditor(controller, false)
         responseEditor = Utils.callbacks.createMessageEditor(controller, false)
         bottomSplit = JSplitPane(JSplitPane.HORIZONTAL_SPLIT, requestEditor.getComponent(), responseEditor.getComponent())
         bottomSplit.resizeWeight = 0.5
+        bottomSplit.preferredSize = Dimension(turboSize.width, turboSize.height/2)
 
 
         val splitPane = JSplitPane(JSplitPane.VERTICAL_SPLIT, requestListView, bottomSplit)
 
-        requestListView.preferredSize = Dimension(1280, 400)
+        requestListView.preferredSize = Dimension(turboSize.width, turboSize.height/2)
         splitPane.setDividerLocation(0.2)
-        splitPane.preferredSize = Dimension(1280, 800)
+        splitPane.preferredSize = Dimension(turboSize.width, turboSize.height)
 
         this.layout = BorderLayout()
         this.add(splitPane, BorderLayout.CENTER)
