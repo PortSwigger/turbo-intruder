@@ -285,6 +285,10 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             outerpane.add(button, BorderLayout.SOUTH)
 
             add(outerpane)
+
+            outerpane.rootPane.defaultButton = button
+            button.requestFocus()
+            
             pack()
             setLocationRelativeTo(getBurpFrame())
             isVisible = true
