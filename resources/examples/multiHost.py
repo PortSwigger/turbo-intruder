@@ -9,7 +9,6 @@ Connection: keep-alive
     for domain in open('/tmp/domains'):
         domain = domain.rstrip()
         engine = RequestEngine(endpoint='https://'+domain+':443')
-        engine.start()
         engines[domain] = engine
 
     for i in range(3, 8):

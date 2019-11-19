@@ -23,8 +23,6 @@ Connection: keep-alive
         engine.userState['results'] = []
         engine.userState['window'] = window
 
-        engine.start(timeout=5)
-
         for k in range(5):
             engine.queue(req, gate='race1')
 

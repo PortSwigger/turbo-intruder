@@ -10,7 +10,6 @@ def queueRequests(target, wordlists):
                            maxRetriesPerRequest=0,
                            engine=Engine.THREADED
                            )
-    engine.start()
 
     engine.queue(target.req)
     engine.queue(target.req)

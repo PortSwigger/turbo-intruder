@@ -5,7 +5,6 @@ def queueRequests(target, wordlists):
                            requestsPerConnection=100,
                            pipeline=False
                            )
-    engine.start()
 
     for i in range(3, 8):
         engine.queue(target.req, randstr(i), learn=1)

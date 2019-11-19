@@ -5,9 +5,12 @@ def queueRequests(target, wordlists):
                            pipeline=False,
                            maxQueueSize=10,
                            timeout=5,
-                           maxRetriesPerRequest=3
+                           maxRetriesPerRequest=3,
+                           autoStart=False
                            )
-    engine.start()
+
+    # We have to call engine.start() manually because we disabled autoStart
+    engine.start(timeout=5)
 
     # You can queue arbitrary requests - you don't have to use the insertion point
     oddRequest = """GET /static/style.css HTTP/1.1

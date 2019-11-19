@@ -6,7 +6,6 @@ def queueRequests(target, wordlists):
                            requestsPerConnection=10,
                            pipeline=False
                            )
-    engine.start()
 
     noPayload = '''GET /static/404 HTTP/1.1
 Host: hackxor.net

@@ -4,7 +4,6 @@ def queueRequests(target, wordlists):
                            requestsPerConnection=100,
                            pipeline=False
                            )
-    engine.start()
 
     for firstWord in open('/usr/share/dict/words'):
       for secondWord in open('/usr/share/dict/american-english'):

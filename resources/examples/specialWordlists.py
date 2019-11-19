@@ -5,8 +5,6 @@ def queueRequests(target, wordlists):
                            pipeline=False
                            )
 
-    engine.start()
-
     # regular wordlist
     for line in open('/Users/james/Dropbox/lists/favourites/disc_words.txt'):
         engine.queue(target.req, line.rstrip())

@@ -5,8 +5,6 @@ def queueRequests(target, wordlists):
                            requestsPerConnection=100
                            )
 
-    engine.start(timeout=5)
-
     engine.userState['base_times'] = []
 
     for i in range(20):

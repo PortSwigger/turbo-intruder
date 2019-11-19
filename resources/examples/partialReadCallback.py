@@ -5,7 +5,6 @@ def queueRequests(target, wordlists):
                            readCallback=handleRead,
                            readSize=256, # TCP socket buffer size - the server may choose to send less
                            )
-    engine.start()
 
     engine.queue(target.req)
 

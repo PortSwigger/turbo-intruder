@@ -47,7 +47,7 @@ class Engine:
 
 class RequestEngine:
 
-    def __init__(self, endpoint, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=100, timeout=5, maxRetriesPerRequest=3, readCallback=None, readSize=1024, resumeSSL=True):
+    def __init__(self, endpoint, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=100, timeout=5, maxRetriesPerRequest=3, readCallback=None, readSize=1024, resumeSSL=True, autoStart=True):
         concurrentConnections = int(concurrentConnections)
         requestsPerConnection = int(requestsPerConnection)
 
@@ -79,6 +79,10 @@ class RequestEngine:
         handler.setRequestEngine(self.engine)
         self.engine.setOutput(outputHandler)
         self.userState = self.engine.userState
+        self.autoStart = False
+        if autoStart:
+            self.autoStart = True
+            self.engine.start(5)
 
 
     def queue(self, template, payloads=None, learn=0, callback=None, gate=None, label=None):
@@ -93,6 +97,9 @@ class RequestEngine:
         self.engine.openGate(gate)
 
     def start(self, timeout=5):
+        if self.autoStart or self.engine.attackState.get() != 0:
+            print 'The engine has already started - you no longer need to invoke engine.start() manually. If you prefer to invoke engine.start() manually, set autoStart=False in the constructor'
+            return
         self.engine.start(timeout)
 
     def complete(self, timeout=-1):
@@ -288,7 +295,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
             outerpane.rootPane.defaultButton = button
             button.requestFocus()
-            
+
             pack()
             setLocationRelativeTo(getBurpFrame())
             isVisible = true
