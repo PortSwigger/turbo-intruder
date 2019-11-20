@@ -1,0 +1,6 @@
+Manifest-Version: 1.0
+Class-Path: kotlin-stdlib-1.3.21.jar burp-extender-api-1.7.22.jar jython
+ -standalone-2.7.0.jar kotlin-stdlib-common-1.3.21.jar annotations-13.0.
+ jar
+Main-Class: burp.Fast_httpKt
+
