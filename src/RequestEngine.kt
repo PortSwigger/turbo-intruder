@@ -337,7 +337,7 @@ abstract class RequestEngine: IExtensionStateListener {
                 if (read <= 0) {
                     break
                 }
-                out.write(bytes)
+                out.write(bytes, 0, read)
             }
         } catch (e: IOException) {
             Utils.err("GZIP decompression failed - possible partial response")
