@@ -177,7 +177,7 @@ abstract class RequestEngine: IExtensionStateListener {
             attackState.set(3)
         }
         else {
-            Utils.err("Completed attack")
+            Utils.err("Completed attack on " +target)
             attackState.set(4)
         }
         showSummary()
