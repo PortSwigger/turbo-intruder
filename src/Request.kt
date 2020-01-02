@@ -5,7 +5,7 @@ import java.lang.Exception
 import java.util.*
 import kotlin.collections.HashMap
 
-open class Request(val template: String, val words: List<String?>, val learnBoring: Int, val label: String?) {
+open class Request(val template: String, val words: List<String?>, val learnBoring: Int, var label: String?) {
 
     var response: String? = null
     var details: IResponseVariations? = null
