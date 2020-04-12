@@ -105,6 +105,7 @@ class RequestEngine:
     def complete(self, timeout=-1):
         self.engine.showStats(timeout)
 
+
 """
 
         val SAMPLEBURPSCRIPT = Scripts::class.java.getResource("/examples/default.py").readText()
@@ -114,7 +115,7 @@ class RequestEngine:
 
 class Target(val req: String, val endpoint: String, val baseInput: String)
 
-class Wordlist(val bruteforce: Bruteforce, val observedWords: ConcurrentHashMap.KeySetView<String, Boolean>)
+class Wordlist(val bruteforce: Bruteforce, val observedWords: ConcurrentHashMap.KeySetView<String, Boolean>, val clipboard: ArrayList<String>)
 
 fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: String, outputHandler: OutputHandler, handler: AttackHandler) {
     try {
@@ -123,7 +124,7 @@ fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: S
         handler.code = code
         handler.baseRequest = baseRequest
         pyInterp.set("target", Target(baseRequest, endpoint, baseInput))
-        pyInterp.set("wordlists", Wordlist(Bruteforce(), Utils.witnessedWords.savedWords))
+        pyInterp.set("wordlists", Wordlist(Bruteforce(), Utils.witnessedWords.savedWords, Utils.getClipboard()))
         pyInterp.set("handler", handler)
         pyInterp.set("outputHandler", outputHandler)
         pyInterp.set("table", outputHandler)

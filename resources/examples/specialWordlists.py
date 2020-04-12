@@ -9,6 +9,10 @@ def queueRequests(target, wordlists):
     for line in open('/Users/james/Dropbox/lists/favourites/disc_words.txt'):
         engine.queue(target.req, line.rstrip())
 
+    # clipboard, split on lines
+    for word in wordlists.clipboard:
+        engine.queue(target.req, word)
+
     # list of all words observed in traffic
     for word in wordlists.observedWords:
         engine.queue(target.req, word)

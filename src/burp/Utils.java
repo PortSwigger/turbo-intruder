@@ -1,6 +1,9 @@
 package burp;
 import java.awt.*;
+import java.awt.datatransfer.DataFlavor;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 public class Utils {
 
@@ -14,6 +17,16 @@ public class Utils {
     public static void setTurboSize(Dimension size) {
         callbacks.saveExtensionSetting("turboHeight", String.valueOf(size.height));
         callbacks.saveExtensionSetting("turboWidth", String.valueOf(size.width));
+    }
+
+    public static ArrayList<String> getClipboard() {
+        String clipboard = "";
+        try {
+            clipboard = (String) Toolkit.getDefaultToolkit().getSystemClipboard().getData(DataFlavor.stringFlavor);
+        } catch(Exception e) {
+            err("failed to read from clipboard");
+        }
+        return new ArrayList<>(Arrays.asList(clipboard.split("\\r?\\n")));
     }
 
     public static Dimension getTurboSize() {
