@@ -1,8 +1,7 @@
 def queueRequests(target, wordlists):
     engine = RequestEngine(endpoint=target.endpoint,
                            concurrentConnections=5,
-                           requestsPerConnection=100,
-                           pipeline=False
+                           engine=Engine.BURP # Use Burp's network stack, including upstream proxies etc
                            )
 
     for i in range(3, 8):
