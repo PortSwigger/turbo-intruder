@@ -63,18 +63,18 @@ abstract class RequestEngine: IExtensionStateListener {
     }
 
     fun queue(req: String) {
-        queue(req, emptyList<String>(), 0, null, null, null)
+        queue(req, emptyList<Object>(), 0, null, null, null)
     }
 
-    fun queue(req: String, payload: String) {
+    fun queue(req: String, payload: Object) {
         queue(req, listOf(payload), 0, null, null, null)
     }
 
-    fun queue(template: String, payloads:  List<String?>) {
+    fun queue(template: String, payloads:  List<Object?>) {
         queue(template, payloads, 0, null, null, null)
     }
 
-    fun queue(template: String, payloads: List<String?>, learnBoring: Int, callback: ((Request, Boolean) -> Boolean)?, gateName: String?, label: String?) {
+    fun queue(template: String, payloads: List<Object?>, learnBoring: Int, callback: ((Request, Boolean) -> Boolean)?, gateName: String?, label: String?) {
 
         val noPayload = payloads.isEmpty()
         val noMarker = !template.contains("%s")
@@ -86,11 +86,13 @@ abstract class RequestEngine: IExtensionStateListener {
             throw Exception("The request has a %s injection point, but no payloads specified")
         }
 
+        val payloadsAsStrings = payloads.map { it.toString() }
+
         if (learnBoring != 0 && !Utils.gotBurp) {
             throw Exception("Automatic interesting response detection using 'learn=X' isn't support in command line mode.")
         }
 
-        val request = buildRequest(template, payloads, learnBoring, label)
+        val request = buildRequest(template, payloadsAsStrings, learnBoring, label)
         request.engine = this
         request.callback = callback
 
