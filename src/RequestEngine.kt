@@ -63,18 +63,18 @@ abstract class RequestEngine: IExtensionStateListener {
     }
 
     fun queue(req: String) {
-        queue(req, emptyList<Object>(), 0, null, null, null)
+        queue(req, emptyList<kotlin.Any>(), 0, null, null, null)
     }
 
-    fun queue(req: String, payload: Object) {
+    fun queue(req: String, payload: kotlin.Any) {
         queue(req, listOf(payload), 0, null, null, null)
     }
 
-    fun queue(template: String, payloads:  List<Object?>) {
+    fun queue(template: String, payloads:  List<kotlin.Any?>) {
         queue(template, payloads, 0, null, null, null)
     }
 
-    fun queue(template: String, payloads: List<Object?>, learnBoring: Int, callback: ((Request, Boolean) -> Boolean)?, gateName: String?, label: String?) {
+    fun queue(template: String, payloads: List<kotlin.Any?>, learnBoring: Int, callback: ((Request, Boolean) -> Boolean)?, gateName: String?, label: String?) {
 
         val noPayload = payloads.isEmpty()
         val noMarker = !template.contains("%s")
