@@ -3,7 +3,7 @@ package burp
 class BurpExtender(): IBurpExtender, IExtensionStateListener {
 
     companion object {
-        const val version = "1.0.17"
+        const val version = "1.0.18"
     }
 
     override fun extensionUnloaded() {
