@@ -13,7 +13,7 @@ def queueRequests(target, wordlists):
     for word in wordlists.clipboard:
         engine.queue(target.req, word)
 
-    # list of all words observed in traffic
+    # list of all words observed during passive scans
     for word in wordlists.observedWords:
         engine.queue(target.req, word)
 
