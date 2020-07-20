@@ -6,7 +6,7 @@ def queueRequests(target, wordlists):
                            )
 
     # regular wordlist
-    for line in open('/Users/james/Dropbox/lists/favourites/disc_words.txt'):
+    for line in open('disc_words.txt'):
         engine.queue(target.req, line.rstrip())
 
     # clipboard, split on lines
