@@ -1,12 +1,18 @@
 package burp
-import java.util.*
-import kotlin.concurrent.thread
-import java.awt.*
-import java.io.*
-import javax.swing.*
+
 import org.python.util.PythonInterpreter
+import java.awt.BorderLayout
+import java.awt.Dimension
+import java.awt.Frame
 import java.awt.event.*
+import java.io.*
+import java.nio.file.Files
+import java.nio.file.NoSuchFileException
+import java.nio.file.Paths
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import javax.swing.*
+import kotlin.concurrent.thread
 
 
 class Scripts() {
@@ -205,13 +211,30 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
     override fun actionPerformed(e: ActionEvent?) {
         SwingUtilities.invokeLater {
-            val outerpane = JPanel(GridBagLayout())
-            outerpane.layout = BorderLayout()
-            outerpane.addComponentListener(RecordResize())
-
             val pane = JSplitPane(JSplitPane.VERTICAL_SPLIT)
             pane.setDividerLocation(0.25)
+            pane.addComponentListener(RecordResize())
+
+            val panel = JPanel(BorderLayout())
+            val codeCombo = JComboBox<String>()
+            codeCombo.preferredSize = Dimension(500, 30)
+            val loadDirectoryButton = JButton("Choose scripts dir")
+            loadDirectoryButton.addActionListener {
+                val directoryChooser = JFileChooser()
+                directoryChooser.fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+                val option = directoryChooser.showOpenDialog(this)
+                if (option == JFileChooser.APPROVE_OPTION) {
+                    val file = directoryChooser.selectedFile
+                    Utils.callbacks.saveExtensionSetting("scriptsPath", file.absolutePath)
+                    readScriptDirectories(codeCombo)
+                }
+            }
             val textEditor = Utils.callbacks.createTextEditor()
+            val topPanel = JPanel()
+            topPanel.add(codeCombo)
+            topPanel.add(loadDirectoryButton)
+            panel.add(topPanel, BorderLayout.NORTH);
+            panel.add(textEditor.component, BorderLayout.CENTER)
             val messageEditor = Utils.callbacks.createMessageEditor(MessageController(req), true)
             var baseInput = ""
 
@@ -239,14 +262,36 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
             textEditor.setEditable(true)
 
-            pane.topComponent = messageEditor.component
-            pane.bottomComponent = textEditor.component
-
             val turboSize = Utils.getTurboSize()
             messageEditor.component.preferredSize = Dimension(turboSize.width, 200)
-            textEditor.component.preferredSize = Dimension(turboSize.width, turboSize.height-200)
+            panel.preferredSize = Dimension(turboSize.width, turboSize.height-200)
+
+            codeCombo.addActionListener {
+                if(codeCombo.itemCount > 0) {
+                    if (codeCombo.selectedIndex == 0) {
+                        val defaultScript = Utils.callbacks.loadExtensionSetting("defaultScript")
+                        if (defaultScript == null) {
+                            textEditor.text = Scripts.SAMPLEBURPSCRIPT.toByteArray()
+                        } else {
+                            textEditor.text = defaultScript.toByteArray()
+                        }
+                    } else {
+                        val fileName = codeCombo.getSelectedItem().toString()
+                        if (fileName.startsWith("examples/")) {
+                            textEditor.text = Scripts::class.java.getResource(File.separator + fileName).readText().toByteArray()
+                        } else {
+                            textEditor.text = Files.readAllBytes(Paths.get(fileName));
+                        }
+                    }
+                }
+            }
+            readScriptDirectories(codeCombo)
+            pane.topComponent = messageEditor.component
+            pane.bottomComponent = panel
+
 
             val button = JButton("Attack")
+            panel.add(button, BorderLayout.SOUTH)
             var handler = AttackHandler()
 
             button.addActionListener {
@@ -288,13 +333,8 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                 }
             })
 
-
-            outerpane.add(pane, BorderLayout.CENTER)
-            outerpane.add(button, BorderLayout.SOUTH)
-
-            add(outerpane)
-
-            outerpane.rootPane.defaultButton = button
+            add(pane)
+            pane.rootPane.defaultButton = button
             button.requestFocus()
 
             pack()
@@ -305,6 +345,38 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
     fun getBurpFrame(): Frame? {
         return Frame.getFrames().firstOrNull { it.isVisible && it.title.startsWith("Burp Suite") }
+    }
+    fun readScriptDirectories( codeCombo : JComboBox<String>) {
+        codeCombo.removeAllItems()
+        codeCombo.addItem("Last code used")
+        try {
+            val readJar = ReadFromJar()
+            val exampleFiles = readJar.getFiles("examples")
+            exampleFiles.sort()
+            for (fileName in exampleFiles) {
+                if (!fileName.endsWith(".py") || fileName.endsWith("__init__.py")) {
+                    continue
+                }
+                codeCombo.addItem(fileName)
+            }
+            val scriptsPath = Utils.callbacks.loadExtensionSetting("scriptsPath")
+            if (!scriptsPath.isNullOrEmpty()) {
+                val folder = File(scriptsPath)
+                if (folder.isDirectory) {
+                    val folderList = folder.listFiles();
+                    Arrays.sort(folderList);
+                    for (fileEntry in folderList) {
+                        if (fileEntry.name.endsWith(".py")) {
+                            codeCombo.addItem(folder.absolutePath + File.separator + fileEntry.name)
+                        }
+                    }
+                }
+            }
+        } catch (e: NoSuchFileException) {
+            System.err.println("Error file not found:"+e)
+        } catch (e: IOException) {
+            System.err.println("Error:"+e)
+        }
     }
 }
 
