@@ -6,6 +6,7 @@ import java.awt.Dimension
 import java.awt.Frame
 import java.awt.event.*
 import java.io.*
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.Paths
@@ -216,7 +217,8 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             pane.addComponentListener(RecordResize())
 
             val panel = JPanel(BorderLayout())
-            val codeCombo = JComboBox<String>()
+            val codeCombo = JComboBox<Any>()
+            codeCombo.renderer = ComboBoxRenderer()
             codeCombo.preferredSize = Dimension(500, 30)
             val loadDirectoryButton = JButton("Choose scripts dir")
             loadDirectoryButton.addActionListener {
@@ -230,9 +232,24 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                 }
             }
             val textEditor = Utils.callbacks.createTextEditor()
+            val saveButton = JButton("Save")
+            saveButton.isEnabled = false
+            saveButton.addActionListener {
+                val comboItem = codeCombo.getSelectedItem();
+                if(comboItem is DirectoryItem) {
+                    try {
+                        if(comboItem.fullPath.endsWith(".py")) {
+                            Files.write( Paths.get(comboItem.fullPath), textEditor.text);
+                        }
+                    } catch (e: IOException) {
+                        System.err.println("Failed to write file:$e")
+                    }
+                }
+            }
             val topPanel = JPanel()
             topPanel.add(codeCombo)
             topPanel.add(loadDirectoryButton)
+            topPanel.add(saveButton)
             panel.add(topPanel, BorderLayout.NORTH);
             panel.add(textEditor.component, BorderLayout.CENTER)
             val messageEditor = Utils.callbacks.createMessageEditor(MessageController(req), true)
@@ -267,8 +284,9 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             panel.preferredSize = Dimension(turboSize.width, turboSize.height-200)
 
             codeCombo.addActionListener {
-                if(codeCombo.itemCount > 0) {
+                if(codeCombo.itemCount > 0 && !(codeCombo.getSelectedItem() is JSeparator)) {
                     if (codeCombo.selectedIndex == 0) {
+                        saveButton.isEnabled = false;
                         val defaultScript = Utils.callbacks.loadExtensionSetting("defaultScript")
                         if (defaultScript == null) {
                             textEditor.text = Scripts.SAMPLEBURPSCRIPT.toByteArray()
@@ -278,9 +296,16 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                     } else {
                         val fileName = codeCombo.getSelectedItem().toString()
                         if (fileName.startsWith("examples/")) {
-                            textEditor.text = Scripts::class.java.getResource(File.separator + fileName).readText().toByteArray()
+                            textEditor.text = Scripts::class.java.getResource("/" + fileName).readText().toByteArray()
+                            saveButton.isEnabled = false;
                         } else {
-                            textEditor.text = Files.readAllBytes(Paths.get(fileName));
+                            saveButton.isEnabled = true;
+                            val comboItem = codeCombo.getSelectedItem();
+                            if(comboItem is DirectoryItem) {
+                                textEditor.text = Files.readAllBytes(Paths.get(comboItem.fullPath));
+                            } else {
+                                textEditor.text = Files.readAllBytes(Paths.get(fileName));
+                            }
                         }
                     }
                 }
@@ -346,19 +371,10 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
     fun getBurpFrame(): Frame? {
         return Frame.getFrames().firstOrNull { it.isVisible && it.title.startsWith("Burp Suite") }
     }
-    fun readScriptDirectories( codeCombo : JComboBox<String>) {
+    fun readScriptDirectories( codeCombo : JComboBox<Any>) {
         codeCombo.removeAllItems()
         codeCombo.addItem("Last code used")
         try {
-            val readJar = ReadFromJar()
-            val exampleFiles = readJar.getFiles("examples")
-            exampleFiles.sort()
-            for (fileName in exampleFiles) {
-                if (!fileName.endsWith(".py") || fileName.endsWith("__init__.py")) {
-                    continue
-                }
-                codeCombo.addItem(fileName)
-            }
             val scriptsPath = Utils.callbacks.loadExtensionSetting("scriptsPath")
             if (!scriptsPath.isNullOrEmpty()) {
                 val folder = File(scriptsPath)
@@ -367,10 +383,20 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                     Arrays.sort(folderList);
                     for (fileEntry in folderList) {
                         if (fileEntry.name.endsWith(".py")) {
-                            codeCombo.addItem(folder.absolutePath + File.separator + fileEntry.name)
+                            codeCombo.addItem(DirectoryItem(folder.absolutePath + "/" + fileEntry.name, fileEntry.name))
                         }
                     }
                 }
+            }
+            codeCombo.addItem( JSeparator(JSeparator.HORIZONTAL))
+            val readJar = ReadFromJar()
+            val exampleFiles = readJar.getFiles("examples")
+            exampleFiles.sort()
+            for (fileName in exampleFiles) {
+                if (!fileName.endsWith(".py") || fileName.endsWith("__init__.py")) {
+                    continue
+                }
+                codeCombo.addItem(fileName)
             }
         } catch (e: NoSuchFileException) {
             System.err.println("Error file not found:"+e)
