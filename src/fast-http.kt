@@ -329,7 +329,8 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                         button.text == "Configure" -> {
                             handler.abort()
                             handler = AttackHandler()
-                            pane.bottomComponent = textEditor.component
+                            panel.add(button, BorderLayout.SOUTH)
+                            pane.bottomComponent = panel
                             pane.setDividerLocation(0.25)
                             button.text = "Attack"
                             this.title = "Turbo Intruder - " + req.httpService.host
@@ -337,7 +338,11 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                         else -> {
                             button.text = "Halt"
                             val requestTable = RequestTable(req.httpService, handler)
-                            pane.bottomComponent = requestTable
+                            val requestPanel = JPanel(BorderLayout())
+                            panel.remove(button)
+                            requestPanel.add(requestTable, BorderLayout.CENTER)
+                            requestPanel.add(button, BorderLayout.SOUTH)
+                            pane.bottomComponent = requestPanel
                             val script = String(textEditor.text)
                             Utils.callbacks.saveExtensionSetting("defaultScript", script)
                             Utils.callbacks.helpers
