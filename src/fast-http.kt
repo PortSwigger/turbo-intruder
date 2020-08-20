@@ -218,7 +218,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
             val panel = JPanel(BorderLayout())
             val codeCombo = JComboBox<Any>()
-            codeCombo.renderer = ComboBoxRenderer()
+            codeCombo.renderer = ComboBoxRenderer(10)
             codeCombo.preferredSize = Dimension(500, 30)
             val loadDirectoryButton = JButton("Choose scripts dir")
             loadDirectoryButton.addActionListener {
