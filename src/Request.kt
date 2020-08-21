@@ -85,11 +85,11 @@ open class Request(val template: String, val words: List<String?>, val learnBori
     }
 
     fun getRequestAsBytes(): ByteArray {
-        return fixContentLength(getRequest().toByteArray(Charsets.ISO_8859_1))
+        return fixContentLength(getRequest().toByteArray(Charsets.UTF_8))
     }
 
     fun getResponseAsBytes(): ByteArray? {
-        return response?.toByteArray(Charsets.ISO_8859_1)
+        return response?.toByteArray(Charsets.UTF_8)
     }
 
     fun fixContentLength(request: ByteArray): ByteArray {

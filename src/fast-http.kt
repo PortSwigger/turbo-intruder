@@ -256,7 +256,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             textEditor.paintTabLines = false
             textEditor.tabSize = 4
             textEditor.tabsEmulated = true
-            
+
             if (UIManager.getLookAndFeel().getID().equals("Darcula")) {
                 val `in` = javaClass.getResourceAsStream("/org/fife/ui/rsyntaxtextarea/themes/dark.xml")
                 try {

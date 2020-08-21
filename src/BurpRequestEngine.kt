@@ -1,5 +1,6 @@
 package burp
 import java.net.URL
+import java.nio.charset.StandardCharsets
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
@@ -78,7 +79,7 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
             if (resp.response != null) {
                 successfulRequests.getAndIncrement()
                 val interesting = processResponse(req, resp.response)
-                req.response = String(resp.response)
+                req.response = String(resp.response) // , StandardCharsets.UTF_8
                 invokeCallback(req, interesting)
             }
 
