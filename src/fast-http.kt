@@ -14,6 +14,15 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import javax.swing.*
 import kotlin.concurrent.thread
+import org.fife.ui.rtextarea.*;
+import org.fife.ui.rsyntaxtextarea.*;
+import org.fife.ui.rtextarea.RTextScrollPane
+import java.io.IOException
+import org.fife.ui.rsyntaxtextarea.Theme
+import java.io.InputStream
+
+
+
 
 
 class Scripts() {
@@ -231,7 +240,36 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                     readScriptDirectories(codeCombo)
                 }
             }
-            val textEditor = Utils.callbacks.createTextEditor()
+            //val textEditor = Utils.callbacks.createTextEditor()
+            //
+            // https://github.com/bobbylight/RSyntaxTextArea/issues/269
+            javax.swing.text.JTextComponent.removeKeymap("RTextAreaKeymap")
+            javax.swing.UIManager.put("RTextAreaUI.inputMap", null)
+            javax.swing.UIManager.put("RTextAreaUI.actionMap", null)
+            javax.swing.UIManager.put("RSyntaxTextAreaUI.inputMap", null)
+            javax.swing.UIManager.put("RSyntaxTextAreaUI.actionMap", null)
+            val textEditor = RSyntaxTextArea(20, 60)
+            textEditor.isEditable = true
+            textEditor.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_PYTHON)
+            textEditor.antiAliasingEnabled = true
+            textEditor.isAutoIndentEnabled = true
+            textEditor.paintTabLines = false
+            textEditor.tabSize = 4
+            textEditor.tabsEmulated = true
+            val scrollableTextEditor = JScrollPane(textEditor)
+
+            if (UIManager.getLookAndFeel().getID().equals("Darcula")) {
+                val `in` = javaClass.getResourceAsStream("/org/fife/ui/rsyntaxtextarea/themes/dark.xml")
+                try {
+                    val theme = Theme.load(`in`)
+                    theme.apply(textEditor)
+                } catch (ioe: IOException) {
+                    Utils.out(ioe.toString())
+                    ioe.printStackTrace()
+                }
+            }
+
+
             val saveButton = JButton("Save")
             saveButton.isEnabled = false
             saveButton.addActionListener {
@@ -239,7 +277,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                 if(comboItem is DirectoryItem) {
                     try {
                         if(comboItem.fullPath.endsWith(".py")) {
-                            Files.write( Paths.get(comboItem.fullPath), textEditor.text);
+                            Files.write( Paths.get(comboItem.fullPath), textEditor.text.toByteArray());
                         }
                     } catch (e: IOException) {
                         System.err.println("Failed to write file:$e")
@@ -251,12 +289,12 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             topPanel.add(loadDirectoryButton)
             topPanel.add(saveButton)
             panel.add(topPanel, BorderLayout.NORTH);
-            panel.add(textEditor.component, BorderLayout.CENTER)
+            panel.add(scrollableTextEditor, BorderLayout.CENTER)
             val messageEditor = Utils.callbacks.createMessageEditor(MessageController(req), true)
             var baseInput = ""
 
             if (fixedScript != null) {
-                textEditor.text = fixedScript.toByteArray()
+                textEditor.text = fixedScript
                 messageEditor.setMessage(requestOverride?: req.request, true)
             }
             else {
@@ -271,9 +309,9 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
                 val defaultScript = Utils.callbacks.loadExtensionSetting("defaultScript")
                 if (defaultScript == null) {
-                    textEditor.text = Scripts.SAMPLEBURPSCRIPT.toByteArray()
+                    textEditor.text = Scripts.SAMPLEBURPSCRIPT
                 } else {
-                    textEditor.text = defaultScript.toByteArray()
+                    textEditor.text = defaultScript
                 }
             }
 
@@ -289,22 +327,22 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                         saveButton.isEnabled = false;
                         val defaultScript = Utils.callbacks.loadExtensionSetting("defaultScript")
                         if (defaultScript == null) {
-                            textEditor.text = Scripts.SAMPLEBURPSCRIPT.toByteArray()
+                            textEditor.text = Scripts.SAMPLEBURPSCRIPT
                         } else {
-                            textEditor.text = defaultScript.toByteArray()
+                            textEditor.text = defaultScript
                         }
                     } else {
                         val fileName = codeCombo.getSelectedItem().toString()
                         if (fileName.startsWith("examples/")) {
-                            textEditor.text = Scripts::class.java.getResource("/" + fileName).readText().toByteArray()
+                            textEditor.text = Scripts::class.java.getResource("/" + fileName).readText()
                             saveButton.isEnabled = false;
                         } else {
                             saveButton.isEnabled = true;
                             val comboItem = codeCombo.getSelectedItem();
                             if(comboItem is DirectoryItem) {
-                                textEditor.text = Files.readAllBytes(Paths.get(comboItem.fullPath));
+                                textEditor.text = String(Files.readAllBytes(Paths.get(comboItem.fullPath)));
                             } else {
-                                textEditor.text = Files.readAllBytes(Paths.get(fileName));
+                                textEditor.text = String(Files.readAllBytes(Paths.get(fileName)));
                             }
                         }
                     }
@@ -343,7 +381,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                             requestPanel.add(requestTable, BorderLayout.CENTER)
                             requestPanel.add(button, BorderLayout.SOUTH)
                             pane.bottomComponent = requestPanel
-                            val script = String(textEditor.text)
+                            val script = textEditor.text
                             Utils.callbacks.saveExtensionSetting("defaultScript", script)
                             Utils.callbacks.helpers
                             val baseRequest = Utils.callbacks.helpers.bytesToString(messageEditor.message)
