@@ -256,8 +256,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             textEditor.paintTabLines = false
             textEditor.tabSize = 4
             textEditor.tabsEmulated = true
-            val scrollableTextEditor = JScrollPane(textEditor)
-
+            
             if (UIManager.getLookAndFeel().getID().equals("Darcula")) {
                 val `in` = javaClass.getResourceAsStream("/org/fife/ui/rsyntaxtextarea/themes/dark.xml")
                 try {
@@ -268,7 +267,11 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                     ioe.printStackTrace()
                 }
             }
+            else {
+                textEditor.highlightCurrentLine = false
+            }
 
+            val scrollableTextEditor = JScrollPane(textEditor)
 
             val saveButton = JButton("Save")
             saveButton.isEnabled = false
