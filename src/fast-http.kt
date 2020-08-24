@@ -376,6 +376,8 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                             pane.bottomComponent = panel
                             pane.setDividerLocation(0.25)
                             button.text = "Attack"
+                            button.requestFocusInWindow()
+                            pane.rootPane.defaultButton = button
                             this.title = "Turbo Intruder - " + req.httpService.host
                         }
                         else -> {
@@ -393,6 +395,8 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                             val service = req.httpService
                             val target = service.protocol + "://" + service.host + ":" + service.port
                             this.title += " - running"
+                            button.requestFocusInWindow()
+                            pane.rootPane.defaultButton = button
                             evalJython(script, baseRequest, target, baseInput, requestTable, handler)
                         }
                     }
@@ -408,11 +412,12 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
             add(pane)
             pane.rootPane.defaultButton = button
-            button.requestFocus()
             pack()
 
             setLocationRelativeTo(getBurpFrame())
             isVisible = true
+            button.requestFocus()
+            button.requestFocusInWindow()
         }
     }
 
