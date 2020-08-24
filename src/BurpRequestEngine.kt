@@ -72,7 +72,7 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
             }
 
             if(resp.response == null) {
-                req.response = "null"
+                req.response = "The server closed the connection without issuing a response."
                 invokeCallback(req, true)
             }
 

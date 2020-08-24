@@ -89,6 +89,8 @@ open class Request(val template: String, val words: List<String?>, val learnBori
     }
 
     fun getResponseAsBytes(): ByteArray? {
+        // todo look up actual charset from headers and use that
+        // or use bytes from end to end
         return response?.toByteArray(Charsets.UTF_8)
     }
 

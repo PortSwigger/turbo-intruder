@@ -320,10 +320,6 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
             textEditor.setEditable(true)
 
-            val turboSize = Utils.getTurboSize()
-            messageEditor.component.preferredSize = Dimension(turboSize.width, 200)
-            panel.preferredSize = Dimension(turboSize.width, turboSize.height-200)
-
             codeCombo.addActionListener {
                 if(codeCombo.itemCount > 0 && !(codeCombo.getSelectedItem() is JSeparator)) {
                     if (codeCombo.selectedIndex == 0) {
@@ -358,6 +354,12 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
             val button = JButton("Attack")
             panel.add(button, BorderLayout.SOUTH)
+
+            val turboSize = Utils.getTurboSize()
+            messageEditor.component.preferredSize = Dimension(turboSize.width, 200)
+            panel.preferredSize = Dimension(turboSize.width, turboSize.height-200)
+
+
             var handler = AttackHandler()
 
             button.addActionListener {
@@ -407,8 +409,8 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             add(pane)
             pane.rootPane.defaultButton = button
             button.requestFocus()
-
             pack()
+
             setLocationRelativeTo(getBurpFrame())
             isVisible = true
         }

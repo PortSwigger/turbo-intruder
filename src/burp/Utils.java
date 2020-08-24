@@ -31,7 +31,7 @@ public class Utils {
 
     public static Dimension getTurboSize() {
         try {
-            int height = Integer.parseInt(callbacks.loadExtensionSetting("turboHeight"));
+            int height = Integer.parseInt(callbacks.loadExtensionSetting("turboHeight"))-20; // don't ask
             int width = Integer.parseInt(callbacks.loadExtensionSetting("turboWidth"));
             return new Dimension(width, height);
         } catch(Exception e) {
