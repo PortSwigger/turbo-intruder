@@ -218,6 +218,17 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
     private val req = Utils.callbacks.saveBuffersToTempFiles(inputRequest)
 
 
+    private fun getDefaultScript(): String {
+        if (fixedScript != null) {
+            return fixedScript
+        }
+        val defaultScript = Utils.callbacks.loadExtensionSetting("defaultScript")
+        if (defaultScript == null) {
+            return Scripts.SAMPLEBURPSCRIPT
+        } else {
+            return defaultScript
+        }
+    }
 
     override fun actionPerformed(e: ActionEvent?) {
         SwingUtilities.invokeLater {
@@ -249,6 +260,8 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             javax.swing.UIManager.put("RSyntaxTextAreaUI.inputMap", null)
             javax.swing.UIManager.put("RSyntaxTextAreaUI.actionMap", null)
             val textEditor = RSyntaxTextArea(20, 60)
+
+
             textEditor.isEditable = true
             textEditor.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_PYTHON)
             textEditor.antiAliasingEnabled = true
@@ -296,40 +309,26 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             val messageEditor = Utils.callbacks.createMessageEditor(MessageController(req), true)
             var baseInput = ""
 
+
             if (fixedScript != null) {
-                textEditor.text = fixedScript
                 messageEditor.setMessage(requestOverride?: req.request, true)
             }
             else {
-
                 if (selectionBounds.isNotEmpty() && selectionBounds[0] != selectionBounds[1]) {
                     messageEditor.setMessage(req.request.copyOfRange(0, selectionBounds[0]) + ("%s".toByteArray()) + req.request.copyOfRange(selectionBounds[1], req.request.size), true)
                     baseInput = String(req.request.copyOfRange(selectionBounds[0], selectionBounds[1]), Charsets.ISO_8859_1)
                 } else {
                     messageEditor.setMessage(req.request, true)
                 }
-
-
-                val defaultScript = Utils.callbacks.loadExtensionSetting("defaultScript")
-                if (defaultScript == null) {
-                    textEditor.text = Scripts.SAMPLEBURPSCRIPT
-                } else {
-                    textEditor.text = defaultScript
-                }
             }
-
+            textEditor.text = getDefaultScript()
             textEditor.setEditable(true)
 
             codeCombo.addActionListener {
                 if(codeCombo.itemCount > 0 && !(codeCombo.getSelectedItem() is JSeparator)) {
                     if (codeCombo.selectedIndex == 0) {
                         saveButton.isEnabled = false;
-                        val defaultScript = Utils.callbacks.loadExtensionSetting("defaultScript")
-                        if (defaultScript == null) {
-                            textEditor.text = Scripts.SAMPLEBURPSCRIPT
-                        } else {
-                            textEditor.text = defaultScript
-                        }
+                        textEditor.text = getDefaultScript()
                     } else {
                         val fileName = codeCombo.getSelectedItem().toString()
                         if (fileName.startsWith("examples/")) {
