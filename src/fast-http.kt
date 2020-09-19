@@ -388,7 +388,10 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                             requestPanel.add(requestTable, BorderLayout.CENTER)
                             requestPanel.add(button, BorderLayout.SOUTH)
                             pane.bottomComponent = requestPanel
-                            val script = textEditor.text
+                            var script = textEditor.text
+                            if(!script.contains("\r\n")) {
+                                script = script.replace("\n", "\r\n")
+                            }
                             Utils.callbacks.saveExtensionSetting("defaultScript", script)
                             Utils.callbacks.helpers
                             val baseRequest = Utils.callbacks.helpers.bytesToString(messageEditor.message)

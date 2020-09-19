@@ -139,7 +139,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
 
             while (i < end && request[i++] != ' '.toByte()) {
             }
-            val header_name = Arrays.copyOfRange(request, line_start, i - 2)
+            val header_name = request.copyOfRange(line_start, i - 2)
             val headerValueStart = i
             while (i < end && request[i++] != '\n'.toByte()) {
             }
