@@ -20,7 +20,10 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
         }
 
         completedLatch = CountDownLatch(threads)
+
         target = URL(url)
+
+
         val service = Utils.callbacks.helpers.buildHttpService(target.host, target.port, target.protocol == "https")
 
         for(j in 1..threads) {

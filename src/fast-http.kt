@@ -392,7 +392,15 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                             Utils.callbacks.helpers
                             val baseRequest = Utils.callbacks.helpers.bytesToString(messageEditor.message)
                             val service = req.httpService
-                            val target = service.protocol + "://" + service.host + ":" + service.port
+
+                            val target: String
+                            if (service.host.contains(":")) {
+                                target = service.protocol + "://[" + service.host + "]:" + service.port
+                            }
+                            else {
+                                target = service.protocol + "://" + service.host + ":" + service.port
+                            }
+
                             this.title += " - running"
                             button.requestFocusInWindow()
                             pane.rootPane.defaultButton = button
