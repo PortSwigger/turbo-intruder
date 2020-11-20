@@ -7,6 +7,7 @@ class AttackHandler {
     private var statusOverride: String? = null
     var code: String = ""
     var baseRequest: String = ""
+    var rawRequest: ByteArray = "".toByteArray()
 
     fun isRunning(): Boolean {
         return running

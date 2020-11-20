@@ -129,17 +129,18 @@ class RequestEngine:
 }
 
 
-class Target(val req: String, val endpoint: String, val baseInput: String)
+class Target(val req: String, val rawreq: ByteArray, val endpoint: String, val baseInput: String)
 
 class Wordlist(val bruteforce: Bruteforce, val observedWords: ConcurrentHashMap.KeySetView<String, Boolean>, val clipboard: ArrayList<String>)
 
-fun evalJython(code: String, baseRequest: String, endpoint: String, baseInput: String, outputHandler: OutputHandler, handler: AttackHandler) {
+fun evalJython(code: String, baseRequest: String, rawRequest: ByteArray, endpoint: String, baseInput: String, outputHandler: OutputHandler, handler: AttackHandler) {
     try {
         Utils.out("Starting attack...")
         val pyInterp = PythonInterpreter() // todo add path to bs4
         handler.code = code
         handler.baseRequest = baseRequest
-        pyInterp.set("target", Target(baseRequest, endpoint, baseInput))
+        handler.rawRequest = rawRequest
+        pyInterp.set("target", Target(baseRequest, rawRequest, endpoint, baseInput))
         pyInterp.set("wordlists", Wordlist(Bruteforce(), Utils.witnessedWords.savedWords, Utils.getClipboard()))
         pyInterp.set("handler", handler)
         pyInterp.set("outputHandler", outputHandler)
@@ -270,7 +271,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             textEditor.tabSize = 4
             textEditor.tabsEmulated = true
 
-            if (UIManager.getLookAndFeel().getID().equals("Darcula")) {
+            if (UIManager.getLookAndFeel().getID().contains("Dar")) {
                 val `in` = javaClass.getResourceAsStream("/org/fife/ui/rsyntaxtextarea/themes/dark.xml")
                 try {
                     val theme = Theme.load(`in`)
@@ -292,9 +293,8 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                 val comboItem = codeCombo.getSelectedItem();
                 if(comboItem is DirectoryItem) {
                     try {
-                        if(comboItem.fullPath.endsWith(".py")) {
-                            Files.write( Paths.get(comboItem.fullPath), textEditor.text.toByteArray());
-                        }
+                        Files.write( Paths.get(comboItem.fullPath), textEditor.text.toByteArray());
+
                     } catch (e: IOException) {
                         System.err.println("Failed to write file:$e")
                     }
@@ -408,7 +408,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                             this.title += " - running"
                             button.requestFocusInWindow()
                             pane.rootPane.defaultButton = button
-                            evalJython(script, baseRequest, target, baseInput, requestTable, handler)
+                            evalJython(script, baseRequest, messageEditor.message, target, baseInput, requestTable, handler)
                         }
                     }
                 }
@@ -446,7 +446,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                     val folderList = folder.listFiles();
                     Arrays.sort(folderList);
                     for (fileEntry in folderList) {
-                        if (fileEntry.name.endsWith(".py")) {
+                        if (!fileEntry.name.startsWith(".")) {
                             codeCombo.addItem(DirectoryItem(folder.absolutePath + "/" + fileEntry.name, fileEntry.name))
                         }
                     }
@@ -457,7 +457,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             val exampleFiles = readJar.getFiles("examples")
             exampleFiles.sort()
             for (fileName in exampleFiles) {
-                if (!fileName.endsWith(".py") || fileName.endsWith("__init__.py")) {
+                if (fileName.startsWith(".") || fileName.endsWith("__init__.py")) {
                     continue
                 }
                 codeCombo.addItem(fileName)
@@ -490,7 +490,7 @@ fun main(args : Array<String>) {
             req = req.replace("\n", "\r\n")
         }
         val outputHandler = ConsolePrinter()
-        evalJython(code, req, endpoint, baseInput, outputHandler, attackHandler)
+        evalJython(code, req, File(args[1]).readBytes(), endpoint, baseInput, outputHandler, attackHandler)
     }
 
     catch (e: FileNotFoundException) {
