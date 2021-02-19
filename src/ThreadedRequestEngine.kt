@@ -18,6 +18,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
     private val threadPool = ArrayList<Thread>()
 
+    private val IGNORE_LENGTH = false
+
     init {
         target = URL(url)
 
@@ -209,7 +211,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         val headers = buffer.substring(0, bodyStart+4)
                         var body = ""
 
-                        if (contentLength != -1) {
+                        if (contentLength != -1 && !IGNORE_LENGTH) {
                             val responseLength = bodyStart + contentLength + 4
 
                             while (buffer.length < responseLength) {
@@ -222,7 +224,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             body = buffer.substring(bodyStart + 4, responseLength)
                             buffer = buffer.substring(responseLength)
                         }
-                        else if (headers.toLowerCase().contains("transfer-encoding: chunked") || headers.contains("^transfer-encoding:[ ]*chunked".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)))) {
+                        else if (headers.toLowerCase().contains("transfer-encoding: chunked") || headers.contains("^transfer-encoding:[ ]*chunked".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)))  && !IGNORE_LENGTH) {
 
                             buffer = buffer.substring(bodyStart + 4)
 
@@ -248,14 +250,23 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             }
                         }
                         else {
-                            Utils.err("Response has no content-length - doing a one-second socket read instead. This is slow!")
-                            socket.soTimeout = 1000
+                            if (IGNORE_LENGTH) {
+                                socket.soTimeout = 5000
+                            }
+                            else {
+                                Utils.err("Response has no content-length - doing a one-second socket read instead. This is slow!")
+                                socket.soTimeout = 1000
+                            }
+
                             try {
+                                body += buffer.substring(bodyStart + 4)
                                 while (true) {
                                     val len = socket.getInputStream().read(readBuffer)
+
                                     if (len == -1) {
                                         break
                                     }
+
                                     buffer = String(readBuffer.copyOfRange(0, len), Charsets.ISO_8859_1)
                                     body += buffer
                                 }
@@ -263,6 +274,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                             } catch (ex: SSLProtocolException) {
 
+                            } catch (ex: java.lang.Exception) {
+                                Utils.err("Exception during timed read: "+ex)
                             }
                         }
 
