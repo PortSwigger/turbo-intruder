@@ -371,22 +371,28 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                         button.text == "Configure" -> {
                             handler.abort()
                             handler = AttackHandler()
-                            panel.add(button, BorderLayout.SOUTH)
-                            pane.bottomComponent = panel
-                            pane.setDividerLocation(0.25)
-                            button.text = "Attack"
-                            button.requestFocusInWindow()
-                            pane.rootPane.defaultButton = button
-                            this.title = "Turbo Intruder - " + req.httpService.host
+                            SwingUtilities.invokeLater {
+                                panel.add(button, BorderLayout.SOUTH)
+                                pane.bottomComponent = panel
+                                pane.setDividerLocation(0.25)
+                                button.text = "Attack"
+                                button.requestFocusInWindow()
+                                pane.rootPane.defaultButton = button
+                                this.title = "Turbo Intruder - " + req.httpService.host
+                            }
                         }
                         else -> {
-                            button.text = "Halt"
                             val requestTable = RequestTable(req.httpService, handler)
-                            val requestPanel = JPanel(BorderLayout())
-                            panel.remove(button)
-                            requestPanel.add(requestTable, BorderLayout.CENTER)
-                            requestPanel.add(button, BorderLayout.SOUTH)
-                            pane.bottomComponent = requestPanel
+                            SwingUtilities.invokeLater {
+                                button.text = "Halt"
+                                val requestPanel = JPanel(BorderLayout())
+                                panel.remove(button)
+                                requestPanel.add(requestTable, BorderLayout.CENTER)
+                                requestPanel.add(button, BorderLayout.SOUTH)
+                                pane.bottomComponent = requestPanel
+                                button.requestFocusInWindow()
+                                pane.rootPane.defaultButton = button
+                            }
                             var script = textEditor.text
 
                             // enforce /r/n line endings
@@ -406,8 +412,6 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                             }
 
                             this.title += " - running"
-                            button.requestFocusInWindow()
-                            pane.rootPane.defaultButton = button
                             evalJython(script, baseRequest, messageEditor.message, target, baseInput, requestTable, handler)
                         }
                     }
@@ -421,14 +425,15 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                 }
             })
 
-            add(pane)
-            pane.rootPane.defaultButton = button
-            pack()
-
-            setLocationRelativeTo(getBurpFrame())
-            isVisible = true
-            button.requestFocus()
-            button.requestFocusInWindow()
+            SwingUtilities.invokeLater {
+                add(pane)
+                pane.rootPane.defaultButton = button
+                pack()
+                setLocationRelativeTo(getBurpFrame())
+                isVisible = true
+                button.requestFocus()
+                button.requestFocusInWindow()
+            }
         }
     }
 

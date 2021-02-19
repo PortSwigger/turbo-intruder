@@ -2,8 +2,8 @@ Uuid: 9abaa233088242e8be252cd4ff534988
 ExtensionType: 1
 Name: Turbo Intruder
 RepoName: turbo-intruder
-ScreenVersion: 1.1.3
-SerialVersion: 31
+ScreenVersion: 1.1.4
+SerialVersion: 32
 MinPlatformVersion: 0
 ProOnly: False
 Author: James 'albinowax' Kettle, PortSwigger Web Security
