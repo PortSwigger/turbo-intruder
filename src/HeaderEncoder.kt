@@ -7,7 +7,7 @@ class HeaderEncoder {
     val headers = ByteArrayOutputStream()
 
     fun addHeader(name: String, value: String) {
-        Connection.debug("$name=$value")
+        //Connection.debug("$name=$value")
         encoder.encodeHeader(headers, name.toByteArray(), value.toByteArray(), false)
     }
 }

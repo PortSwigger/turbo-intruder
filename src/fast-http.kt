@@ -57,8 +57,7 @@ def queueForever(engine, req):
 class Engine:
     BURP = 1
     THREADED = 2
-    ASYNC = 3
-    HTTP2 = 4
+    HTTP2 = 3
 
 
 class RequestEngine:
@@ -85,10 +84,8 @@ class RequestEngine:
             self.engine = burp.BurpRequestEngine(endpoint, concurrentConnections, maxQueueSize, maxRetriesPerRequest, callback, readCallback)
         elif(engine == Engine.THREADED):
             self.engine = burp.ThreadedRequestEngine(endpoint, concurrentConnections, maxQueueSize, readFreq, requestsPerConnection, maxRetriesPerRequest, callback, timeout, readCallback, readSize, resumeSSL)
-        elif(engine == Engine.ASYNC):
-            self.engine = burp.AsyncRequestEngine(endpoint, concurrentConnections, readFreq, requestsPerConnection, False, callback)
         elif(engine == Engine.HTTP2):
-            self.engine = burp.AsyncRequestEngine(endpoint, concurrentConnections, readFreq, requestsPerConnection, True, callback)
+            self.engine = burp.HTTP2RequestEngine(endpoint, concurrentConnections, maxQueueSize, requestsPerConnection, maxRetriesPerRequest, callback, readCallback)
         else:
             print('Unrecognised engine. Valid engines are Engine.BURP, Engine.THREADED')
 

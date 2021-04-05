@@ -324,31 +324,6 @@ abstract class RequestEngine: IExtensionStateListener {
         return true
     }
 
-    fun decompress(compressed: ByteArray): String {
-        if (compressed.isEmpty()) {
-            return ""
-        }
-
-        val out = ByteArrayOutputStream()
-        try {
-            val bytesIn = ByteArrayInputStream(compressed)
-            val unzipped = GZIPInputStream(bytesIn)
-            while (true) {
-                val bytes = ByteArray(1024)
-                val read = unzipped.read(bytes, 0, 1024)
-                if (read <= 0) {
-                    break
-                }
-                out.write(bytes, 0, read)
-            }
-        } catch (e: IOException) {
-            Utils.err("GZIP decompression failed - possible partial response. Using undecompressed bytes instead.")
-            return String(compressed)
-        }
-
-        return String(out.toByteArray())
-    }
-
 }
 
 

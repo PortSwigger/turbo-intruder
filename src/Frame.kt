@@ -1,3 +1,4 @@
+package burp
 import com.twitter.hpack.Decoder
 import java.io.ByteArrayInputStream
 import java.lang.StringBuilder
@@ -57,7 +58,7 @@ class DataFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray): Fra
 
     init {
         Connection.debug("Parsing data frame")
-        body = String(payload)
+        body = String(payload, Charsets.ISO_8859_1)
         if (flags.toInt() == 1) {
             Connection.debug("Data frame has set END_STREAM")
             die = true
@@ -112,16 +113,16 @@ class WindowFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray): F
 
 class RstStreamFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray): Frame(type, flags, streamID, payload) {
     init {
-        println("Parsing RST_STREAM")
+        Utils.out("Parsing RST_STREAM")
     }
 }
 
 class GoAwayFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray): Frame(type, flags, streamID, payload) {
 
     init {
-        println("Parsing GOAWAY")
-        println("Last stream ID: "+payload.sliceArray(0..3).asList())
-        println("Error code: "+payload.sliceArray(4..7).asList())
+        Utils.out("Parsing GOAWAY")
+        Utils.out("Last stream ID: "+payload.sliceArray(0..3).asList())
+        Utils.out("Error code: "+payload.sliceArray(4..7).asList())
         val error = payload[7].toInt()
         val error_message = when (error) {
             0 -> "NO_ERROR"

@@ -47,6 +47,11 @@ open class Request(val template: String, val words: List<String?>, val learnBori
             return 0
         }
         try {
+            if(response!!.startsWith(":status")) {
+                Utils.out("'"+response!!.split(" ", "\r", "\n", limit=3).get(1)+"'")
+                return Integer.parseInt(response!!.split(" ", "\r", "\n", limit=3).get(1))
+            }
+
             return Integer.parseInt(response?.split(" ", ignoreCase = false, limit = 3)?.get(1))
         } catch (e: Exception) {
             return 0

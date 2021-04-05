@@ -1,3 +1,5 @@
+package burp
+import HeaderEncoder
 import com.twitter.hpack.Decoder
 import java.io.OutputStream
 import java.lang.Exception
@@ -13,7 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import javax.net.ssl.*
 
-class Connection(val target: URL, val responsesRead: AtomicInteger, private val requestQueue: LinkedBlockingQueue<ByteArray>, private val requestsPerConnection: Int) {
+class Connection(val target: URL, val responsesRead: AtomicInteger, private val requestQueue: LinkedBlockingQueue<Request>, private val requestsPerConnection: Int, val engine: HTTP2RequestEngine) {
 
     companion object {
         const val CONNECTING = 1
@@ -25,7 +27,7 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, private val 
 
         fun debug(message: String) {
             if (DEBUG) {
-                println("Debug: $message")
+                Utils.out("Debug: $message")
             }
         }
     }
@@ -72,9 +74,9 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, private val 
         thread { writeForever() }
     }
 
-    private fun req(reqBytes: ByteArray) {
+    private fun req(req: Request) {
 
-        val parsedRequest = Request(String(reqBytes))
+        val parsedRequest = HTTP2Request(req.getRequest())
 
         val encoder = HeaderEncoder()
 
@@ -99,7 +101,7 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, private val 
             encoder.addHeader(name.toLowerCase(), value)
         }
 
-        val streamID = addStream(reqBytes)
+        val streamID = addStream(req)
         if (parsedRequest.body == null || parsedRequest.body == "") {
             // 5 = 4 + 1 (end headers & end stream)
             sendFrame(Frame(0x01, 0x05, streamID, encoder.headers.toByteArray()))
@@ -109,7 +111,7 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, private val 
             sendFrame(Frame(0x01, 0x04, streamID, encoder.headers.toByteArray()))
             sendFrame(Frame(0x00, 0x01, streamID, parsedRequest.body!!.toByteArray()))
         }
-        //println(request.asBytes().asList())
+        //Utils.out(request.asBytes().asList())
 
     }
 
@@ -155,12 +157,12 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, private val 
                     }
                 } catch (ex: SocketTimeoutException) {
                     if (streams.size > 0) {
-                        println("Socket read timeout with " + streams.size + " inflight requests")
+                        Utils.out("Socket read timeout with " + streams.size + " inflight requests")
                     }
                     close()
                     return
                 } catch (ex: SSLProtocolException) {
-                    println("Invoking fullClose due to socket read error")
+                    Utils.out("Invoking fullClose due to socket read error")
                     close()
                     return
                 }
@@ -185,7 +187,7 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, private val 
                 passResponseToStream(sizeBuffer + frameBuffer)
             }
         } catch (e: Exception) {
-            println("Killing read thread")
+            Utils.out("Killing read thread")
             close()
         }
     }
@@ -201,7 +203,7 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, private val 
 
         streams.putIfAbsent(
                 streamID,
-                Stream(this, streamID, "response not associated with a request...".toByteArray(), true)
+                Stream(this, streamID, Request("dud"), true)
         )
         streams[streamID]!!.processFrame(frameBytes)
     }
@@ -210,7 +212,7 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, private val 
         try {
             while (state == ALIVE) {
                 if (totalQueuedRequests >= requestsPerConnection) {
-                    //println("Reached max streams of "+requestsPerConnection)
+                    //Utils.out("Reached max streams of "+requestsPerConnection)
                     state = HALFCLOSED
                     return
                 }
@@ -235,12 +237,12 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, private val 
                 }
             }
         } catch (e: Exception) {
-            println("Killing write thread")
+            Utils.out("Killing write thread")
             close()
         }
     }
 
-    fun getInflightRequests(): List<ByteArray> {
+    fun getInflightRequests(): List<Request> {
         if (state != CLOSED) {
             throw Exception("Access to in-flight requests is hazardous on live connections")
         }
@@ -259,7 +261,7 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, private val 
         socket.outputStream.flush()
     }
 
-    private fun addStream(req: ByteArray): Int {
+    private fun addStream(req: Request): Int {
 
         if (state == CLOSED || totalQueuedRequests > requestsPerConnection) {
             throw SocketException("Attempt to create a stream on a dud connection")
@@ -269,7 +271,7 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, private val 
         lastCreatedStreamID += 2
         val stream = Stream(this, lastCreatedStreamID, req,true)
         streams[lastCreatedStreamID] = stream
-        println("Sending on stream ${stream.streamID}")
+        Utils.out("Sending on stream ${stream.streamID}")
 
         if (stream.streamID % 2 == 0 && !streams.containsKey(stream.streamID)) {
             throw Exception("Client-initiated frames must have an odd ID. Not ${stream.streamID}")
@@ -296,7 +298,7 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, private val 
 }
 
 
-class Request(raw: String) {
+class HTTP2Request(raw: String) {
     val method: String
     val path: String
     val headers: List<String>

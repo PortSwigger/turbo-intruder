@@ -1,13 +1,13 @@
 package burp
 
-import java.io.PrintWriter
-import java.io.StringWriter
+import java.io.*
 import java.net.*
 import java.security.cert.X509Certificate
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
+import java.util.zip.GZIPInputStream
 import javax.net.SocketFactory
 import javax.net.ssl.*
 import kotlin.concurrent.thread
@@ -46,6 +46,38 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
             )
         }
 
+    }
+
+    companion object {
+
+        fun shouldGzip(buf: String): Boolean {
+            return buf.toLowerCase().indexOf("content-encoding: gzip") != -1
+        }
+
+        fun decompress(compressed: ByteArray): String {
+            if (compressed.isEmpty()) {
+                return ""
+            }
+
+            val out = ByteArrayOutputStream()
+            try {
+                val bytesIn = ByteArrayInputStream(compressed)
+                val unzipped = GZIPInputStream(bytesIn)
+                while (true) {
+                    val bytes = ByteArray(1024)
+                    val read = unzipped.read(bytes, 0, 1024)
+                    if (read <= 0) {
+                        break
+                    }
+                    out.write(bytes, 0, read)
+                }
+            } catch (e: IOException) {
+                Utils.err("GZIP decompression failed - possible partial response. Using undecompressed bytes instead.")
+                return String(compressed)
+            }
+
+            return String(out.toByteArray())
+        }
     }
 
     fun createSSLSocketFactory(): SSLSocketFactory {
@@ -355,10 +387,6 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         } catch (e: NumberFormatException) {
             throw RuntimeException("Can't parse content length in $buf")
         }
-    }
-
-    fun shouldGzip(buf: String): Boolean {
-        return buf.toLowerCase().indexOf("content-encoding: gzip") != -1
     }
 
     data class Result(val skip: Int, val length: Int)

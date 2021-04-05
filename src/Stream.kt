@@ -1,4 +1,6 @@
-class Stream(val connection: Connection, val streamID: Int, val req: ByteArray, fromClient: Boolean) {
+package burp
+
+class Stream(val connection: Connection, val streamID: Int, val req: Request, fromClient: Boolean) {
 
     companion object {
         const val CLEAN = 0
@@ -35,14 +37,14 @@ class Stream(val connection: Connection, val streamID: Int, val req: ByteArray, 
         }
 
         if (frame is GoAwayFrame) {
-            println("Server sent a GOAWAY, dumping the whole connection")
+            Utils.out("Server sent a GOAWAY, dumping the whole connection")
             connection.stateLock.readLock().unlock()
             connection.close()
             return
         }
 
         if (frame is RstStreamFrame) {
-            println("Server sent a RST_STREAM, dumping the whole connection")
+            Utils.out("Server sent a RST_STREAM, dumping the whole connection")
             connection.stateLock.readLock().unlock()
             connection.close()
         }
@@ -61,7 +63,7 @@ class Stream(val connection: Connection, val streamID: Int, val req: ByteArray, 
                 body += frame.body
 
                 if (connection.state == Connection.CLOSED) {
-                    println("Blocked attempt to remove stream from closed connection...")
+                    Utils.out("Blocked attempt to remove stream from closed connection...")
                     connection.stateLock.readLock().unlock()
                     return
                 }
@@ -69,17 +71,15 @@ class Stream(val connection: Connection, val streamID: Int, val req: ByteArray, 
                 connection.responsesRead.incrementAndGet()
 
                 if (frame.die) {
-                    // todo pass the completed response
-                    println(headers.split("\r\n")[0])
-                    //println(headers)  //+ "\r\n" + body
-//                    if (body.contains(":status: 301")) {
-//                        println("Poisoned response")
-////                        println(String(req))
-////                        println(headers + "\r\n")
-////                        System.exit(0)
-//                    } else {
-//                        println("Boring response")
-//                    }
+                    connection.engine.successfulRequests.getAndIncrement()
+                    if (ThreadedRequestEngine.shouldGzip(headers)) {
+                        body = ThreadedRequestEngine.decompress(body.toByteArray(Charsets.ISO_8859_1))
+                    }
+
+                    req.response = headers + "\r\n" + body
+                    connection.engine.invokeCallback(req, true)
+
+                    Utils.out(headers.split("\r\n")[0])
                     Connection.debug("Deleting stream $streamID")
                     //connection.sendFrame(Frame(3, 0, streamID, "abcd".toByteArray()))
                     connection.streams.remove(streamID)
