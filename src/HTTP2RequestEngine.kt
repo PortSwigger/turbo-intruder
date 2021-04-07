@@ -10,8 +10,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
-//open class Engine (val target: URL, val maxConnections: Int = 1, val requestsPerConnection: Int = 1): RequestEngine {
-public open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?): RequestEngine() {
+open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?): RequestEngine() {
 
     val responseReadCount = AtomicInteger(0)
 
@@ -52,7 +51,7 @@ public open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize
                 if (con.state == Connection.CLOSED) {
                     val inflight = con.getInflightRequests()
                     if (inflight.size > 0 || attackState.get() < 2) {
-                        Utils.out("Replacing dead connection")
+                        Connection.debug("Replacing dead connection")
                         requestQueue.addAll(inflight)
                         connections.incrementAndGet()
                         connectionPool[i - 1] = Connection(target, responseReadCount, requestQueue, requestsPerConnection, this)
@@ -62,7 +61,7 @@ public open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize
             Thread.sleep(100)
         }
         connectionPool.map{it.close()}
-        Utils.out("Done!")
+        Connection.debug("Done!")
     }
 
 //    fun complete() {

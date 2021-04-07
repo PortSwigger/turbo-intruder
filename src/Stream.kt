@@ -77,9 +77,9 @@ class Stream(val connection: Connection, val streamID: Int, val req: Request, fr
                     }
 
                     req.response = headers + "\r\n" + body
-                    connection.engine.invokeCallback(req, true)
+                    val interesting = connection.engine.processResponse(req, (req.response as String).toByteArray(Charsets.ISO_8859_1))
+                    connection.engine.invokeCallback(req, interesting)
 
-                    Utils.out(headers.split("\r\n")[0])
                     Connection.debug("Deleting stream $streamID")
                     //connection.sendFrame(Frame(3, 0, streamID, "abcd".toByteArray()))
                     connection.streams.remove(streamID)

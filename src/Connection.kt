@@ -58,7 +58,7 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, private val 
             (socket as SSLSocket).sslParameters = sslp
             (socket as SSLSocket).startHandshake()
             socket.soTimeout = 10000
-            val ap = (socket as SSLSocket).applicationProtocol
+            //val ap = (socket as SSLSocket).applicationProtocol
         } else {
             socket = Socket(target.host, port)
             socket.soTimeout = 10000
@@ -80,8 +80,7 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, private val 
 
         val encoder = HeaderEncoder()
 
-        // todo set the correct scheme
-        encoder.addHeader(":scheme", "https")
+        encoder.addHeader(":scheme", target.protocol)
         encoder.addHeader(":method", parsedRequest.method)
         encoder.addHeader(":path", parsedRequest.path)
 
@@ -271,7 +270,7 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, private val 
         lastCreatedStreamID += 2
         val stream = Stream(this, lastCreatedStreamID, req,true)
         streams[lastCreatedStreamID] = stream
-        Utils.out("Sending on stream ${stream.streamID}")
+        debug("Sending on stream ${stream.streamID}")
 
         if (stream.streamID % 2 == 0 && !streams.containsKey(stream.streamID)) {
             throw Exception("Client-initiated frames must have an odd ID. Not ${stream.streamID}")
