@@ -71,6 +71,7 @@ class Stream(val connection: Connection, val streamID: Int, val req: Request, fr
                 connection.responsesRead.incrementAndGet()
 
                 if (frame.die) {
+                    req.time = (System.nanoTime() - req.time) / 1000000
                     connection.engine.successfulRequests.getAndIncrement()
                     if (ThreadedRequestEngine.shouldGzip(headers)) {
                         body = ThreadedRequestEngine.decompress(body.toByteArray(Charsets.ISO_8859_1))

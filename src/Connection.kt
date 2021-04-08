@@ -103,11 +103,13 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, private val 
         val streamID = addStream(req)
         if (parsedRequest.body == null || parsedRequest.body == "") {
             // 5 = 4 + 1 (end headers & end stream)
+            req.time = System.nanoTime()
             sendFrame(Frame(0x01, 0x05, streamID, encoder.headers.toByteArray()))
         }
         else {
             //debug("Sending a data frame: '"+parsedRequest.body+"'")
             sendFrame(Frame(0x01, 0x04, streamID, encoder.headers.toByteArray()))
+            req.time = System.nanoTime()
             sendFrame(Frame(0x00, 0x01, streamID, parsedRequest.body!!.toByteArray()))
         }
         //Utils.out(request.asBytes().asList())
