@@ -30,8 +30,8 @@ class Stream(val connection: Connection, val streamID: Int, val req: Request, fr
         if (frame is SettingsFrame) {
             if (frame.maxStreams != 0) {
                 // this is hard-coded instead
-                //connection.maxStreams = frame.maxStreams
-                //Connection.debug("Expanding max streams to "+frame.maxStreams)
+                connection.requestsPerConnection = Math.min(frame.maxStreams, connection.requestsPerConnection)
+                Connection.debug("Changing max streams from ${connection.requestsPerConnection} to ${frame.maxStreams}")
             }
             connection.streams.remove(streamID)
         }
@@ -47,6 +47,7 @@ class Stream(val connection: Connection, val streamID: Int, val req: Request, fr
             Utils.out("Server sent a RST_STREAM, dumping the whole connection")
             connection.stateLock.readLock().unlock()
             connection.close()
+            return
         }
 
         if (state == CLEAN) {

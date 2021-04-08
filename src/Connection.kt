@@ -11,11 +11,13 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 import java.security.cert.X509Certificate
+import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import javax.net.ssl.*
+import kotlin.collections.HashMap
 
-class Connection(val target: URL, val responsesRead: AtomicInteger, private val requestQueue: LinkedBlockingQueue<Request>, private val requestsPerConnection: Int, val engine: HTTP2RequestEngine) {
+class Connection(val target: URL, val responsesRead: AtomicInteger, val seedQueue: Queue<Request>, private val requestQueue: LinkedBlockingQueue<Request>, var requestsPerConnection: Int, val engine: HTTP2RequestEngine) {
 
     companion object {
         const val CONNECTING = 1
@@ -212,6 +214,8 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, private val 
 
     private fun writeForever() {
         try {
+            var completedSeedQueue = false
+
             while (state == ALIVE) {
                 if (totalQueuedRequests >= requestsPerConnection) {
                     //Utils.out("Reached max streams of "+requestsPerConnection)
@@ -219,7 +223,16 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, private val 
                     return
                 }
 
-                val req = requestQueue.poll(1000, TimeUnit.MILLISECONDS) ?: continue
+                val req: Request?
+                if (completedSeedQueue) {
+                    req = requestQueue.poll(1000, TimeUnit.MILLISECONDS) ?: continue
+                } else {
+                    req = seedQueue.poll()
+                    if (req == null) {
+                        completedSeedQueue = true
+                        continue
+                    }
+                }
 
 
                 if (state == CLOSED) {

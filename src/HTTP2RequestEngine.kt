@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
-open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?): RequestEngine() {
+open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, var requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?): RequestEngine() {
 
     val responseReadCount = AtomicInteger(0)
 
@@ -30,7 +30,7 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
 
         for (j in 1..threads) {
             connections.incrementAndGet()
-            connectionPool.add(Connection(target, responseReadCount, requestQueue, requestsPerConnection, this))
+            connectionPool.add(Connection(target, responseReadCount, LinkedBlockingQueue(1), requestQueue, requestsPerConnection, this))
         }
 
         thread(priority = 1) {
@@ -46,17 +46,18 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
                 val con = connectionPool[i - 1]
 
                 // don't sit around waiting for recycling
+                // todo re-enable and check effect on performance
 //                if (con.state == Connection.HALFCLOSED) {
 //                    connections[i - 1] = Connection(target, responseReadCount, requestQueue, requestsPerConnection)
 //                    continue
 //                }
                 if (con.state == Connection.CLOSED) {
                     val inflight = con.getInflightRequests()
-                    if (inflight.size > 0 || attackState.get() < 2) {
-                        Connection.debug("Replacing dead connection")
-                        requestQueue.addAll(inflight)
+                    if (inflight.size > 0 || con.seedQueue.size > 0 || attackState.get() < 2) {
+                        val seedQueue = LinkedBlockingQueue(inflight)
+                        seedQueue.addAll(con.seedQueue)
                         connections.incrementAndGet()
-                        connectionPool[i - 1] = Connection(target, responseReadCount, requestQueue, requestsPerConnection, this)
+                        connectionPool[i - 1] = Connection(target, responseReadCount, seedQueue, requestQueue, requestsPerConnection, this)
                     }
                 }
             }
