@@ -113,7 +113,7 @@ class WindowFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray): F
 
 class RstStreamFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray): Frame(type, flags, streamID, payload) {
     init {
-        Utils.out("Parsing RST_STREAM")
+        //Utils.out("Parsing RST_STREAM")
     }
 }
 

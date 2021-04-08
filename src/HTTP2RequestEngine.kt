@@ -56,6 +56,10 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
                     if (inflight.size > 0 || con.seedQueue.size > 0 || attackState.get() < 2) {
                         val seedQueue = LinkedBlockingQueue(inflight)
                         seedQueue.addAll(con.seedQueue)
+                        if (inflight.size > 0) {
+                            retries.getAndIncrement()
+                            Utils.out("Connection died, re-queueing "+inflight.size+" unanswered requests.")
+                        }
                         connections.incrementAndGet()
                         connectionPool[i - 1] = Connection(target, responseReadCount, seedQueue, requestQueue, requestsPerConnection, this)
                     }
