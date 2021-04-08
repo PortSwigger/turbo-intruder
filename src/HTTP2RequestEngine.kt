@@ -5,6 +5,7 @@ import burp.Utils
 import java.lang.Exception
 import java.net.URL
 import java.util.*
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -25,6 +26,7 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
         }
 
         target = URL(url)
+        completedLatch = CountDownLatch(threads)
 
         for (j in 1..threads) {
             connections.incrementAndGet()
@@ -61,6 +63,9 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
             Thread.sleep(100)
         }
         connectionPool.map{it.close()}
+        while (completedLatch.count > 0) {
+            completedLatch.countDown()
+        }
         Connection.debug("Done!")
     }
 

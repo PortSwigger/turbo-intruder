@@ -70,6 +70,7 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, private val 
         val frame = Frame(0x04, 0x00, 0, ByteArray(0))
         sendFrame(frame)
         state = ALIVE
+
         thread { readForever() }
         thread { writeForever() }
     }
