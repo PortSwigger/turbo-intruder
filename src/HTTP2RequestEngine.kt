@@ -71,7 +71,6 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
         while (completedLatch.count > 0) {
             completedLatch.countDown()
         }
-        Connection.debug("Done!")
     }
 
 //    fun complete() {

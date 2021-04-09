@@ -136,7 +136,7 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, val seedQueu
     private fun readForever() {
         try {
             val input = socket.inputStream
-            while (state != CLOSED) {
+            state@ while (state != CLOSED) {
                 if (state == HALFCLOSED && streams.size == 0) {
                     debug("Transitioning halfclosed connection to closed")
                     close()
@@ -153,6 +153,9 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, val seedQueu
                     val needToRead = 3
                     var haveRead = 0
                     while (haveRead < needToRead) {
+                        if (state == CLOSED) {
+                            return
+                        }
                         val justRead = input.read(sizeBuffer, haveRead, needToRead - haveRead)
                         if (justRead == -1) {
                             continue
@@ -182,6 +185,9 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, val seedQueu
                 val frameBuffer = ByteArray(needToRead)
                 var haveRead = 0
                 while (haveRead < needToRead) {
+                    if (state == CLOSED) {
+                        return
+                    }
                     val justRead = input.read(frameBuffer, haveRead, needToRead - haveRead)
                     if (justRead == -1) {
                         continue
