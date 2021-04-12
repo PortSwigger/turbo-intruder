@@ -41,7 +41,7 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
     // just handles dead connections
     private fun manageConnections() {
         // fixme probably a bit racey
-        while (attackState.get() < 2) {
+        while (attackState.get() < 3) {
             for (i in 1..threads) {
                 val con = connectionPool[i - 1]
 
@@ -53,7 +53,7 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
 //                }
                 if (con.state == Connection.CLOSED) {
                     val inflight = con.getInflightRequests()
-                    if (inflight.size > 0 || con.seedQueue.size > 0 || attackState.get() < 2) {
+                    if (inflight.size > 0 || con.seedQueue.size > 0 || attackState.get() < 3) {
                         val seedQueue = LinkedBlockingQueue(inflight)
                         seedQueue.addAll(con.seedQueue)
                         if (inflight.size > 0) {
