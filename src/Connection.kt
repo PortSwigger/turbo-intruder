@@ -136,7 +136,7 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, val seedQueu
     private fun readForever() {
         try {
             val input = socket.inputStream
-            state@ while (state != CLOSED) {
+            while (state != CLOSED) {
                 if (state == HALFCLOSED && streams.size == 0) {
                     debug("Transitioning halfclosed connection to closed")
                     close()
