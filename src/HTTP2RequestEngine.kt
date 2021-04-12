@@ -40,23 +40,29 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
 
     // just handles dead connections
     private fun manageConnections() {
-        // fixme probably a bit racey
+        // showStats changes state from 1 to 2
+        // then waits on the completedLatch to hit 3
         while (attackState.get() < 3) {
             for (i in 1..threads) {
                 val con = connectionPool[i - 1]
-
                 // don't sit around waiting for recycling
                 // todo re-enable and check effect on performance
 //                if (con.state == Connection.HALFCLOSED) {
 //                    connections[i - 1] = Connection(target, responseReadCount, requestQueue, requestsPerConnection)
 //                    continue
 //                }
+                if (con.done) {
+                    continue
+                }
+
                 if (con.state == Connection.CLOSED) {
                     val inflight = con.getInflightRequests()
-                    if (inflight.size > 0 || con.seedQueue.size > 0 || attackState.get() < 3) {
+                    val hasInflightRequests = inflight.size != 0
+
+                    if (hasInflightRequests || con.seedQueue.size > 0 || attackState.get() < 3) {
                         val seedQueue = LinkedBlockingQueue(inflight)
                         seedQueue.addAll(con.seedQueue)
-                        if (inflight.size > 0) {
+                        if (hasInflightRequests) {
                             retries.getAndIncrement()
                             Utils.out("Connection died, re-queueing "+inflight.size+" unanswered requests.")
                         }
@@ -65,23 +71,9 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
                     }
                 }
             }
-            Thread.sleep(100)
-        }
-        connectionPool.map{it.close()}
-        while (completedLatch.count > 0) {
-            completedLatch.countDown()
+            Thread.sleep(10)
         }
     }
-
-//    fun complete() {
-//        // todo should block?
-//        while (requestQueue.size > 0) {
-//            Thread.sleep(100)
-//        }
-//        fullyQueued = true
-//
-//        //connections.map{it.close()}
-//    }
 
     override fun start(timeout: Int) {
         attackState.set(1)

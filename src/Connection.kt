@@ -13,6 +13,7 @@ import kotlin.concurrent.thread
 import java.security.cert.X509Certificate
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.locks.ReentrantLock
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import javax.net.ssl.*
 import kotlin.collections.HashMap
@@ -34,13 +35,14 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, val seedQueu
         }
     }
 
+    var done = false
     val streams: HashMap<Int, Stream> = HashMap()
     var totalQueuedRequests = 0
     private lateinit var socket: Socket
     private lateinit var output: OutputStream
     val decoder = Decoder(4096, 4096)
 
-    val stateLock = ReentrantReadWriteLock()
+    val stateLock = ReentrantReadWriteLock() // todo I have no idea if this is even necessary
     var state: Int = CONNECTING
     var lastCreatedStreamID = -1
 
@@ -223,6 +225,7 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, val seedQueu
             var completedSeedQueue = false
 
             while (state == ALIVE) {
+
                 if (totalQueuedRequests >= requestsPerConnection) {
                     //Utils.out("Reached max streams of "+requestsPerConnection)
                     state = HALFCLOSED
@@ -230,8 +233,18 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, val seedQueu
                 }
 
                 val req: Request?
+
                 if (completedSeedQueue) {
-                    req = requestQueue.poll(1000, TimeUnit.MILLISECONDS) ?: continue
+                    req = requestQueue.poll(1000, TimeUnit.MILLISECONDS)
+                    if (req == null) {
+                        if (engine.attackState.get() == 2 && streams.size == 0) {
+                            close()
+                            done = true
+                            engine.completedLatch.countDown()
+                            return
+                        }
+                        continue
+                    }
                 } else {
                     req = seedQueue.poll()
                     if (req == null) {

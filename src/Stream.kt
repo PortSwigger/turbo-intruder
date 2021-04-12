@@ -34,6 +34,7 @@ class Stream(val connection: Connection, val streamID: Int, val req: Request, fr
                 Connection.debug("Changing max streams from ${connection.requestsPerConnection} to ${frame.maxStreams}")
             }
             connection.streams.remove(streamID)
+            //return
         }
 
         if (frame is GoAwayFrame) {
