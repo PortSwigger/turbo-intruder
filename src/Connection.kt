@@ -276,6 +276,10 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, val seedQueu
         }
     }
 
+    fun hasInflightRequests(): Boolean {
+        return streams.size != 0
+    }
+
     fun getInflightRequests(): List<Request> {
         if (state != CLOSED) {
             throw Exception("Access to in-flight requests is hazardous on live connections")

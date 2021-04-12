@@ -45,24 +45,24 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
         while (attackState.get() < 3) {
             for (i in 1..threads) {
                 val con = connectionPool[i - 1]
+                if (con.done) {
+                    continue
+                }
+
+
                 // don't sit around waiting for recycling
                 // todo re-enable and check effect on performance
 //                if (con.state == Connection.HALFCLOSED) {
 //                    connections[i - 1] = Connection(target, responseReadCount, requestQueue, requestsPerConnection)
 //                    continue
 //                }
-                if (con.done) {
-                    continue
-                }
 
                 if (con.state == Connection.CLOSED) {
-                    val inflight = con.getInflightRequests()
-                    val hasInflightRequests = inflight.size != 0
-
-                    if (hasInflightRequests || con.seedQueue.size > 0 || attackState.get() < 3) {
+                    if (con.hasInflightRequests() || con.seedQueue.size > 0 || attackState.get() < 3) {
+                        val inflight = con.getInflightRequests()
                         val seedQueue = LinkedBlockingQueue(inflight)
                         seedQueue.addAll(con.seedQueue)
-                        if (hasInflightRequests) {
+                        if (con.hasInflightRequests()) {
                             retries.getAndIncrement()
                             Utils.out("Connection died, re-queueing "+inflight.size+" unanswered requests.")
                         }
