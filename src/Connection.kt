@@ -26,7 +26,7 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
         const val HALFCLOSED = 3
         const val CLOSED = 4
 
-        private const val DEBUG = true
+        private const val DEBUG = false
 
         fun debug(message: String) {
             if (DEBUG) {
@@ -71,13 +71,17 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
         output = socket.outputStream
         val message = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
         output.write(message.toByteArray())
-        val settingsPayload = byteArrayOf(0, 4, 127, 127, 127, 127, // max window size maybe
+        val settingsPayload = byteArrayOf(0, 4, 0x7F, -0x80, -0x80, -0x80, // max window size maybe
                                           0, 2, 0, 0, 0, 0,   // no PUSH
                                           0, 1, 0, 1, 0, 0, //  4096 header table size
                                           0, 3, 0, 0, 1, 0 // 128 max concurrent streams
             )
         val initialSettingsFrame = Frame(0x04, 0x00, 0, settingsPayload)
         sendFrame(initialSettingsFrame)
+
+        val flowControlFrame = Frame(0x08, 0x00, 0, byteArrayOf(0x7f, -0x80, -0x80, -0x80))
+        sendFrame(flowControlFrame)
+
         state = ALIVE
 
         thread { readForever() }
@@ -299,7 +303,7 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
 //        socket.outputStream.flush()
 //    }
 
-    private fun sendFrame(frame: Frame) {
+    fun sendFrame(frame: Frame) {
         socket.outputStream.write(frame.asBytes())
         socket.outputStream.flush()
     }

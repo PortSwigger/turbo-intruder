@@ -93,7 +93,7 @@ class SettingsFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray):
                     }
                     4 -> Connection.debug("INITIAL_WINDOW_SIZE = $value")
                     5 -> Connection.debug("MAX_FRAME_SIZE = $value")
-                    6 -> Connection.debug("MAX_HEADER_LIST_SIZE = $value")
+                    6 -> Connection.debug("Max headers = $value")
                     else -> Connection.debug("Unrecognised setting $key=$value")
                 }
 

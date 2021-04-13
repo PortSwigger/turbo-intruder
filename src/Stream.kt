@@ -1,5 +1,6 @@
 package burp
 
+
 class Stream(val connection: Connection, val streamID: Int, val req: Request, fromClient: Boolean) {
 
     companion object {
@@ -36,6 +37,14 @@ class Stream(val connection: Connection, val streamID: Int, val req: Request, fr
                     connection.requestsPerConnection = frame.maxStreams
                 }
             }
+
+            // if it's not an ack, respond with an ack
+            if (frame.payload.size != 0) {
+                    val initialSettingsFrame = Frame(0x04, 0x01, 0, byteArrayOf())
+                    connection.sendFrame(initialSettingsFrame)
+            }
+
+            // todo in theory this is safe because... we won't get a reply
             connection.streams.remove(streamID)
             //return
         }
