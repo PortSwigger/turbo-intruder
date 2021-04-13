@@ -31,8 +31,10 @@ class Stream(val connection: Connection, val streamID: Int, val req: Request, fr
         if (frame is SettingsFrame) {
             if (frame.maxStreams != 0) {
                 // this is hard-coded instead
-                connection.requestsPerConnection = Math.min(frame.maxStreams, connection.requestsPerConnection)
-                Connection.debug("Changing max streams from ${connection.requestsPerConnection} to ${frame.maxStreams}")
+                if (frame.maxStreams < connection.requestsPerConnection) {
+                    Connection.debug("Reducing max streams from ${connection.requestsPerConnection} to ${frame.maxStreams}")
+                    connection.requestsPerConnection = frame.maxStreams
+                }
             }
             connection.streams.remove(streamID)
             //return

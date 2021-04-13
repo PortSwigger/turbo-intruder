@@ -71,8 +71,13 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
         output = socket.outputStream
         val message = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
         output.write(message.toByteArray())
-        val frame = Frame(0x04, 0x00, 0, ByteArray(0))
-        sendFrame(frame)
+        val settingsPayload = byteArrayOf(0, 4, 127, 127, 127, 127, // max window size maybe
+                                          0, 2, 0, 0, 0, 0,   // no PUSH
+                                          0, 1, 0, 1, 0, 0, //  4096 header table size
+                                          0, 3, 0, 0, 1, 0 // 128 max concurrent streams
+            )
+        val initialSettingsFrame = Frame(0x04, 0x00, 0, settingsPayload)
+        sendFrame(initialSettingsFrame)
         state = ALIVE
 
         thread { readForever() }

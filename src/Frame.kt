@@ -80,12 +80,23 @@ class SettingsFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray):
 
             var head = 0
             while (head < payload.size) {
-                val key = payload.slice(head..head + 1)
-                val value = payload.slice(head + 2..head + 5)
-                if (HTTP2Utils.twoByteInt(key.toByteArray()) == 3) {
-                    maxStreams = HTTP2Utils.fourByteInt(value.toByteArray())
+                val key = HTTP2Utils.twoByteInt(payload.slice(head..head + 1).toByteArray())
+                val value = HTTP2Utils.fourByteInt(payload.slice(head + 2..head + 5).toByteArray())
+                when (key) {
+                    1 -> Connection.debug("HEADER_TABLE_SIZE = $value")
+                    2 -> Connection.debug("ENABLE_PUSH = $value")
+                    3 -> {
+                        // todo this is actually maxConcurrentStreams
+                        Connection.debug("MAX_CONCURRENT_STREAMS = $value")
+                        maxStreams = value
+
+                    }
+                    4 -> Connection.debug("INITIAL_WINDOW_SIZE = $value")
+                    5 -> Connection.debug("MAX_FRAME_SIZE = $value")
+                    6 -> Connection.debug("MAX_HEADER_LIST_SIZE = $value")
+                    else -> Connection.debug("Unrecognised setting $key=$value")
                 }
-                Connection.debug(""+key + " = " + value)
+
                 head += 6
             }
         }
