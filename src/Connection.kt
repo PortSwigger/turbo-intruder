@@ -18,7 +18,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 import javax.net.ssl.*
 import kotlin.collections.HashMap
 
-class Connection(val target: URL, val responsesRead: AtomicInteger, val seedQueue: Queue<Request>, private val requestQueue: LinkedBlockingQueue<Request>, var requestsPerConnection: Int, val engine: HTTP2RequestEngine) {
+class Connection(val target: URL, val seedQueue: Queue<Request>, private val requestQueue: LinkedBlockingQueue<Request>, var requestsPerConnection: Int, val engine: HTTP2RequestEngine) {
 
     companion object {
         const val CONNECTING = 1
@@ -26,7 +26,7 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, val seedQueu
         const val HALFCLOSED = 3
         const val CLOSED = 4
 
-        private const val DEBUG = false
+        private const val DEBUG = true
 
         fun debug(message: String) {
             if (DEBUG) {
@@ -179,8 +179,8 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, val seedQueu
                 val size = HTTP2Utils.threeByteInt(sizeBuffer)
 
 
-                debug("Received frame with payload size $size")
-                debug("Raw payload size: " + sizeBuffer.asList())
+                //debug("Received frame with payload size $size")
+                //debug("Raw payload size: " + sizeBuffer.asList())
 
                 // header size is 9 bytes but we already read 3
                 val needToRead = size + 6
@@ -206,8 +206,8 @@ class Connection(val target: URL, val responsesRead: AtomicInteger, val seedQueu
 
     private fun passResponseToStream(frameBytes: ByteArray) {
         val streamID = HTTP2Utils.fourByteInt(frameBytes.sliceArray(5..8))
-        debug("StreamID " + streamID)
-        debug("Whole frame: " + frameBytes.asList())
+        //debug("StreamID " + streamID)
+        //debug("Whole frame: " + frameBytes.asList())
 
         if (streamID != 0 && !streams.containsKey(streamID)) {
             throw Exception("Received message on unrecognised or closed stream: $streamID | ${lastCreatedStreamID}")

@@ -32,7 +32,7 @@ class HeaderFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray, st
     val headerString: String
 
     init {
-        Connection.debug("Parsing headers")
+        //Connection.debug("Parsing headers")
 
         val `in` = ByteArrayInputStream(payload)
         val headers = StringBuilder()
@@ -57,7 +57,7 @@ class DataFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray): Fra
 
 
     init {
-        Connection.debug("Parsing data frame")
+        //Connection.debug("Parsing data frame")
         body = String(payload, Charsets.ISO_8859_1)
         if (flags.toInt() == 1) {
             Connection.debug("Data frame has set END_STREAM")

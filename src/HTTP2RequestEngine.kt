@@ -13,8 +13,6 @@ import kotlin.concurrent.thread
 
 open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, var requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?): RequestEngine() {
 
-    val responseReadCount = AtomicInteger(0)
-
     private val connectionPool = ArrayList<Connection>(threads)
 
     init {
@@ -30,7 +28,7 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
 
         for (j in 1..threads) {
             connections.incrementAndGet()
-            connectionPool.add(Connection(target, responseReadCount, LinkedBlockingQueue(1), requestQueue, requestsPerConnection, this))
+            connectionPool.add(Connection(target, LinkedBlockingQueue(1), requestQueue, requestsPerConnection, this))
         }
 
         thread(priority = 1) {
@@ -67,7 +65,7 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
                             Utils.out("Connection died, re-queueing "+inflight.size+" unanswered requests.")
                         }
                         connections.incrementAndGet()
-                        connectionPool[i - 1] = Connection(target, responseReadCount, seedQueue, requestQueue, requestsPerConnection, this)
+                        connectionPool[i - 1] = Connection(target, seedQueue, requestQueue, requestsPerConnection, this)
                     }
                 }
             }

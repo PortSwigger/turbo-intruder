@@ -27,6 +27,7 @@ class Stream(val connection: Connection, val streamID: Int, val req: Request, fr
         connection.stateLock.readLock().lock()
         val frame = parseFrame(frameBytes, streamID)
 
+        Connection.debug("Stream $streamID type ${frame.type} flags ${frame.flags}")
         if (frame is SettingsFrame) {
             if (frame.maxStreams != 0) {
                 // this is hard-coded instead
@@ -70,8 +71,6 @@ class Stream(val connection: Connection, val streamID: Int, val req: Request, fr
                     return
                 }
 
-                connection.responsesRead.incrementAndGet()
-
                 if (frame.die) {
                     req.time = (System.nanoTime() - req.time) / 1000000
                     connection.engine.successfulRequests.getAndIncrement()
@@ -84,10 +83,8 @@ class Stream(val connection: Connection, val streamID: Int, val req: Request, fr
                     connection.engine.invokeCallback(req, interesting)
 
                     Connection.debug("Deleting stream $streamID")
-                    //connection.sendFrame(Frame(3, 0, streamID, "abcd".toByteArray()))
                     connection.streams.remove(streamID)
-                    //connection.close()
-                    // System.exit(0)
+
                 }
 //                else {
 //                    state = DONE
@@ -110,7 +107,7 @@ class Stream(val connection: Connection, val streamID: Int, val req: Request, fr
         }
         //val streamID = fourByteInt(raw.sliceArray(5..8))
         //Connection.debug("Type: "+type)
-        Connection.debug("Flags/Stream: $flags/$streamID")
+        //Connection.debug("Flags/Stream: $flags/$streamID")
         return when(type.toInt()) {
             0 -> DataFrame(type, flags, streamID, payload)
             1 -> HeaderFrame(type, flags, streamID, payload, this)
