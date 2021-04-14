@@ -40,13 +40,12 @@ class Stream(val connection: Connection, val streamID: Int, val req: Request, fr
 
             // if it's not an ack, respond with an ack
             if (frame.payload.size != 0) {
-                    val ackFrame = Frame(0x04, 0x01, 0, byteArrayOf())
-                    connection.sendFrame(ackFrame)
+                val ackFrame = Frame(0x04, 0x01, 0, byteArrayOf())
+                connection.sendFrame(ackFrame)
 
+                // todo not sure if this should be triggered on the SETTINGS or the ACK
+                 connection.startSendingRequests()
             }
-
-            // todo not sure if this should be triggered on the SETTINGS or the ACK
-            connection.startSendingRequests()
 
             // todo in theory this is safe because... we won't get a reply
             connection.streams.remove(streamID)

@@ -71,15 +71,15 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
         output = socket.outputStream
         val message = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
         output.write(message.toByteArray())
-        val settingsPayload = byteArrayOf(0, 4, 0x00, -1, -1, -1, // high window size
-                                          0, 2, 0, 0, 0, 0,   // no PUSH
-                                          0, 1, 0, 1, 0, 0, //  4096 header table size
-                                          0, 3, 0, 0, 1, 0 // 256 max *concurrent* streams
+        val settingsPayload = byteArrayOf(0, 4, 0x7f, -1, -1, -1, // MAXINT window size (Burp match)
+                                          0, 2, 0, 0, 0, 0,   // no PUSH (Burp match)
+                                          0, 1, 0, 0, 0x10, 0, //  4096 header table size (Burp match)
+                                          0, 3, 0, 0, 0x01, 0 // 256 max *concurrent* streams (Burp match)
             )
         val initialSettingsFrame = Frame(0x04, 0x00, 0, settingsPayload)
         sendFrame(initialSettingsFrame)
 
-        val flowControlFrame = Frame(0x08, 0x00, 0, HTTP2Utils.intToFourBytes(2147418112))
+        val flowControlFrame = Frame(0x08, 0x00, 0, HTTP2Utils.intToFourBytes(2147418112)) // Burp match
         sendFrame(flowControlFrame)
 
         thread { readForever() }
