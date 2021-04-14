@@ -71,20 +71,25 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
         output = socket.outputStream
         val message = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
         output.write(message.toByteArray())
-        val settingsPayload = byteArrayOf(0, 4, 0x7F, -0x80, -0x80, -0x80, // max window size maybe
+        val settingsPayload = byteArrayOf(0, 4, 0x00, -1, -1, -1, // high window size
                                           0, 2, 0, 0, 0, 0,   // no PUSH
                                           0, 1, 0, 1, 0, 0, //  4096 header table size
-                                          0, 3, 0, 0, 1, 0 // 128 max concurrent streams
+                                          0, 3, 0, 0, 1, 0 // 256 max *concurrent* streams
             )
         val initialSettingsFrame = Frame(0x04, 0x00, 0, settingsPayload)
         sendFrame(initialSettingsFrame)
 
-        val flowControlFrame = Frame(0x08, 0x00, 0, byteArrayOf(0x7f, -0x80, -0x80, -0x80))
+        val flowControlFrame = Frame(0x08, 0x00, 0, HTTP2Utils.intToFourBytes(2147418112))
         sendFrame(flowControlFrame)
 
-        state = ALIVE
-
         thread { readForever() }
+    }
+
+    fun startSendingRequests() {
+        if (state != CONNECTING) {
+            return
+        }
+        state = ALIVE
         thread { writeForever() }
     }
 
@@ -154,7 +159,7 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
                     return
                 }
 
-                if (streams.size == 0) {
+                if (streams.size == 0 && state != CONNECTING) {
                     Thread.sleep(100)
                     continue
                 }
