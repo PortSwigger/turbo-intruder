@@ -30,12 +30,10 @@ class Stream(val connection: Connection, val streamID: Int, val req: Request, fr
 
         Connection.debug("Stream $streamID type ${frame.type} flags ${frame.flags}")
         if (frame is SettingsFrame) {
-            if (frame.maxStreams != 0) {
+            if (frame.maxConcurrentStreams != 0) {
                 // this is hard-coded instead
-                if (frame.maxStreams < connection.requestsPerConnection) {
-                    Connection.debug("Reducing max streams from ${connection.requestsPerConnection} to ${frame.maxStreams}")
-                    connection.requestsPerConnection = frame.maxStreams
-                }
+                Connection.debug("Change max concurrent streams from ${connection.requestsPerConnection} to ${frame.maxConcurrentStreams}")
+                connection.maxConcurrentStreams = frame.maxConcurrentStreams
             }
 
             // if it's not an ack, respond with an ack

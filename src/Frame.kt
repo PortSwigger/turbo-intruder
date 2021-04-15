@@ -1,5 +1,4 @@
 package burp
-import com.twitter.hpack.Decoder
 import java.io.ByteArrayInputStream
 import java.lang.StringBuilder
 import com.twitter.hpack.HeaderListener
@@ -68,7 +67,7 @@ class DataFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray): Fra
 
 class SettingsFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray): Frame(type, flags, streamID, payload) {
 
-    var maxStreams = 0
+    var maxConcurrentStreams = 0
 
     init {
         Connection.debug("Parsing settings...")
@@ -88,7 +87,7 @@ class SettingsFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray):
                     3 -> {
                         // todo this is actually maxConcurrentStreams
                         Connection.debug("MAX_CONCURRENT_STREAMS = $value")
-                        maxStreams = value
+                        maxConcurrentStreams = value
 
                     }
                     4 -> Connection.debug("INITIAL_WINDOW_SIZE = $value")

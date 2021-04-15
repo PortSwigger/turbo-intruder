@@ -41,6 +41,7 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
     private lateinit var socket: Socket
     private lateinit var output: OutputStream
     val decoder = Decoder(4096, 4096)
+    var maxConcurrentStreams = 100
 
     val stateLock = ReentrantReadWriteLock() // todo I have no idea if this is even necessary
     var state: Int = CONNECTING
@@ -97,18 +98,12 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
 
         val parsedRequest = HTTP2Request(req.getRequest())
 
-        val encoder = HeaderEncoder()
-
-        encoder.addHeader(":scheme", target.protocol)
-        encoder.addHeader(":method", parsedRequest.method)
-        encoder.addHeader(":path", parsedRequest.path)
+        val pseudoHeaders = LinkedHashMap<String, String>()
+        val headers = LinkedHashMap<String, String>()
 
         for (header: String in parsedRequest.headers) {
             var (name, value) = header.split(": ", limit=2)
-            if (name == "Host") {
-                encoder.addHeader(":authority", value)
-                continue
-            }
+
             if (name == "Connection") {
                 continue
             }
@@ -116,8 +111,37 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
             name = name.replace("~", "\n")
             value = value.replace("^", "\r")
             value = value.replace("~", "\n")
-            encoder.addHeader(name.toLowerCase(), value)
+
+            name = name.toLowerCase()
+            if (name.startsWith(":")) {
+                pseudoHeaders.put(name, value)
+            } else {
+                headers.put(name, value)
+            }
         }
+
+        val encoder = HeaderEncoder()
+        for ((key, value) in pseudoHeaders) {
+            encoder.addHeader(key, value)
+        }
+
+        if (!pseudoHeaders.containsKey(":scheme")) {
+            encoder.addHeader(":scheme", target.protocol)
+        }
+        if (!pseudoHeaders.containsKey(":method")) {
+            encoder.addHeader(":method", parsedRequest.method)
+        }
+        if (!pseudoHeaders.containsKey(":path")) {
+            encoder.addHeader(":path", parsedRequest.path)
+        }
+        if (!pseudoHeaders.containsKey(":authority")) {
+            encoder.addHeader(":authority", headers.get("host")?: "")
+        }
+
+        for ((key, value) in headers) {
+            encoder.addHeader(key, value)
+        }
+
 
         val streamID = addStream(req)
         if (parsedRequest.body == null || parsedRequest.body == "") {
@@ -239,6 +263,12 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
             var completedSeedQueue = false
 
             while (state == ALIVE) {
+
+                // todo use a lock instead, should be faster
+                if (streams.size >= maxConcurrentStreams) {
+                    Thread.sleep(100)
+                    continue
+                }
 
                 if (totalQueuedRequests >= requestsPerConnection) {
                     //Utils.out("Reached max streams of "+requestsPerConnection)

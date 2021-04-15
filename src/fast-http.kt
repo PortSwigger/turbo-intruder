@@ -355,7 +355,6 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             messageEditor.component.preferredSize = Dimension(turboSize.width, 200)
             panel.preferredSize = Dimension(turboSize.width, turboSize.height-200)
 
-
             var handler = AttackHandler()
 
             button.addActionListener {
