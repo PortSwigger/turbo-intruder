@@ -58,7 +58,7 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
             target.port
             socket = sslsf.createSocket(target.host, port) as SSLSocket
             val sslp = (socket as SSLSocket).sslParameters
-            val clientAPs = arrayOf("h2")
+            val clientAPs = arrayOf("h2") // don't offer "http/1.1"
             sslp.applicationProtocols = clientAPs
             (socket as SSLSocket).sslParameters = sslp
             (socket as SSLSocket).startHandshake()
@@ -136,6 +136,7 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
         }
         if (!pseudoHeaders.containsKey(":authority")) {
             encoder.addHeader(":authority", headers.get("host")?: "")
+            headers.remove("host")
         }
 
         for ((key, value) in headers) {
