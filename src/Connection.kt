@@ -178,7 +178,7 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
         try {
             val input = socket.inputStream
             while (state != CLOSED) {
-                if (state == HALFCLOSED && streams.size == 0) {
+                if (state == HALFCLOSED && !hasInflightRequests()) {
                     debug("Transitioning halfclosed connection to closed")
                     close()
                     return
@@ -204,8 +204,9 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
                         haveRead += justRead
                     }
                 } catch (ex: SocketTimeoutException) {
-                    if (streams.size > 0) {
-                        Utils.out("Socket read timeout with " + streams.size + " inflight requests")
+                    if (hasInflightRequests()) {
+                        Utils.out("Socket read timeout with ~" + streams.size + " inflight requests")
+                        Utils.out(streams.keys.toString())
                     }
                     close()
                     return
@@ -282,7 +283,7 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
                 if (completedSeedQueue) {
                     req = requestQueue.poll(1000, TimeUnit.MILLISECONDS)
                     if (req == null) {
-                        if (engine.attackState.get() == 2 && streams.size == 0) {
+                        if (engine.attackState.get() == 2 && !hasInflightRequests()) {
                             close()
                             done = true
                             engine.completedLatch.countDown()
@@ -322,7 +323,15 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
     }
 
     fun hasInflightRequests(): Boolean {
-        return streams.size != 0
+        if (streams.size == 0) {
+            return true
+        }
+
+        if (streams.size > 1) {
+            return false
+        }
+
+        return !streams.containsKey(0)
     }
 
     fun getInflightRequests(): List<Request> {

@@ -32,6 +32,10 @@ class HeaderFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray, st
 
     init {
         //Connection.debug("Parsing headers")
+        if ((flags.toInt() and 1) == 1) {
+            Connection.debug("Frame has set END_STREAM")
+            die = true
+        }
 
         val `in` = ByteArrayInputStream(payload)
         val headers = StringBuilder()
@@ -57,11 +61,14 @@ class DataFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray): Fra
 
     init {
         //Connection.debug("Parsing data frame")
-        body = String(payload, Charsets.ISO_8859_1)
-        if (flags.toInt() == 1) {
-            Connection.debug("Data frame has set END_STREAM")
+        // fixme don't use exact matching on a bloody flag!!
+        if ((flags.toInt() and 1) == 1) {
+            Connection.debug("Frame has set END_STREAM")
             die = true
         }
+
+        body = String(payload, Charsets.ISO_8859_1)
+
     }
 }
 

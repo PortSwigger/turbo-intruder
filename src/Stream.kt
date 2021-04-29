@@ -67,41 +67,43 @@ class Stream(val connection: Connection, val streamID: Int, val req: Request, fr
         if (state == CLEAN) {
             if (frame is HeaderFrame) {
                 headers = frame.headerString
-                state = WANTBODY
+                if (!frame.die) {
+                    state = WANTBODY
+                } else {
+                    state = DONE
+                }
             }
             else if (frame is DataFrame) {
                 throw Exception("Expected headers, got data")
             }
         }
+
         if (state == WANTBODY) {
             if (frame is DataFrame) {
                 body += frame.body
-
-                if (connection.state == Connection.CLOSED) {
-                    Utils.out("Blocked attempt to remove stream from closed connection...")
-                    connection.stateLock.readLock().unlock()
-                    return
-                }
-
-                if (frame.die) {
-                    req.time = (System.nanoTime() - req.time) / 1000000
-                    connection.engine.successfulRequests.getAndIncrement()
-                    if (ThreadedRequestEngine.shouldGzip(headers)) {
-                        body = ThreadedRequestEngine.decompress(body.toByteArray(Charsets.ISO_8859_1))
-                    }
-
-                    req.response = headers + "\r\n" + body
-                    val interesting = connection.engine.processResponse(req, (req.response as String).toByteArray(Charsets.ISO_8859_1))
-                    connection.engine.invokeCallback(req, interesting)
-
-                    Connection.debug("Deleting stream $streamID")
-                    connection.streams.remove(streamID)
-
-                }
-//                else {
-//                    state = DONE
-//                }
             }
+        }
+
+//        if (connection.state == Connection.CLOSED) {
+//            Utils.out("Blocked attempt to remove stream from closed connection...")
+//            connection.stateLock.readLock().unlock()
+//            return
+//        }
+
+        if (frame.die) {
+            req.time = (System.nanoTime() - req.time) / 1000000
+            connection.engine.successfulRequests.getAndIncrement()
+            if (ThreadedRequestEngine.shouldGzip(headers)) {
+                body = ThreadedRequestEngine.decompress(body.toByteArray(Charsets.ISO_8859_1))
+            }
+
+            req.response = headers + "\r\n" + body
+            val interesting = connection.engine.processResponse(req, (req.response as String).toByteArray(Charsets.ISO_8859_1))
+            connection.engine.invokeCallback(req, interesting)
+
+            Connection.debug("Deleting stream $streamID")
+            connection.streams.remove(streamID)
+
         }
 
         connection.stateLock.readLock().unlock()
