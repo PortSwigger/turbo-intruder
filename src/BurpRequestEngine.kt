@@ -1,15 +1,15 @@
 package burp
 import java.net.URL
-import java.nio.charset.StandardCharsets
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
-open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?): RequestEngine() {
+open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?, val forceHTTP1: Boolean): RequestEngine() {
 
     private val threadPool = ArrayList<Thread>()
+    private var supportsHTTP2 = true
 
     init {
         requestQueue = if (maxQueueSize > 0) {
@@ -45,6 +45,26 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
         return Request(template.replace("Connection: keep-alive", "Connection: close"), payloads, learnBoring ?: 0, label)
     }
 
+    private fun request(service: IHttpService, req: Request): IHttpRequestResponse? {
+        //responseBytes = Utilities.callbacks.makeHttpRequest(service, req).getResponse();
+        if (forceHTTP1 || !supportsHTTP2) {
+            // todo replace HTTP/2 with HTTP/1.1
+        }
+
+        var resp: IHttpRequestResponse? = null
+        if (supportsHTTP2) {
+            try {
+                resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes(), forceHTTP1)
+            } catch (e: NoSuchMethodError) {
+                supportsHTTP2 = false
+            }
+        }
+        if (!supportsHTTP2) {
+            resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes())
+        }
+
+        return resp
+    }
 
     private fun sendRequests(service: IHttpService) {
         while(attackState.get()<1) {
@@ -65,11 +85,11 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
                 }
             }
 
-            var resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes())
+            var resp = request(service, req)
             connections.incrementAndGet()
-            while (resp.response == null && shouldRetry(req)) {
+            while (resp!!.response == null && shouldRetry(req)) {
                 Utils.out("Retrying ${req.words}")
-                resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes())
+                resp = request(service, req)
                 connections.incrementAndGet()
                 Utils.out("Retried ${req.words}")
             }

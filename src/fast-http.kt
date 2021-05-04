@@ -58,7 +58,7 @@ class Engine:
     BURP = 1
     THREADED = 2
     ASYNC = 3
-    HTTP2 = 4
+    BURP2 = 4
 
 
 class RequestEngine:
@@ -77,12 +77,16 @@ class RequestEngine:
         else:
             readFreq = 1
 
-        if(engine == Engine.BURP):
+        if (engine == Engine.BURP or engine == Engine.BURP2):
             if(requestsPerConnection > 1 or pipeline):
                 print('requestsPerConnection has been forced to 1 and pipelining has been disabled due to Burp engine limitations')
             if(readCallback != None):
                 print('Read callbacks are not supported in the Burp request engine. Try Engine.THREADED instead.')
-            self.engine = burp.BurpRequestEngine(endpoint, concurrentConnections, maxQueueSize, maxRetriesPerRequest, callback, readCallback)
+
+        if(engine == Engine.BURP):
+            self.engine = burp.BurpRequestEngine(endpoint, concurrentConnections, maxQueueSize, maxRetriesPerRequest, callback, readCallback, True)
+        elif(engine == Engine.BURP2):
+            self.engine = burp.BurpRequestEngine(endpoint, concurrentConnections, maxQueueSize, maxRetriesPerRequest, callback, readCallback, False)
         elif(engine == Engine.THREADED):
             self.engine = burp.ThreadedRequestEngine(endpoint, concurrentConnections, maxQueueSize, readFreq, requestsPerConnection, maxRetriesPerRequest, callback, timeout, readCallback, readSize, resumeSSL)
         elif(engine == Engine.ASYNC):
