@@ -324,11 +324,11 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
 
     fun hasInflightRequests(): Boolean {
         if (streams.size == 0) {
-            return true
+            return false
         }
 
         if (streams.size > 1) {
-            return false
+            return true
         }
 
         return !streams.containsKey(0)
