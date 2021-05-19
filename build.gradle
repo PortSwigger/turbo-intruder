@@ -45,6 +45,7 @@ task fatJar(type: Jar) {
                 'Main-Class': 'burp.Fast_httpKt'
         )
     }
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
     baseName = project.name + '-all'
     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
     with jar
