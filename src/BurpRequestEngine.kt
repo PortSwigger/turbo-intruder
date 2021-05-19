@@ -54,7 +54,7 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
         var resp: IHttpRequestResponse? = null
         if (supportsHTTP2) {
             try {
-                resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes(), forceHTTP1)
+                resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes())
             } catch (e: NoSuchMethodError) {
                 supportsHTTP2 = false
             }
