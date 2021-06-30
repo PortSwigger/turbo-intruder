@@ -33,6 +33,63 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
                 Utils.out("Debug: $message")
             }
         }
+
+        fun buildReq(parsedRequest: HTTP2Request): LinkedHashMap<String, String> {
+            val pseudoHeaders = LinkedHashMap<String, String>()
+            val headers = LinkedHashMap<String, String>()
+            val final = LinkedHashMap<String, String>()
+
+            for (header: String in parsedRequest.headers) {
+                var name = ""
+                var value = ""
+                if (header.contains(": ")) {
+                    val split = header.split(": ", limit = 2)
+                    name = split[0]
+                    value = split[1]
+               } else {
+                   name = header
+                }
+
+                if (name == "Connection") {
+                    continue
+                }
+                name = name.replace("^", "\r")
+                name = name.replace("~", "\n")
+                value = value.replace("^", "\r")
+                value = value.replace("~", "\n")
+
+                name = name.toLowerCase()
+                if (name.startsWith(":")) {
+                    pseudoHeaders.put(name, value)
+                } else {
+                    headers.put(name, value)
+                }
+            }
+
+            for ((key, value) in pseudoHeaders) {
+                final.put(key, value)
+            }
+
+            if (!pseudoHeaders.containsKey(":scheme")) {
+                final.put(":scheme", "https")
+            }
+            if (!pseudoHeaders.containsKey(":method")) {
+                final.put(":method", parsedRequest.method)
+            }
+            if (!pseudoHeaders.containsKey(":path")) {
+                final.put(":path", parsedRequest.path)
+            }
+            if (!pseudoHeaders.containsKey(":authority")) {
+                final.put(":authority", headers.get("host")?: "")
+                headers.remove("host")
+            }
+
+            for ((key, value) in headers) {
+                final.put(key, value)
+            }
+
+            return final
+        }
     }
 
     var done = false
@@ -94,54 +151,7 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
         thread { writeForever() }
     }
 
-    fun buildReq(parsedRequest: HTTP2Request): LinkedHashMap<String, String> {
-        val pseudoHeaders = LinkedHashMap<String, String>()
-        val headers = LinkedHashMap<String, String>()
-        val final = LinkedHashMap<String, String>()
 
-        for (header: String in parsedRequest.headers) {
-            var (name, value) = header.split(": ", limit=2)
-
-            if (name == "Connection") {
-                continue
-            }
-            name = name.replace("^", "\r")
-            name = name.replace("~", "\n")
-            value = value.replace("^", "\r")
-            value = value.replace("~", "\n")
-
-            name = name.toLowerCase()
-            if (name.startsWith(":")) {
-                pseudoHeaders.put(name, value)
-            } else {
-                headers.put(name, value)
-            }
-        }
-
-        for ((key, value) in pseudoHeaders) {
-            final.put(key, value)
-        }
-
-        if (!pseudoHeaders.containsKey(":scheme")) {
-            final.put(":scheme", target.protocol)
-        }
-        if (!pseudoHeaders.containsKey(":method")) {
-            final.put(":method", parsedRequest.method)
-        }
-        if (!pseudoHeaders.containsKey(":path")) {
-            final.put(":path", parsedRequest.path)
-        }
-        if (!pseudoHeaders.containsKey(":authority")) {
-            final.put(":authority", headers.get("host")?: "")
-            headers.remove("host")
-        }
-
-        for ((key, value) in headers) {
-            final.put(key, value)
-        }
-
-        return final
-    }
 
     private fun req(req: Request) {
 
