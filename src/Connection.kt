@@ -94,12 +94,10 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
         thread { writeForever() }
     }
 
-    private fun req(req: Request) {
-
-        val parsedRequest = HTTP2Request(req.getRequest())
-
+    fun buildReq(parsedRequest: HTTP2Request): LinkedHashMap<String, String> {
         val pseudoHeaders = LinkedHashMap<String, String>()
         val headers = LinkedHashMap<String, String>()
+        val final = LinkedHashMap<String, String>()
 
         for (header: String in parsedRequest.headers) {
             var (name, value) = header.split(": ", limit=2)
@@ -120,29 +118,39 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
             }
         }
 
-        val encoder = HeaderEncoder()
         for ((key, value) in pseudoHeaders) {
-            encoder.addHeader(key, value)
+            final.put(key, value)
         }
 
         if (!pseudoHeaders.containsKey(":scheme")) {
-            encoder.addHeader(":scheme", target.protocol)
+            final.put(":scheme", target.protocol)
         }
         if (!pseudoHeaders.containsKey(":method")) {
-            encoder.addHeader(":method", parsedRequest.method)
+            final.put(":method", parsedRequest.method)
         }
         if (!pseudoHeaders.containsKey(":path")) {
-            encoder.addHeader(":path", parsedRequest.path)
+            final.put(":path", parsedRequest.path)
         }
         if (!pseudoHeaders.containsKey(":authority")) {
-            encoder.addHeader(":authority", headers.get("host")?: "")
+            final.put(":authority", headers.get("host")?: "")
             headers.remove("host")
         }
 
         for ((key, value) in headers) {
-            encoder.addHeader(key, value)
+            final.put(key, value)
         }
 
+        return final
+    }
+
+    private fun req(req: Request) {
+
+        val parsedRequest = HTTP2Request(req.getRequest())
+        val built = buildReq(parsedRequest)
+        val encoder = HeaderEncoder()
+        for ((key, value) in built) {
+            encoder.addHeader(key, value)
+        }
 
         val streamID = addStream(req)
         if (parsedRequest.body == null || parsedRequest.body == "") {
@@ -157,7 +165,6 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
             sendFrame(Frame(0x00, 0x01, streamID, parsedRequest.body!!.toByteArray()))
         }
         //Utils.out(request.asBytes().asList())
-
     }
 
 
