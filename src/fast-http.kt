@@ -478,13 +478,19 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
 fun main(args : Array<String>) {
 
-
     try {
         val scriptFile = args[0]
         val code = File(scriptFile).readText()
-        var req = File(args[1]).readText()
-        val endpoint = args[2]
-        val baseInput = args[3]
+        var req = ""
+        var endpoint = ""
+        var baseInput = ""
+        var rawReq = "".toByteArray()
+        if (args.size > 1) {
+            req = File(args[1]).readText()
+            rawReq = File(args[1]).readBytes()
+            endpoint = args[2]
+            baseInput = args[3]
+        }
         val attackHandler = AttackHandler()
         Runtime.getRuntime().addShutdownHook(Thread {
             Utils.out(attackHandler.statusString())
@@ -495,7 +501,7 @@ fun main(args : Array<String>) {
             req = req.replace("\n", "\r\n")
         }
         val outputHandler = ConsolePrinter()
-        evalJython(code, req, File(args[1]).readBytes(), endpoint, baseInput, outputHandler, attackHandler)
+        evalJython(code, req, rawReq, endpoint, baseInput, outputHandler, attackHandler)
     }
 
     catch (e: FileNotFoundException) {
