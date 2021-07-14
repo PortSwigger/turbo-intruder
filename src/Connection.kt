@@ -55,6 +55,7 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
                 }
                 name = name.replace("^", "\r")
                 name = name.replace("~", "\n")
+                name = name.replace("`", ":")
                 value = value.replace("^", "\r")
                 value = value.replace("~", "\n")
 

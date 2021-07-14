@@ -4,11 +4,13 @@ import java.awt.datatransfer.DataFlavor;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 
 public class Utils {
 
     static boolean gotBurp = false;
     static IBurpExtenderCallbacks callbacks;
+    static IExtensionHelpers helpers;
     private static PrintWriter stdout;
     private static PrintWriter stderr;
     static WordRecorder witnessedWords = new WordRecorder();
@@ -42,6 +44,7 @@ public class Utils {
     static void setBurpPresent(IBurpExtenderCallbacks incallbacks) {
         gotBurp = true;
         callbacks = incallbacks;
+        helpers = callbacks.getHelpers();
         stdout = new PrintWriter(callbacks.getStdout(), true);
         stderr = new PrintWriter(callbacks.getStderr(), true);
     }
@@ -70,6 +73,52 @@ public class Utils {
             return request;
         }
         return request.substring(0, bodyStart);
+    }
+
+    // based on BulkScan.request()
+    public static byte[] h2request(IHttpService service, byte[] req) {
+        LinkedHashMap<String, String> h2headers = Connection.Companion.buildReq(new HTTP2Request(helpers.bytesToString(req)));
+        ArrayList<IHttpHeader> headers = new ArrayList<>();
+        h2headers.forEach((key, value) -> { headers.add(helpers.buildHeader(key, value)); });
+        byte[] body = getBodyBytes(req);
+        byte[] responseBytes;
+        try {
+            responseBytes = callbacks.makeHttp2Request(service, headers, body, true);
+        } catch (RuntimeException e) {
+            responseBytes = null;
+        }
+        return responseBytes;
+    }
+
+    static byte[] getBodyBytes(byte[] response) {
+        if (response == null) { return null; }
+        int bodyStart = getBodyStart(response);
+        return Arrays.copyOfRange(response, bodyStart, response.length);
+    }
+
+    public static int getBodyStart(byte[] response) {
+        int i = 0;
+        int newlines_seen = 0;
+        while (i < response.length) {
+            byte x = response[i];
+            if (x == '\n') {
+                newlines_seen++;
+            } else if (x != '\r') {
+                newlines_seen = 0;
+            }
+
+            if (newlines_seen == 2) {
+                break;
+            }
+            i += 1;
+        }
+
+
+        while (i < response.length && (response[i] == ' ' || response[i] == '\n' || response[i] == '\r')) {
+            i++;
+        }
+
+        return i;
     }
 
 }

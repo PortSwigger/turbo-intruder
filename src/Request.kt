@@ -2,6 +2,7 @@ package burp
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.lang.Exception
+import java.net.URL
 import java.util.*
 import kotlin.collections.HashMap
 
@@ -231,6 +232,7 @@ class BurpRequest(val req: Request): IHttpRequestResponse {
 
     override fun setHighlight(color: String?) {
     }
+
 }
 
 class StubRequest(val req: ByteArray, val service: IHttpService): IHttpRequestResponse {
@@ -268,4 +270,5 @@ class StubRequest(val req: ByteArray, val service: IHttpService): IHttpRequestRe
 
     override fun setHighlight(color: String?) {
     }
+
 }

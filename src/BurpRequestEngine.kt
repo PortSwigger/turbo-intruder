@@ -1,4 +1,5 @@
 package burp
+import java.lang.RuntimeException
 import java.net.URL
 import java.util.*
 import java.util.concurrent.CountDownLatch
@@ -6,10 +7,9 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
-open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?, val forceHTTP1: Boolean): RequestEngine() {
+open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?, val useHTTP1: Boolean): RequestEngine() {
 
     private val threadPool = ArrayList<Thread>()
-    private var supportsHTTP2 = true
 
     init {
         requestQueue = if (maxQueueSize > 0) {
@@ -42,25 +42,24 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
 
 
     override fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?, label: String?): Request {
-        return Request(template.replace("Connection: keep-alive", "Connection: close"), payloads, learnBoring ?: 0, label)
+        if (useHTTP1) {
+            return Request(template.replace("Connection: keep-alive", "Connection: close").replace("HTTP/2\r\n", "HTTP/1.1\r\n"), payloads, learnBoring ?: 0, label)
+        }
+        return Request(template.replace("HTTP/1.1\r\n", "HTTP/2\r\n"), payloads, learnBoring ?: 0, label)
     }
 
     private fun request(service: IHttpService, req: Request): IHttpRequestResponse? {
-        //responseBytes = Utilities.callbacks.makeHttpRequest(service, req).getResponse();
-        if (forceHTTP1 || !supportsHTTP2) {
-            // todo replace HTTP/2 with HTTP/1.1
-        }
-
-        var resp: IHttpRequestResponse? = null
-        if (supportsHTTP2) {
+        val resp: IHttpRequestResponse?
+        if (useHTTP1) {
             try {
-                resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes(), forceHTTP1)
+                resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes(), true)
             } catch (e: NoSuchMethodError) {
-                supportsHTTP2 = false
+                throw RuntimeException("Please update Burp Suite")
             }
-        }
-        if (!supportsHTTP2) {
-            resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes())
+        } else {
+            val respBytes = Utils.h2request(service, req.getRequestAsBytes())
+            req.response = String(respBytes)
+            resp = BurpRequest(req)
         }
 
         return resp
