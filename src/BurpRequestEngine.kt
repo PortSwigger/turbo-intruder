@@ -58,7 +58,9 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
             }
         } else {
             val respBytes = Utils.h2request(service, req.getRequestAsBytes())
-            req.response = String(respBytes)
+            if (respBytes != null) {
+                req.response = String(respBytes)
+            }
             resp = BurpRequest(req)
         }
 

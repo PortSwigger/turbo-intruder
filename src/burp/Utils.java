@@ -83,7 +83,9 @@ public class Utils {
         byte[] body = getBodyBytes(req);
         byte[] responseBytes;
         try {
+            Utils.out("Sending request");
             responseBytes = callbacks.makeHttp2Request(service, headers, body, true);
+            Utils.out("Got response");
         } catch (RuntimeException e) {
             responseBytes = null;
         }
