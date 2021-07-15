@@ -53,6 +53,11 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
                 if (name == "Connection") {
                     continue
                 }
+
+                if (name == "Cookie") {
+                    continue;
+                }
+
                 name = name.replace("^", "\r")
                 name = name.replace("~", "\n")
                 name = name.replace("`", ":")

@@ -42,10 +42,15 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
 
 
     override fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?, label: String?): Request {
+        var prepared = template
         if (useHTTP1) {
-            return Request(template.replace("Connection: keep-alive", "Connection: close").replace("HTTP/2\r\n", "HTTP/1.1\r\n"), payloads, learnBoring ?: 0, label)
+            prepared = template.replace("Connection: keep-alive", "Connection: close").replaceFirst("HTTP/2\r\n", "HTTP/1.1\r\n")
+        } else {
+            if (template.split("\r", limit = 1).get(0).endsWith("HTTP/1.1")) {
+                prepared = template.replaceFirst("HTTP/1.1\r\n", "HTTP/2\r\n")
+            }
         }
-        return Request(template.replace("HTTP/1.1\r\n", "HTTP/2\r\n"), payloads, learnBoring ?: 0, label)
+        return Request(prepared, payloads, learnBoring ?: 0, label)
     }
 
     private fun request(service: IHttpService, req: Request): IHttpRequestResponse? {
