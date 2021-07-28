@@ -1,10 +1,13 @@
 package burp;
+import kotlin.Pair;
+
 import java.awt.*;
 import java.awt.datatransfer.DataFlavor;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 
 public class Utils {
 
@@ -77,9 +80,12 @@ public class Utils {
 
     // based on BulkScan.request()
     public static byte[] h2request(IHttpService service, byte[] req) {
-        LinkedHashMap<String, String> h2headers = Connection.Companion.buildReq(new HTTP2Request(helpers.bytesToString(req)));
+        LinkedList<Pair<String, String>> h2headers = Connection.Companion.buildReq(new HTTP2Request(helpers.bytesToString(req)));
         ArrayList<IHttpHeader> headers = new ArrayList<>();
-        h2headers.forEach((key, value) -> { headers.add(helpers.buildHeader(key, value)); });
+        for (Pair<String, String> header: h2headers) {
+            headers.add(helpers.buildHeader(header.getFirst(), header.getSecond()));
+        }
+        //h2headers.forEach((key, value) -> { headers.add(helpers.buildHeader(key, value)); });
         byte[] body = getBodyBytes(req);
         byte[] responseBytes;
         try {

@@ -39,6 +39,7 @@ dependencies {
     compile 'com.fifesoft:rsyntaxtextarea:3.1.1'
     compile files('hpack-1.0.2.jar')
     compile files('burp-extender-api_2021_8-2021.5.jar')
+    compile files('albinowaxUtils-all.jar')
 } 
 
 task fatJar(type: Jar) {

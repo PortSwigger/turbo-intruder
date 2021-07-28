@@ -34,10 +34,20 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
             }
         }
 
-        fun buildReq(parsedRequest: HTTP2Request): LinkedHashMap<String, String> {
+        private fun transformHeader(value: String, name: Boolean = false): String {
+            var out = value.replace("^", "\r")
+            out = out.replace("~", "\n")
+            if (name) {
+                out = out.replace("`", ":")
+            }
+            return out
+        }
+
+        fun buildReq(parsedRequest: HTTP2Request): LinkedList<Pair<String, String>> {
             val pseudoHeaders = LinkedHashMap<String, String>()
-            val headers = LinkedHashMap<String, String>()
-            val final = LinkedHashMap<String, String>()
+            val headers = LinkedList<Pair<String, String>>()
+            val final = LinkedList<Pair<String, String>>()
+            var host = ""
 
             for (header: String in parsedRequest.headers) {
                 var name = ""
@@ -54,44 +64,61 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
                     continue
                 }
 
+                if (name == "Host" && host == "") {
+                    host = value
+                }
+
                 if (name == "Cookie") {
+                    val cookiesplit = value.split(";")
+                    for (cookie: String in cookiesplit) {
+                        if (cookie != "") {
+                            headers.add(Pair("cookie", transformHeader(cookie)))
+                        }
+                    }
                     continue;
                 }
 
-                name = name.replace("^", "\r")
-                name = name.replace("~", "\n")
-                name = name.replace("`", ":")
-                value = value.replace("^", "\r")
-                value = value.replace("~", "\n")
-
+                name = transformHeader(name, true)
+                value = transformHeader(value, false)
                 name = name.toLowerCase()
+
                 if (name.startsWith(":")) {
-                    pseudoHeaders.put(name, value)
+                    if (pseudoHeaders.containsKey(name)) {
+                        headers.add(Pair(name, value))
+                    } else {
+                        pseudoHeaders.put(name, value)
+                    }
                 } else {
-                    headers.put(name, value)
+                    headers.add(Pair(name, value))
                 }
             }
 
+            var stripHost = false
+
             for ((key, value) in pseudoHeaders) {
-                final.put(key, value)
+                final.add(Pair(key, value))
             }
 
             if (!pseudoHeaders.containsKey(":scheme")) {
-                final.put(":scheme", "https")
+                final.add(Pair(":scheme", "https"))
             }
             if (!pseudoHeaders.containsKey(":method")) {
-                final.put(":method", parsedRequest.method)
+                final.add(Pair(":method", parsedRequest.method))
             }
             if (!pseudoHeaders.containsKey(":path")) {
-                final.put(":path", parsedRequest.path)
+                final.add(Pair(":path", parsedRequest.path))
             }
             if (!pseudoHeaders.containsKey(":authority")) {
-                final.put(":authority", headers.get("host")?: "")
-                headers.remove("host")
+                final.add(Pair(":authority", host))
+                stripHost = true // if there's no :authority and there is a Host header, strip the first instance of the host header
             }
 
             for ((key, value) in headers) {
-                final.put(key, value)
+                if (stripHost && key.equals("host")) {
+                    stripHost = false
+                    continue
+                }
+                final.add(Pair(key, value))
             }
 
             return final
