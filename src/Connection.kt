@@ -64,6 +64,10 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
                     continue
                 }
 
+                if (name == ":connection") {
+                    name = "Connection"
+                }
+
                 if (name == "Host" && host == "") {
                     host = value
                 }
