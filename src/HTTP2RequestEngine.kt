@@ -40,6 +40,7 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
     private fun manageConnections() {
         // showStats changes state from 1 to 2
         // then waits on the completedLatch to hit 3
+        Connection.debug("Connection management thread starting")
         while (attackState.get() < 3) {
             for (i in 1..threads) {
                 val con = connectionPool[i - 1]
@@ -77,6 +78,7 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
             }
             Thread.sleep(10)
         }
+        Connection.debug("Connection management thread exiting")
     }
 
     override fun start(timeout: Int) {

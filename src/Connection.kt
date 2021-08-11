@@ -30,7 +30,7 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
 
         fun debug(message: String) {
             if (DEBUG) {
-                Utils.out("Debug: $message")
+                Utils.out("Debug ${Thread.currentThread().id}: $message")
             }
         }
 
@@ -189,6 +189,12 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
     }
 
 
+    private fun checkState(): Int {
+        if (engine.attackState.get() >= 3) {
+            close()
+        }
+        return state
+    }
 
     private fun req(req: Request) {
 
@@ -231,12 +237,14 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
     private fun readForever() {
         try {
             val input = socket.inputStream
-            while (state != CLOSED) {
+            while (checkState() != CLOSED) {
                 if (state == HALFCLOSED && !hasInflightRequests()) {
                     debug("Transitioning halfclosed connection to closed")
                     close()
                     return
                 }
+
+                debug("Reading...")
 
                 if (streams.size == 0 && state != CONNECTING) {
                     Thread.sleep(100)
@@ -248,11 +256,13 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
                     val needToRead = 3
                     var haveRead = 0
                     while (haveRead < needToRead) {
-                        if (state == CLOSED) {
+                        //debug("reading inital 3 bytes")
+                        if (checkState() == CLOSED) {
                             return
                         }
                         val justRead = input.read(sizeBuffer, haveRead, needToRead - haveRead)
                         if (justRead == -1) {
+                            Thread.sleep(10)
                             continue
                         }
                         haveRead += justRead
@@ -281,11 +291,13 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
                 val frameBuffer = ByteArray(needToRead)
                 var haveRead = 0
                 while (haveRead < needToRead) {
-                    if (state == CLOSED) {
+                    //debug("reading needToRead")
+                    if (checkState() == CLOSED) {
                         return
                     }
                     val justRead = input.read(frameBuffer, haveRead, needToRead - haveRead)
                     if (justRead == -1) {
+                        Thread.sleep(10)
                         continue
                     }
                     haveRead += justRead
@@ -296,6 +308,7 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
             Utils.out("Killing read thread")
             close()
         }
+        debug("Closing read thread...")
     }
 
     private fun passResponseToStream(frameBytes: ByteArray) {
@@ -315,10 +328,11 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
     }
 
     private fun writeForever() {
+        debug("Starting write thread")
         try {
             var completedSeedQueue = false
 
-            while (state == ALIVE) {
+            while (state == ALIVE && engine.attackState.get() < 3) {
 
                 // todo use a lock instead, should be faster
                 if (streams.size >= maxConcurrentStreams) {
@@ -374,6 +388,7 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
             Utils.out("Killing write thread")
             close()
         }
+        debug("Exiting write thread")
     }
 
     fun hasInflightRequests(): Boolean {
