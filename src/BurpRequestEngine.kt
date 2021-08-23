@@ -64,7 +64,7 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
         } else {
             val respBytes = Utils.h2request(service, req.getRequestAsBytes())
             if (respBytes != null) {
-                req.response = String(respBytes)
+                req.response = Utils.helpers.bytesToString(respBytes)
             }
             resp = BurpRequest(req)
         }
@@ -108,7 +108,7 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
             if (resp.response != null) {
                 successfulRequests.getAndIncrement()
                 val interesting = processResponse(req, resp.response)
-                req.response = String(resp.response) // , StandardCharsets.UTF_8
+                req.response = Utils.helpers.bytesToString(resp.response) // , StandardCharsets.UTF_8
                 invokeCallback(req, interesting)
             }
 
