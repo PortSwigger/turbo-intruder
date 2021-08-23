@@ -90,13 +90,14 @@ open class Request(val template: String, val words: List<String?>, val learnBori
     }
 
     fun getRequestAsBytes(): ByteArray {
-        return fixContentLength(getRequest().toByteArray(Charsets.UTF_8))
+        //return fixContentLength(getRequest().toByteArray(Charsets.UTF_8))
+        return fixContentLength(Utils.helpers.stringToBytes(getRequest()))
     }
 
     fun getResponseAsBytes(): ByteArray? {
         // todo look up actual charset from headers and use that
-        // or use bytes from end to end
-        return response?.toByteArray(Charsets.UTF_8)
+        // return response?.toByteArray(Charsets.UTF_8)
+        return Utils.helpers.stringToBytes(response)
     }
 
     fun fixContentLength(request: ByteArray): ByteArray {
