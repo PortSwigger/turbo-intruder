@@ -193,7 +193,9 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
             textEditor.font = textEditor.font.deriveFont(Utilities.globalSettings.getInt("font-size").toFloat())
 
-            val scrollableTextEditor = JScrollPane(textEditor)
+            //val scrollableTextEditor = JScrollPane(textEditor)
+            val scrollableTextEditor = RTextScrollPane(textEditor)
+            scrollableTextEditor.lineNumbersEnabled = true
 
             val saveButton = JButton("Save")
             saveButton.isEnabled = false
