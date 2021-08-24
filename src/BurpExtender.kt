@@ -1,9 +1,12 @@
 package burp
 
+import java.util.*
+import javax.swing.SwingUtilities
+
 class BurpExtender(): IBurpExtender, IExtensionStateListener {
 
     companion object {
-        const val version = "1.22"
+        const val version = "1.23"
     }
 
     override fun extensionUnloaded() {
@@ -17,5 +20,9 @@ class BurpExtender(): IBurpExtender, IExtensionStateListener {
         callbacks.registerExtensionStateListener(this)
         callbacks.setExtensionName("Turbo Intruder")
         Utils.out("Loaded Turbo Intruder v$version")
+
+        Utilities(callbacks, HashMap(), "Turbo Intruder")
+        Utilities.globalSettings.registerSetting("font-size", 16);
+        SwingUtilities.invokeLater(ConfigMenu())
     }
 }

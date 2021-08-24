@@ -19,6 +19,8 @@ import org.fife.ui.rsyntaxtextarea.*;
 import org.fife.ui.rtextarea.RTextScrollPane
 import java.io.IOException
 import org.fife.ui.rsyntaxtextarea.Theme
+import java.awt.Font
+import java.awt.font.TextAttribute
 import java.io.InputStream
 
 
@@ -189,6 +191,8 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                 textEditor.highlightCurrentLine = false
             }
 
+            textEditor.font = textEditor.font.deriveFont(Utilities.globalSettings.getInt("font-size").toFloat())
+
             val scrollableTextEditor = JScrollPane(textEditor)
 
             val saveButton = JButton("Save")
@@ -211,8 +215,8 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             panel.add(topPanel, BorderLayout.NORTH);
             panel.add(scrollableTextEditor, BorderLayout.CENTER)
             val messageEditor = Utils.callbacks.createMessageEditor(MessageController(req), true)
-            var baseInput = ""
 
+            var baseInput = ""
 
             if (fixedScript != null) {
                 messageEditor.setMessage(requestOverride?: req.request, true)
