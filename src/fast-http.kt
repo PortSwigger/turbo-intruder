@@ -176,6 +176,8 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             textEditor.paintTabLines = false
             textEditor.tabSize = 4
             textEditor.tabsEmulated = true
+            textEditor.eolMarkersVisible = Utilities.globalSettings.getBoolean("show-eol")
+            textEditor.isWhitespaceVisible = Utilities.globalSettings.getBoolean("visible-whitespace")
 
             if (UIManager.getLookAndFeel().getID().contains("Dar")) {
                 val `in` = javaClass.getResourceAsStream("/org/fife/ui/rsyntaxtextarea/themes/dark.xml")
@@ -195,7 +197,7 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
             //val scrollableTextEditor = JScrollPane(textEditor)
             val scrollableTextEditor = RTextScrollPane(textEditor)
-            scrollableTextEditor.lineNumbersEnabled = true
+            scrollableTextEditor.lineNumbersEnabled = Utilities.globalSettings.getBoolean("line-numbers")
 
             val saveButton = JButton("Save")
             saveButton.isEnabled = false
