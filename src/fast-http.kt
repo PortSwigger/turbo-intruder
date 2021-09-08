@@ -322,13 +322,19 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
             }
             button.addActionListener(ToggleAttack())
 
-            textEditor.getInputMap(JComponent.WHEN_FOCUSED).put(
+            button.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
                 KeyStroke.getKeyStroke(
                     "control ENTER"
                 ), "toggleAttack"
             )
 
-            textEditor.getActionMap().put("toggleAttack", object : AbstractAction() {
+            button.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+                KeyStroke.getKeyStroke(
+                    "control SPACE"
+                ), "toggleAttack"
+            )
+
+            button.getActionMap().put("toggleAttack", object : AbstractAction() {
                 override fun actionPerformed(e: ActionEvent) {
                     ToggleAttack().actionPerformed(e)
                 }
