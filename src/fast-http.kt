@@ -1,12 +1,13 @@
 package burp
 
+import org.fife.ui.rsyntaxtextarea.*
+import org.fife.ui.rtextarea.*
 import org.python.util.PythonInterpreter
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.Frame
 import java.awt.event.*
 import java.io.*
-import java.io.File
 import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.Paths
@@ -14,17 +15,6 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import javax.swing.*
 import kotlin.concurrent.thread
-import org.fife.ui.rtextarea.*;
-import org.fife.ui.rsyntaxtextarea.*;
-import org.fife.ui.rtextarea.RTextScrollPane
-import java.io.IOException
-import org.fife.ui.rsyntaxtextarea.Theme
-import java.awt.Font
-import java.awt.font.TextAttribute
-import java.io.InputStream
-
-
-
 
 
 class Scripts() {
@@ -272,62 +262,78 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
             var handler = AttackHandler()
 
-            button.addActionListener {
-                thread {
-                    when {
-                        button.text == "Halt" -> {
-                            handler.abort()
-                            button.text = "Configure"
-                        }
-                        button.text == "Configure" -> {
-                            handler.abort()
-                            handler = AttackHandler()
-                            SwingUtilities.invokeLater {
-                                panel.add(button, BorderLayout.SOUTH)
-                                pane.bottomComponent = panel
-                                pane.setDividerLocation(0.25)
-                                button.text = "Attack"
-                                button.requestFocusInWindow()
-                                pane.rootPane.defaultButton = button
-                                this.title = "Turbo Intruder - " + req.httpService.host
+            class ToggleAttack(): ActionListener {
+                override fun actionPerformed(e: ActionEvent?) {
+                    thread {
+                        when {
+                            button.text == "Halt" -> {
+                                handler.abort()
+                                button.text = "Configure"
                             }
-                        }
-                        else -> {
-                            val requestTable = RequestTable(req.httpService, handler)
-                            SwingUtilities.invokeLater {
-                                button.text = "Halt"
-                                val requestPanel = JPanel(BorderLayout())
-                                panel.remove(button)
-                                requestPanel.add(requestTable, BorderLayout.CENTER)
-                                requestPanel.add(button, BorderLayout.SOUTH)
-                                pane.bottomComponent = requestPanel
-                                button.requestFocusInWindow()
-                                pane.rootPane.defaultButton = button
+                            button.text == "Configure" -> {
+                                handler.abort()
+                                handler = AttackHandler()
+                                SwingUtilities.invokeLater {
+                                    panel.add(button, BorderLayout.SOUTH)
+                                    pane.bottomComponent = panel
+                                    pane.setDividerLocation(0.25)
+                                    button.text = "Attack"
+                                    button.requestFocusInWindow()
+                                    pane.rootPane.defaultButton = button
+                                    title = "Turbo Intruder - " + req.httpService.host
+                                }
                             }
-                            var script = textEditor.text
+                            else -> {
+                                val requestTable = RequestTable(req.httpService, handler)
+                                SwingUtilities.invokeLater {
+                                    button.text = "Halt"
+                                    val requestPanel = JPanel(BorderLayout())
+                                    panel.remove(button)
+                                    requestPanel.add(requestTable, BorderLayout.CENTER)
+                                    requestPanel.add(button, BorderLayout.SOUTH)
+                                    pane.bottomComponent = requestPanel
+                                    button.requestFocusInWindow()
+                                    pane.rootPane.defaultButton = button
+                                }
+                                var script = textEditor.text
 
-                            // enforce /r/n line endings
-                            script = script.replace("\r\n", "\n")
-                            script = script.replace("\n", "\r\n")
-                            Utils.callbacks.saveExtensionSetting("defaultScript", script)
-                            Utils.callbacks.helpers
-                            val baseRequest = Utils.callbacks.helpers.bytesToString(messageEditor.message)
-                            val service = req.httpService
+                                // enforce /r/n line endings
+                                script = script.replace("\r\n", "\n")
+                                script = script.replace("\n", "\r\n")
+                                Utils.callbacks.saveExtensionSetting("defaultScript", script)
+                                Utils.callbacks.helpers
+                                val baseRequest = Utils.callbacks.helpers.bytesToString(messageEditor.message)
+                                val service = req.httpService
 
-                            val target: String
-                            if (service.host.contains(":")) {
-                                target = service.protocol + "://[" + service.host + "]:" + service.port
-                            }
-                            else {
-                                target = service.protocol + "://" + service.host + ":" + service.port
-                            }
+                                val target: String
+                                if (service.host.contains(":")) {
+                                    target = service.protocol + "://[" + service.host + "]:" + service.port
+                                }
+                                else {
+                                    target = service.protocol + "://" + service.host + ":" + service.port
+                                }
 
-                            this.title += " - running"
-                            evalJython(script, baseRequest, messageEditor.message, target, baseInput, requestTable, handler)
+                                title += " - running"
+                                evalJython(script, baseRequest, messageEditor.message, target, baseInput, requestTable, handler)
+                            }
                         }
                     }
                 }
             }
+            button.addActionListener(ToggleAttack())
+
+            textEditor.getInputMap(JComponent.WHEN_FOCUSED).put(
+                KeyStroke.getKeyStroke(
+                    "control ENTER"
+                ), "toggleAttack"
+            )
+
+            textEditor.getActionMap().put("toggleAttack", object : AbstractAction() {
+                override fun actionPerformed(e: ActionEvent) {
+                    ToggleAttack().actionPerformed(e)
+                }
+            })
+
 
             this.addWindowListener(object : WindowAdapter() {
                 override fun windowClosing(e: WindowEvent) {
