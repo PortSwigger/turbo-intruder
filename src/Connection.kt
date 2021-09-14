@@ -12,8 +12,6 @@ import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 import java.security.cert.X509Certificate
 import java.util.*
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.locks.ReentrantLock
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import javax.net.ssl.*
 import kotlin.collections.HashMap
@@ -50,7 +48,7 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
             var host = ""
 
             for (header: String in parsedRequest.headers) {
-                var name = ""
+                var name: String
                 var value = ""
                 if (header.contains(": ")) {
                     val split = header.split(": ", limit = 2)
@@ -79,7 +77,7 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
                             headers.add(Pair("cookie", transformHeader(cookie)))
                         }
                     }
-                    continue;
+                    continue
                 }
 
                 name = transformHeader(name, true)

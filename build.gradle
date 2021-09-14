@@ -1,4 +1,5 @@
 apply plugin: 'java'
+
 apply plugin: 'kotlin'
 
 sourceCompatibility = 1.8
@@ -43,6 +44,7 @@ dependencies {
 } 
 
 task fatJar(type: Jar) {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
     manifest {
         attributes('Class-Path': configurations.compile.collect { it.getName() }.join(' '),
                 'Main-Class': 'burp.Fast_httpKt'

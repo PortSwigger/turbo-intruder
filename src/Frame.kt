@@ -5,6 +5,7 @@ import com.twitter.hpack.HeaderListener
 
 
 
+@ExperimentalUnsignedTypes
 open class Frame(val type: Byte, val flags: Byte, val streamID: Int, val payload: ByteArray) {
     var die: Boolean = false
 
@@ -39,7 +40,7 @@ class HeaderFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray, st
 
         val `in` = ByteArrayInputStream(payload)
         val headers = StringBuilder()
-        val listener = HeaderListener { name, value, sensitive ->
+        val listener = HeaderListener { name, value, _ ->
             headers.append(String(name))
             headers.append(": ")
             headers.append(String(value))
