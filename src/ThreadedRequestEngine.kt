@@ -176,6 +176,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                     var readCount = 0
                     var startTime: Long = 0
                     var endTime: Long = 0
+
                     for (j in 1..readFreq) {
                         if (requestsSent >= requestsPerConnection) {
                             break
@@ -207,6 +208,33 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             req.gate!!.waitForGo()
                             startTime = System.nanoTime()
                             outputstream.write(byteReq, byteReq.size-withHold, withHold)
+                        }
+                        else if (req.pauseBefore != 0) {
+                            val end: Int
+                            if (req.pauseBefore < 0) {
+                                end = byteReq.size + req.pauseBefore
+                            } else {
+                                end = req.pauseBefore
+                            }
+                            val part1 = byteReq.sliceArray(0..end)
+                            outputstream.write(part1)
+                            startTime = System.nanoTime()
+
+                            val oldTimeout = socket.soTimeout
+                            socket.soTimeout = 2000
+                            var len = -1
+                            try {
+                                len = socket.getInputStream().read()
+                            } catch (e: Exception) {
+
+                            }
+                            if (len != -1) {
+                                throw Exception()
+                            }
+                            socket.soTimeout = oldTimeout
+
+                            val part2 = byteReq.sliceArray(end+1 until byteReq.size)
+                            outputstream.write(part2)
                         }
                         else {
                             outputstream.write(byteReq)

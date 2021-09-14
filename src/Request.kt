@@ -15,6 +15,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
     var callback: ((Request, Boolean) -> Boolean)? = null
     var gate: Floodgate? = null
     var time: Long = 0
+    var pauseBefore: Int = 0
 
     private val attributes: HashMap<String, Any> = HashMap()
 
