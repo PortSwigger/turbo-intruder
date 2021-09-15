@@ -82,7 +82,7 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
 
                 name = transformHeader(name, true)
                 value = transformHeader(value, false)
-                name = name.toLowerCase()
+                name = name.lowercase()
 
                 if (name.startsWith(":")) {
                     if (pseudoHeaders.containsKey(name)) {

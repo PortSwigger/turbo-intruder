@@ -51,7 +51,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
     companion object {
 
         fun shouldGzip(buf: String): Boolean {
-            return buf.toLowerCase().indexOf("content-encoding: gzip") != -1
+            return buf.lowercase().indexOf("content-encoding: gzip") != -1
         }
 
         fun decompress(compressed: ByteArray): String {
@@ -216,12 +216,13 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             } else {
                                 end = req.pauseBefore
                             }
-                            val part1 = byteReq.sliceArray(0..end)
+                            val part1 = byteReq.sliceArray(0 until end)
+                            //Utils.out("'"+Utilities.helpers.bytesToString(part1)+"'")
                             outputstream.write(part1)
                             startTime = System.nanoTime()
 
                             val oldTimeout = socket.soTimeout
-                            socket.soTimeout = 2000
+                            socket.soTimeout = req.pauseTime
                             var len = -1
                             try {
                                 len = socket.getInputStream().read()
@@ -233,8 +234,9 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             }
                             socket.soTimeout = oldTimeout
 
-                            val part2 = byteReq.sliceArray(end+1 until byteReq.size)
+                            val part2 = byteReq.sliceArray(end until byteReq.size)
                             outputstream.write(part2)
+                            //Utils.out("'"+Utilities.helpers.bytesToString(part2)+"'")
                         }
                         else {
                             outputstream.write(byteReq)
@@ -290,7 +292,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             body = buffer.substring(bodyStart + 4, responseLength)
                             buffer = buffer.substring(responseLength)
                         }
-                        else if (headers.toLowerCase().contains("transfer-encoding: chunked") || headers.contains("^transfer-encoding:[ ]*chunked".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)))  && !IGNORE_LENGTH) {
+                        else if (headers.lowercase().contains("transfer-encoding: chunked") || headers.contains("^transfer-encoding:[ ]*chunked".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)))  && !IGNORE_LENGTH) {
 
                             buffer = buffer.substring(bodyStart + 4)
 

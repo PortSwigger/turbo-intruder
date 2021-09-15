@@ -4,8 +4,6 @@ import java.lang.StringBuilder
 import com.twitter.hpack.HeaderListener
 
 
-
-@ExperimentalUnsignedTypes
 open class Frame(val type: Byte, val flags: Byte, val streamID: Int, val payload: ByteArray) {
     var die: Boolean = false
 

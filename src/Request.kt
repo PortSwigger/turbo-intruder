@@ -16,6 +16,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
     var gate: Floodgate? = null
     var time: Long = 0
     var pauseBefore: Int = 0
+    var pauseTime: Int = 1000
 
     private val attributes: HashMap<String, Any> = HashMap()
 
@@ -140,15 +141,15 @@ open class Request(val template: String, val words: List<String?>, val learnBori
             val line_start = i
 
             // Make ' foo: bar' get interpreted as 'foo: bar'
-            if (request[i] == ' '.toByte()) {
+            if (request[i] == ' '.code.toByte()) {
                 i++
             }
 
-            while (i < end && request[i++] != ' '.toByte()) {
+            while (i < end && request[i++] != ' '.code.toByte()) {
             }
             val header_name = request.copyOfRange(line_start, i - 2)
             val headerValueStart = i
-            while (i < end && request[i++] != '\n'.toByte()) {
+            while (i < end && request[i++] != '\n'.code.toByte()) {
             }
             if (i == end) {
                 break
@@ -160,7 +161,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
                 return intArrayOf(line_start, headerValueStart, i - 2)
             }
 
-            if (i + 2 < end && request[i] == '\r'.toByte() && request[i + 1] == '\n'.toByte()) {
+            if (i + 2 < end && request[i] == '\r'.code.toByte() && request[i + 1] == '\n'.code.toByte()) {
                 break
             }
         }
@@ -172,9 +173,9 @@ open class Request(val template: String, val words: List<String?>, val learnBori
         var newlines_seen = 0
         while (i < response.size) {
             val x = response[i]
-            if (x == '\n'.toByte()) {
+            if (x == '\n'.code.toByte()) {
                 newlines_seen++
-            } else if (x != '\r'.toByte()) {
+            } else if (x != '\r'.code.toByte()) {
                 newlines_seen = 0
             }
 
@@ -185,7 +186,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
         }
 
 
-        while (i < response.size && (response[i] == ' '.toByte() || response[i] == '\n'.toByte() || response[i] == '\r'.toByte())) {
+        while (i < response.size && (response[i] == ' '.code.toByte() || response[i] == '\n'.code.toByte() || response[i] == '\r'.code.toByte())) {
             i++
         }
 
