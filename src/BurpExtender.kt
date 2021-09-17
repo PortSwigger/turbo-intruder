@@ -22,10 +22,7 @@ class BurpExtender(): IBurpExtender, IExtensionStateListener {
         Utils.out("Loaded Turbo Intruder v$version")
 
         Utilities(callbacks, HashMap(), "Turbo Intruder")
-        Utilities.globalSettings.registerSetting("font-size", 14);
-        Utilities.globalSettings.registerSetting("line-numbers", true);
-        Utilities.globalSettings.registerSetting("show-eol", false);
-        Utilities.globalSettings.registerSetting("visible-whitespace", false);
+
         SwingUtilities.invokeLater(ConfigMenu())
     }
 }

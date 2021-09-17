@@ -129,6 +129,11 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
 
     override fun actionPerformed(e: ActionEvent?) {
         SwingUtilities.invokeLater {
+            Utilities.globalSettings.registerSetting("font-size", 14);
+            Utilities.globalSettings.registerSetting("line-numbers", true);
+            Utilities.globalSettings.registerSetting("show-eol", false);
+            Utilities.globalSettings.registerSetting("visible-whitespace", false);
+
             val pane = JSplitPane(JSplitPane.VERTICAL_SPLIT)
             pane.setDividerLocation(0.25)
             pane.addComponentListener(RecordResize())
