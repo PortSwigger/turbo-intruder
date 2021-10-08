@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit
 import java.util.zip.GZIPInputStream
 import javax.net.SocketFactory
 import javax.net.ssl.*
+import kotlin.IllegalStateException
 import kotlin.concurrent.thread
 
 open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, val timeout: Int, override var readCallback: ((String) -> Boolean)?, val readSize: Int, val resumeSSL: Boolean): RequestEngine() {
@@ -230,7 +231,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                             }
                             if (len != -1) {
-                                throw Exception()
+                                throw IllegalStateException()
                             }
                             socket.soTimeout = oldTimeout
 
@@ -392,7 +393,11 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         } else {
                             ex.printStackTrace()
                             val badReq = inflight.pop()
-                            badReq.response = "null"
+                            if (ex is IllegalStateException) {
+                                badReq.response = "early-response"
+                            } else {
+                                badReq.response = "null"
+                            }
                             invokeCallback(badReq, true)
                         }
                     } else {

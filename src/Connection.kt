@@ -42,6 +42,10 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
         }
 
         fun buildReq(parsedRequest: HTTP2Request): LinkedList<Pair<String, String>> {
+            return buildReq(parsedRequest, true)
+        }
+
+        fun buildReq(parsedRequest: HTTP2Request, transform: Boolean): LinkedList<Pair<String, String>> {
             val pseudoHeaders = LinkedHashMap<String, String>()
             val headers = LinkedList<Pair<String, String>>()
             val final = LinkedList<Pair<String, String>>()
@@ -74,14 +78,20 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
                     val cookiesplit = value.split(";")
                     for (cookie: String in cookiesplit) {
                         if (cookie != "") {
-                            headers.add(Pair("cookie", transformHeader(cookie)))
+                            var fixed = cookie
+                            if (transform) {
+                                fixed = transformHeader(cookie)
+                            }
+                            headers.add(Pair("cookie", fixed))
                         }
                     }
                     continue
                 }
 
-                name = transformHeader(name, true)
-                value = transformHeader(value, false)
+                if (transform) {
+                    name = transformHeader(name, true)
+                    value = transformHeader(value, false)
+                }
                 name = name.lowercase()
 
                 if (name.startsWith(":")) {
