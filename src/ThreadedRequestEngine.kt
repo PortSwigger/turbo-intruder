@@ -286,7 +286,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             while (buffer.length < responseLength) {
                                 val len = socket.getInputStream().read(readBuffer)
                                 if (len == -1) {
-                                    break
+                                    throw RuntimeException("CL response finished unexpectedly")
                                 }
                                 val read =  String(readBuffer.copyOfRange(0, len), Charsets.ISO_8859_1)
                                 triggerReadCallback(read)
