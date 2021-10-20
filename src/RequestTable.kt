@@ -155,6 +155,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         model.addRequest(req)
         if (firstEntry) {
             issueTable.changeSelection(0, 0, false, false)
+            issueTable.requestFocusInWindow()
             firstEntry = false
         }
     }
