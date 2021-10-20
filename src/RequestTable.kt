@@ -52,6 +52,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
     val requestListView: JScrollPane
     private val controller = MessageEditorController()
     private var currentRequest: Request? = null
+    private var firstEntry = true
 
     fun setCurrentRequest(req: Request?) {
         //println("Setting current request to "+req!!.word)
@@ -152,6 +153,10 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
 
     @Synchronized override fun add(req: Request) {
         model.addRequest(req)
+        if (firstEntry) {
+            issueTable.changeSelection(0, 0, false, false)
+            firstEntry = false
+        }
     }
 
     inner class MessageEditorController : IMessageEditorController {
