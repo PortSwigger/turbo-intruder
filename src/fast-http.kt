@@ -37,6 +37,10 @@ fun evalJython(code: String, baseRequest: String, rawRequest: ByteArray, endpoin
         handler.baseRequest = baseRequest
         handler.rawRequest = rawRequest
         pyInterp.set("target", Target(baseRequest, rawRequest, endpoint, baseInput))
+        val savedWords = Utils.witnessedWords.savedWords
+        if (savedWords.isEmpty()) {
+            savedWords.add("To use this wordlist, enable 'learn observed words'")
+        }
         pyInterp.set("wordlists", Wordlist(Bruteforce(), Utils.witnessedWords.savedWords, Utils.getClipboard()))
         pyInterp.set("handler", handler)
         pyInterp.set("outputHandler", outputHandler)

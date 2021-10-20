@@ -6,7 +6,7 @@ import javax.swing.SwingUtilities
 class BurpExtender(): IBurpExtender, IExtensionStateListener {
 
     companion object {
-        const val version = "1.23"
+        const val version = "1.24"
     }
 
     override fun extensionUnloaded() {
@@ -22,6 +22,7 @@ class BurpExtender(): IBurpExtender, IExtensionStateListener {
         Utils.out("Loaded Turbo Intruder v$version")
 
         Utilities(callbacks, HashMap(), "Turbo Intruder")
+        Utilities.globalSettings.registerSetting("learn observed words", false);
 
         SwingUtilities.invokeLater(ConfigMenu())
     }

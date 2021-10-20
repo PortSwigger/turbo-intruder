@@ -1,6 +1,5 @@
 package burp
 
-import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 class WordRecorder: IScannerCheck {
@@ -17,8 +16,10 @@ class WordRecorder: IScannerCheck {
     }
 
     override fun doPassiveScan(baseRequestResponse: IHttpRequestResponse?): MutableList<IScanIssue> {
-        savedWords.addAll(Utils.callbacks.helpers.bytesToString(baseRequestResponse?.request).split(wordRegex))
-        savedWords.addAll(Utils.callbacks.helpers.bytesToString(baseRequestResponse?.response).split(wordRegex))
+        if (Utilities.globalSettings.getBoolean("learn observed words")) {
+            savedWords.addAll(Utils.callbacks.helpers.bytesToString(baseRequestResponse?.request).split(wordRegex))
+            savedWords.addAll(Utils.callbacks.helpers.bytesToString(baseRequestResponse?.response).split(wordRegex))
+        }
         return ArrayList()
     }
 }
