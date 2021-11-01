@@ -13,7 +13,7 @@ import javax.net.ssl.*
 import kotlin.IllegalStateException
 import kotlin.concurrent.thread
 
-open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, val timeout: Int, override var readCallback: ((String) -> Boolean)?, val readSize: Int, val resumeSSL: Boolean): RequestEngine() {
+open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, var timeout: Int, override var readCallback: ((String) -> Boolean)?, val readSize: Int, val resumeSSL: Boolean): RequestEngine() {
 
     private val connectedLatch = CountDownLatch(threads)
 
@@ -22,29 +22,37 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
     private val IGNORE_LENGTH = false
 
     init {
-        target = URL(url)
 
-        requestQueue = if (maxQueueSize > 0) {
-            LinkedBlockingQueue(maxQueueSize)
-        }
-        else {
-            LinkedBlockingQueue()
-        }
+        try {
+            target = URL(url)
 
-        completedLatch = CountDownLatch(threads)
-        val retryQueue = LinkedBlockingQueue<Request>()
-        val ipAddress = InetAddress.getByName(target.host)
-        val port = if (target.port == -1) { target.defaultPort } else { target.port }
+            requestQueue = if (maxQueueSize > 0) {
+                LinkedBlockingQueue(maxQueueSize)
+            }
+            else {
+                LinkedBlockingQueue()
+            }
 
-        val trustingSslSocketFactory = createSSLSocketFactory()
+            completedLatch = CountDownLatch(threads)
+            val retryQueue = LinkedBlockingQueue<Request>()
+            val ipAddress = InetAddress.getByName(target.host)
+            val port = if (target.port == -1) { target.defaultPort } else { target.port }
 
-        Utils.err("Warming up...")
-        for(j in 1..threads) {
-            threadPool.add(
-                thread {
-                    sendRequests(target, trustingSslSocketFactory, ipAddress, port, retryQueue, completedLatch, readFreq, requestsPerConnection, connectedLatch)
-                }
-            )
+            val trustingSslSocketFactory = createSSLSocketFactory()
+
+            Utils.err("Warming up...")
+            for(j in 1..threads) {
+                threadPool.add(
+                    thread {
+                        sendRequests(target, trustingSslSocketFactory, ipAddress, port, retryQueue, completedLatch, readFreq, requestsPerConnection, connectedLatch)
+                    }
+                )
+            }
+        } catch(e: Exception) {
+            if (Utils.gotBurp && !Utils.unloaded) {
+                Utils.callbacks.removeExtensionStateListener(this)
+            }
+            throw e
         }
 
     }

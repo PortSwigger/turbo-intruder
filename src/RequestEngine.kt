@@ -37,6 +37,7 @@ abstract class RequestEngine: IExtensionStateListener {
         }
 
         if (Utils.gotBurp) {
+            // todo use a helper method instead
             Utils.callbacks.registerExtensionStateListener(this)
         }
     }
@@ -200,6 +201,9 @@ abstract class RequestEngine: IExtensionStateListener {
     }
 
     fun showSummary() {
+        if (Utils.gotBurp && !Utils.unloaded) {
+            Utils.callbacks.removeExtensionStateListener(this)
+        }
         val duration = System.nanoTime().toFloat() - start
         val requests = successfulRequests.get().toFloat()
         Utils.err("Sent ${requests.toInt()} requests in ${duration / 1000000000} seconds")

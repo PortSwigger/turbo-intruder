@@ -21,6 +21,10 @@ class TurboHelper {
         }
     }
 
+    void setTimeout(int timeout) {
+        ((ThreadedRequestEngine)engine).setTimeout(timeout);
+    }
+
     void queue(byte[] req) {
         queue(Utilities.helpers.bytesToString(req));
     }
