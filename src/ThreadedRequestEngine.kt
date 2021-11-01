@@ -230,22 +230,25 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             outputstream.write(part1)
                             startTime = System.nanoTime()
 
-                            val oldTimeout = socket.soTimeout
-                            socket.soTimeout = req.pauseTime
-                            var len = -1
-                            try {
-                                len = socket.getInputStream().read()
-                            } catch (e: Exception) {
-
-                            }
-                            if (len != -1) {
-                                throw IllegalStateException()
-                            }
-                            socket.soTimeout = oldTimeout
+                            pauseOrExplode(socket, req.pauseTime)
 
                             val part2 = byteReq.sliceArray(end until byteReq.size)
                             outputstream.write(part2)
                             //Utils.out("'"+Utilities.helpers.bytesToString(part2)+"'")
+                        } else if (!req.pauseMarker.isEmpty()) {
+                            var i = 0
+                            startTime = System.nanoTime()
+                            while (i < byteReq.size) {
+                                val pausePoint = Utils.helpers.indexOf(byteReq, req.pauseMarker, true, i, byteReq.size)
+                                if (pausePoint == -1) {
+                                    outputstream.write(byteReq.sliceArray(i until byteReq.size))
+                                    break
+                                } else {
+                                    outputstream.write(byteReq.sliceArray(i until (pausePoint+req.pauseMarker.size)))
+                                    pauseOrExplode(socket, req.pauseTime)
+                                }
+                                i = pausePoint + req.pauseMarker.size
+                            }
                         }
                         else {
                             outputstream.write(byteReq)
@@ -429,6 +432,21 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                 inflight.clear()
             }
         }
+    }
+
+    private fun pauseOrExplode(socket: Socket, pauseTime: Int) {
+        val oldTimeout = socket.soTimeout
+        socket.soTimeout = pauseTime
+        var len = -1
+        try {
+            len = socket.getInputStream().read()
+        } catch (e: Exception) {
+
+        }
+        if (len != -1) {
+            throw IllegalStateException()
+        }
+        socket.soTimeout = oldTimeout
     }
 
     fun getContentLength(buf: String): Int {
