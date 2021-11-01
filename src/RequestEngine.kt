@@ -63,17 +63,17 @@ abstract class RequestEngine: IExtensionStateListener {
         readCallback?.invoke(data)
     }
 
-//    fun queue(req: String) {
-//        queue2(req)
-//    }
-//
-//    fun queue(req: String, payload: kotlin.Any) {
-//        queue(req, listOf(payload), 0)
-//    }
+    fun queue(req: String) {
+        queue(req, emptyList())
+    }
 
-//    fun queue(template: String, payloads:  List<kotlin.Any?>) {
-//        queue(template, payloads, 0, null, null, null)
-//    }
+    fun queue(req: String, payload: kotlin.Any) {
+        queue(req, listOf(payload), 0)
+    }
+
+    fun queue(template: String, payloads:  List<kotlin.Any?>) {
+        queue(template, payloads, 0, null)
+    }
 
     fun queue(template: String, payloads: List<kotlin.Any?> = emptyList<kotlin.Any>(), learnBoring: Int = 0, callback: ((Request, Boolean) -> Boolean)? = null, gateName: String? = null, label: String? = null, pauseBefore: Int = 0, pauseTime: Int = 1000, pauseMarker: ByteArray = byteArrayOf()) {
 
