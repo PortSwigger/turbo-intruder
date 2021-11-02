@@ -124,7 +124,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         var answeredRequests = 0
         val badWords = HashSet<String>()
         var consecutiveFailedConnections = 0
-
+        var startTime: Long = 0
         var reuseSSL = resumeSSL
 
         while (!Utils.unloaded) {
@@ -183,7 +183,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                     }
 
                     var readCount = 0
-                    var startTime: Long = 0
+                    startTime = 0
                     var endTime: Long = 0
 
                     for (j in 1..readFreq) {
@@ -415,6 +415,9 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                 badReq.response = "early-response"
                             } else {
                                 badReq.response = "null"
+                            }
+                            if (startTime != 0L) {
+                                badReq.time = (System.nanoTime() - startTime) / 1000000 // convert to NS and lose precision
                             }
                             invokeCallback(badReq, true)
                         }
