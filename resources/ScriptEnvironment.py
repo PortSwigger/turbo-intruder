@@ -308,7 +308,7 @@ class RequestEngine:
             payloads = []
         elif(not isinstance(payloads, list)):
             payloads = [str(payloads)]
-        self.engine.queue(template, payloads, learn, callback, gate, label, pauseBefore, pauseTime, pauseMarker)
+        self.engine.queue(template, payloads, learn, callback, gate, label, pauseBefore, pauseTime, pauseMarker, self)
 
 
     def openGate(self, gate):

@@ -34,7 +34,7 @@ class TurboHelper {
     }
 
     void queue(String req, int pauseBefore, int pauseTime) {
-        engine.queue(req, new ArrayList<>(), 0, null, null, null, pauseBefore, pauseTime, new byte[0]); // , Integer.toString(id++)
+        engine.queue(req, new ArrayList<>(), 0, null, null, null, pauseBefore, pauseTime, new byte[0], null); // , Integer.toString(id++)
     }
 
     private boolean callback(Request req, boolean interesting) {

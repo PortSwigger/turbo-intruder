@@ -10,7 +10,8 @@ open class Request(val template: String, val words: List<String?>, val learnBori
 
     var response: String? = null
     var details: IResponseVariations? = null
-    var engine: RequestEngine? = null
+    var _engine: RequestEngine? = null
+    var engine: Any? = null
     var connectionID: Int? = null
     var callback: ((Request, Boolean) -> Boolean)? = null
     var gate: Floodgate? = null
@@ -31,7 +32,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
             callback!!.invoke(this, isinteresting)
         }
         else {
-            engine!!.callback(this, isinteresting)
+            _engine!!.callback(this, isinteresting)
         }
     }
 
@@ -210,7 +211,7 @@ class BurpRequest(val req: Request): IHttpRequestResponse {
     }
 
     override fun getHttpService(): IHttpService {
-        val url = req.engine!!.target
+        val url = req._engine!!.target
         return Utils.callbacks.helpers.buildHttpService(url.host, url.port, url.protocol)
     }
 

@@ -235,7 +235,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             val part2 = byteReq.sliceArray(end until byteReq.size)
                             outputstream.write(part2)
                             //Utils.out("'"+Utilities.helpers.bytesToString(part2)+"'")
-                        } else if (!req.pauseMarker.isEmpty()) {
+                        } else if (false && !req.pauseMarker.isEmpty()) {
                             var i = 0
                             startTime = System.nanoTime()
                             while (i < byteReq.size && attackState.get() != 3) {
