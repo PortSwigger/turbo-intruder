@@ -13,3 +13,13 @@ On the other hand it's undeniably harder to use, and the network stack isn't as 
 #### Documentation
 
 To get started with Turbo Intruder, please refer to the video and documentation at https://portswigger.net/blog/turbo-intruder-embracing-the-billion-request-attack
+
+
+#### Development
+Build using:
+
+Linux: `./gradlew build fatjar`
+
+Windows: `gradlew.bat build fatjar`
+
+Grab the output from `build/libs/turbo-intruder-all.jar`
