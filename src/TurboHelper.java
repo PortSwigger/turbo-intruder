@@ -1,11 +1,16 @@
 package burp;
+import kotlin.jvm.functions.Function2;
+
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 class TurboHelper {
 
-    private RequestEngine engine;
+    RequestEngine engine;
     private List<Resp> reqs = new LinkedList<>();
     private IHttpService service;
     private int id = 0;
@@ -19,6 +24,7 @@ class TurboHelper {
         else {
             this.engine = new BurpRequestEngine(url, 1, 20, 0, this::callback, null, true);
         }
+        engine.start(10);
     }
 
     void setTimeout(int timeout) {
@@ -35,6 +41,35 @@ class TurboHelper {
 
     void queue(String req, int pauseBefore, int pauseTime) {
         engine.queue(req, new ArrayList<>(), 0, null, null, null, pauseBefore, pauseTime, new byte[0], null); // , Integer.toString(id++)
+    }
+
+//    void callbackTest(byte[] req) {
+//        engine.queue(Utilities.helpers.bytesToString(req), new ArrayList<>(), 0, this::callbackTest, null, null, 0, 0, new byte[0], null); // , Integer.toString(id++)
+//    }
+//
+//    boolean callbackTest(Request req, boolean interesting) {
+//        Utilities.out("got callback");
+//        return false;
+//    }
+
+    Resp blockingRequest(byte[] req) {
+        AtomicReference<Resp> resp = new AtomicReference<>();
+        CountDownLatch responseLock = new CountDownLatch(1);
+        engine.queue(Utilities.helpers.bytesToString(req), new ArrayList<>(), 0, new Function2<Request, Boolean, Boolean>() {
+            @Override
+            public Boolean invoke(Request req, Boolean interesting) {
+                resp.set(new Resp(new Req(req.getRequestAsBytes(), req.getResponseAsBytes(), service), System.currentTimeMillis()-req.getTime()));
+                responseLock.countDown();
+                return false;
+            }
+        }, null, null, 0, 0, new byte[0], null);
+
+        try {
+            responseLock.await(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+
+        }
+        return resp.get();
     }
 
     private boolean callback(Request req, boolean interesting) {
