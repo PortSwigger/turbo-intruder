@@ -78,8 +78,13 @@ public class Utils {
         return request.substring(0, bodyStart);
     }
 
-    // based on BulkScan.request()
+
     public static byte[] h2request(IHttpService service, byte[] req) {
+        return h2request(service, req, null);
+    }
+
+    // based on BulkScan.request()
+    public static byte[] h2request(IHttpService service, byte[] req, String connectionID) {
         LinkedList<Pair<String, String>> h2headers = Connection.Companion.buildReq(new HTTP2Request(helpers.bytesToString(req)));
         ArrayList<IHttpHeader> headers = new ArrayList<>();
         for (Pair<String, String> header: h2headers) {
@@ -89,7 +94,12 @@ public class Utils {
         byte[] body = getBodyBytes(req);
         byte[] responseBytes;
         try {
-            responseBytes = callbacks.makeHttp2Request(service, headers, body, true);
+
+            if (connectionID == null) {
+                responseBytes = callbacks.makeHttp2Request(service, headers, body, true);
+            } else {
+                responseBytes = callbacks.makeHttp2Request(service, headers, body, true, connectionID);
+            }
         } catch (RuntimeException e) {
             responseBytes = null;
         }

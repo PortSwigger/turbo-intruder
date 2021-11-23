@@ -1,6 +1,8 @@
 package burp;
 import kotlin.jvm.functions.Function2;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -8,7 +10,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-class TurboHelper {
+class TurboHelper implements AutoCloseable {
 
     RequestEngine engine;
     private List<Resp> reqs = new LinkedList<>();
@@ -65,9 +67,14 @@ class TurboHelper {
         }, null, null, 0, 0, new byte[0], null);
 
         try {
-            responseLock.await(10, TimeUnit.SECONDS);
+            boolean done = responseLock.await(10, TimeUnit.SECONDS);
+            if (!done) {
+                waitFor();
+                return null;
+            }
         } catch (InterruptedException e) {
-
+            waitFor();
+            return null;
         }
         return resp.get();
     }
@@ -85,5 +92,10 @@ class TurboHelper {
 
     int getConnectionCount() {
         return engine.getConnections().get();
+    }
+
+    @Override
+    public void close() throws IOException {
+        waitFor();
     }
 }
