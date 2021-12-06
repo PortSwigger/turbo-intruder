@@ -15,23 +15,29 @@ class TurboHelper implements AutoCloseable {
     RequestEngine engine;
     private List<Resp> reqs = new LinkedList<>();
     private IHttpService service;
+    private int requestTimeout;
     private int id = 0;
 
     TurboHelper(IHttpService service, boolean reuseConnection) {
+        this(service, reuseConnection, 10);
+    }
+
+    TurboHelper(IHttpService service, boolean reuseConnection, int requestTimeout) {
         this.service = service;
+        this.requestTimeout = requestTimeout;
         String url = service.getProtocol()+"://"+service.getHost()+":"+service.getPort();
         if (reuseConnection) {
-            this.engine = new ThreadedRequestEngine(url, 1, 20, 1, 50, 0, this::callback, 10, null, 1024, false);
+            this.engine = new ThreadedRequestEngine(url, 1, 20, 1, 50, 0, this::callback, requestTimeout, null, 1024, false);
         }
         else {
             this.engine = new BurpRequestEngine(url, 1, 20, 0, this::callback, null, true);
         }
-        engine.start(10);
+        engine.start(5);
     }
 
-    void setTimeout(int timeout) {
-        ((ThreadedRequestEngine)engine).setTimeout(timeout);
-    }
+//    void setTimeout(int timeout) {
+//        ((ThreadedRequestEngine)engine).setTimeout(timeout);
+//    }
 
     void queue(byte[] req) {
         queue(Utilities.helpers.bytesToString(req));
@@ -45,35 +51,31 @@ class TurboHelper implements AutoCloseable {
         engine.queue(req, new ArrayList<>(), 0, null, null, null, pauseBefore, pauseTime, new byte[0], null); // , Integer.toString(id++)
     }
 
-//    void callbackTest(byte[] req) {
-//        engine.queue(Utilities.helpers.bytesToString(req), new ArrayList<>(), 0, this::callbackTest, null, null, 0, 0, new byte[0], null); // , Integer.toString(id++)
-//    }
-//
-//    boolean callbackTest(Request req, boolean interesting) {
-//        Utilities.out("got callback");
-//        return false;
-//    }
-
     Resp blockingRequest(byte[] req) {
         AtomicReference<Resp> resp = new AtomicReference<>();
         CountDownLatch responseLock = new CountDownLatch(1);
         engine.queue(Utilities.helpers.bytesToString(req), new ArrayList<>(), 0, new Function2<Request, Boolean, Boolean>() {
             @Override
             public Boolean invoke(Request req, Boolean interesting) {
-                resp.set(new Resp(new Req(req.getRequestAsBytes(), req.getResponseAsBytes(), service), System.currentTimeMillis()-req.getTime()));
+                try {
+                    resp.set(new Resp(new Req(req.getRequestAsBytes(), req.getResponseAsBytes(), service), System.currentTimeMillis() - req.getTime()));
+                } catch (Exception e) {
+                    Utils.err(e.getMessage());
+                }
                 responseLock.countDown();
                 return false;
             }
         }, null, null, 0, 0, new byte[0], null);
 
         try {
-            boolean done = responseLock.await(10, TimeUnit.SECONDS);
+            //Utils.err("Request queued, waiting "+ (requestTimeout+1) +"s for callback");
+            boolean done = responseLock.await(requestTimeout+1, TimeUnit.SECONDS);
             if (!done) {
-                waitFor();
+                waitFor(1);
                 return null;
             }
         } catch (InterruptedException e) {
-            waitFor();
+            waitFor(1);
             return null;
         }
         return resp.get();
@@ -85,8 +87,12 @@ class TurboHelper implements AutoCloseable {
     }
 
     List<Resp> waitFor() {
+        return waitFor(65);
+    }
+
+    List<Resp> waitFor(int timeout) {
         //engine.start(10);
-        engine.showStats(60);
+        engine.showStats(timeout);
         return reqs;
     }
 

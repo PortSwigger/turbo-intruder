@@ -3,6 +3,7 @@ import kotlin.Pair;
 
 import java.awt.*;
 import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.StringSelection;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -32,6 +33,11 @@ public class Utils {
             err("failed to read from clipboard");
         }
         return new ArrayList<>(Arrays.asList(clipboard.split("\\r?\\n")));
+    }
+
+    public static void setClipboard(String contents) {
+        StringSelection selection = new StringSelection(contents);
+        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, selection);
     }
 
     public static Dimension getTurboSize() {

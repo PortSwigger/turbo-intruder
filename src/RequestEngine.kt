@@ -214,7 +214,7 @@ abstract class RequestEngine: IExtensionStateListener {
         }
         val duration = System.nanoTime().toFloat() - start
         val requests = successfulRequests.get().toFloat()
-        Utils.err("Sent ${requests.toInt()} requests in ${duration / 1000000000} seconds")
+        Utils.err("Sent ${requests.toInt()} requests over ${connections.toInt()} connections in ${duration / 1000000000} seconds")
         Utils.err(String.format("RPS: %.0f\n", requests / ceil((duration / 1000000000).toDouble())))
     }
 

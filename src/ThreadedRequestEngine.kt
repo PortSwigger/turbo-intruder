@@ -42,7 +42,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
             val trustingSslSocketFactory = createSSLSocketFactory()
 
-            Utils.err("Warming up...")
+            Utils.err("Establishing $threads connection to $url ...");
             for(j in 1..threads) {
                 threadPool.add(
                     thread {
@@ -130,12 +130,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         var startTime: Long = 0
         var reuseSSL = resumeSSL
 
-        while (!Utils.unloaded) {
+        while (!Utils.unloaded && attackState.get() < 3) {
             try {
-
-                if(attackState.get() == 3) {
-                    return
-                }
 
                 val socket: Socket?
                 try {
@@ -170,7 +166,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                 if(!connected) {
                     connected = true
                     connectedLatch.countDown()
-                    while(attackState.get() == 0) {
+                    while(!Utils.unloaded && attackState.get() == 0) {
                         Thread.sleep(10)
                     }
                 }
@@ -179,11 +175,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                 var requestsSent = 0
                 answeredRequests = 0
-                while (requestsSent < requestsPerConnection) {
-
-                    if(attackState.get() == 3) {
-                        return
-                    }
+                while (requestsSent < requestsPerConnection && attackState.get() < 3) {
 
                     var readCount = 0
                     startTime = 0
@@ -195,14 +187,14 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         }
 
                         var req = retryQueue.poll()
-                        while (req == null) {
+                        while (req == null && attackState.get() < 3) {
                             req = requestQueue.poll(100, TimeUnit.MILLISECONDS)
 
                             if (req == null) {
                                 if (readCount > 0) {
                                     break
                                 }
-                                if(attackState.get() == 2) {
+                                if(attackState.get() >= 2) {
                                     completedLatch.countDown()
                                     return
                                 }
@@ -238,10 +230,10 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             val part2 = byteReq.sliceArray(end until byteReq.size)
                             outputstream.write(part2)
                             //Utils.out("'"+Utilities.helpers.bytesToString(part2)+"'")
-                        } else if (false && !req.pauseMarker.isEmpty()) {
+                        } else if (!req.pauseMarker.isEmpty()) {
                             var i = 0
                             startTime = System.nanoTime()
-                            while (i < byteReq.size && attackState.get() != 3) {
+                            while (i < byteReq.size && attackState.get() < 3) {
                                 val pausePoint = Utils.helpers.indexOf(byteReq, req.pauseMarker, true, i, byteReq.size)
                                 if (pausePoint == -1) {
                                     outputstream.write(byteReq.sliceArray(i until byteReq.size))
@@ -269,7 +261,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                     for (k in 1..readCount) {
 
                         var bodyStart = buffer.indexOf("\r\n\r\n")
-                        while (bodyStart == -1) {
+                        while (bodyStart == -1 && attackState.get() < 3) {
                             val len = socket.getInputStream().read(readBuffer)
                             if(len == -1) {
                                 break
@@ -301,7 +293,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         if (contentLength != -1 && !IGNORE_LENGTH) {
                             val responseLength = bodyStart + contentLength + 4
 
-                            while (buffer.length < responseLength) {
+                            while (buffer.length < responseLength && attackState.get() < 3) {
                                 val len = socket.getInputStream().read(readBuffer)
                                 if (len == -1) {
                                     throw RuntimeException("CL response finished unexpectedly")
@@ -318,7 +310,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                             buffer = buffer.substring(bodyStart + 4)
 
-                            while (true) {
+                            while (!Utils.unloaded && attackState.get() < 3) {
                                 var chunk = getNextChunkLength(buffer)
                                 while (chunk.length == -1 || buffer.length < (chunk.length+2)) {
                                     val len = socket.getInputStream().read(readBuffer)
@@ -350,7 +342,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                             try {
                                 body += buffer.substring(bodyStart + 4)
-                                while (true) {
+                                while (!Utils.unloaded && attackState.get() < 3) {
                                     val len = socket.getInputStream().read(readBuffer)
 
                                     if (len == -1) {
