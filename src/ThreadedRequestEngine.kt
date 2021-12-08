@@ -225,7 +225,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             outputstream.write(part1)
                             startTime = System.nanoTime()
 
-                            pauseOrExplode(socket, req.pauseTime)
+                            waitForData(socket, req.pauseTime, true)
 
                             val part2 = byteReq.sliceArray(end until byteReq.size)
                             outputstream.write(part2)
@@ -240,7 +240,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                     break
                                 } else {
                                     outputstream.write(byteReq.sliceArray(i until (pausePoint+req.pauseMarker.size)))
-                                    pauseOrExplode(socket, req.pauseTime)
+                                    waitForData(socket, req.pauseTime, true)
                                 }
                                 i = pausePoint + req.pauseMarker.size
                             }
@@ -432,19 +432,21 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         }
     }
 
-    private fun pauseOrExplode(socket: Socket, pauseTime: Int) {
+    private fun waitForData(socket: Socket, pauseTime: Int, explodeOnEarlyRead: Boolean = true): ByteArray {
         val oldTimeout = socket.soTimeout
         socket.soTimeout = pauseTime
         var len = -1
+        val readBuffer = ByteArray(readSize)
         try {
-            len = socket.getInputStream().read()
+            len = socket.getInputStream().read(readBuffer)
         } catch (e: Exception) {
 
         }
-        if (len != -1) {
+        socket.soTimeout = oldTimeout
+        if (explodeOnEarlyRead && len != -1) {
             throw IllegalStateException()
         }
-        socket.soTimeout = oldTimeout
+        return readBuffer
     }
 
     fun getContentLength(buf: String): Int {
