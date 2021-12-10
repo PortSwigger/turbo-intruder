@@ -173,6 +173,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                 consecutiveFailedConnections = 0
 
+                var buffer = ""
                 var requestsSent = 0
                 answeredRequests = 0
                 while (requestsSent < requestsPerConnection && attackState.get() < 3) {
@@ -225,7 +226,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             outputstream.write(part1)
                             startTime = System.nanoTime()
 
-                            waitForData(socket, req.pauseTime, true)
+                            waitForData(socket, req.pauseTime, false)
 
                             val part2 = byteReq.sliceArray(end until byteReq.size)
                             outputstream.write(part2)
@@ -240,7 +241,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                     break
                                 } else {
                                     outputstream.write(byteReq.sliceArray(i until (pausePoint+req.pauseMarker.size)))
-                                    waitForData(socket, req.pauseTime, true)
+                                    buffer = waitForData(socket, req.pauseTime, false)
                                 }
                                 i = pausePoint + req.pauseMarker.size
                             }
@@ -256,11 +257,14 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                     }
 
                     val readBuffer = ByteArray(readSize)
-                    var buffer = ""
 
                     for (k in 1..readCount) {
 
                         var bodyStart = buffer.indexOf("\r\n\r\n")
+                        if (bodyStart != -1) {
+                            endTime = System.nanoTime()
+                        }
+
                         while (bodyStart == -1 && attackState.get() < 3) {
                             val len = socket.getInputStream().read(readBuffer)
                             if(len == -1) {
@@ -432,7 +436,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         }
     }
 
-    private fun waitForData(socket: Socket, pauseTime: Int, explodeOnEarlyRead: Boolean = true): ByteArray {
+    private fun waitForData(socket: Socket, pauseTime: Int, explodeOnEarlyRead: Boolean = true): String {
         val oldTimeout = socket.soTimeout
         socket.soTimeout = pauseTime
         var len = -1
@@ -446,7 +450,12 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         if (explodeOnEarlyRead && len != -1) {
             throw IllegalStateException()
         }
-        return readBuffer
+        var read = ""
+        if (len != -1) {
+            read = String(readBuffer.copyOfRange(0, len), Charsets.ISO_8859_1)
+        }
+
+        return read
     }
 
     fun getContentLength(buf: String): Int {
