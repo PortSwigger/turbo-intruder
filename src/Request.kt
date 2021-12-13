@@ -18,7 +18,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
     var time: Long = 0
     var pauseBefore: Int = 0
     var pauseTime: Int = 1000
-    var pauseMarker: ByteArray = byteArrayOf()
+    var pauseMarkers: List<String> = emptyList()
 
     private val attributes: HashMap<String, Any> = HashMap()
 

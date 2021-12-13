@@ -231,20 +231,31 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             val part2 = byteReq.sliceArray(end until byteReq.size)
                             outputstream.write(part2)
                             //Utils.out("'"+Utilities.helpers.bytesToString(part2)+"'")
-                        } else if (!req.pauseMarker.isEmpty()) {
+                        } else if (!req.pauseMarkers.isEmpty()) {
                             var i = 0
                             startTime = System.nanoTime()
+                            Utils.out("PauseMarkers: "+req.pauseMarkers.joinToString("|"));
                             // pauses *after* sending the pauseMarker
+                            // foobar
                             while (i < byteReq.size && attackState.get() < 3) {
-                                val pausePoint = Utils.helpers.indexOf(byteReq, req.pauseMarker, true, i, byteReq.size)
+                                var pausePoint = -1
+                                //val z: ByteArray = req.pauseMarkers.get(0)
+                                for (pauseMarker in req.pauseMarkers) {
+                                    val pauseBytes = Utils.helpers.stringToBytes(pauseMarker)
+                                    pausePoint = Utils.helpers.indexOf(byteReq, pauseBytes, true, i, byteReq.size)
+                                    if (pausePoint != -1) {
+                                        outputstream.write(byteReq.sliceArray(i until (pausePoint+pauseBytes.size)))
+                                        buffer = waitForData(socket, req.pauseTime)
+                                        i = pausePoint + pauseBytes.size
+                                        break
+                                    }
+                                }
+
                                 if (pausePoint == -1) {
                                     outputstream.write(byteReq.sliceArray(i until byteReq.size))
                                     break
-                                } else {
-                                    outputstream.write(byteReq.sliceArray(i until (pausePoint+req.pauseMarker.size)))
-                                    buffer = waitForData(socket, req.pauseTime)
                                 }
-                                i = pausePoint + req.pauseMarker.size
+
                             }
                         }
                         else {
