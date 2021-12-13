@@ -13,7 +13,7 @@ import javax.net.ssl.*
 import kotlin.IllegalStateException
 import kotlin.concurrent.thread
 
-open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, var timeout: Int, override var readCallback: ((String) -> Boolean)?, val readSize: Int, val resumeSSL: Boolean): RequestEngine() {
+open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, var timeout: Int, override var readCallback: ((String) -> Boolean)?, val readSize: Int, val resumeSSL: Boolean, var explodeOnEarlyRead: Boolean = false): RequestEngine() {
 
     private val connectedLatch = CountDownLatch(threads)
 
@@ -226,7 +226,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             outputstream.write(part1)
                             startTime = System.nanoTime()
 
-                            waitForData(socket, req.pauseTime, false)
+                            waitForData(socket, req.pauseTime)
 
                             val part2 = byteReq.sliceArray(end until byteReq.size)
                             outputstream.write(part2)
@@ -234,6 +234,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         } else if (!req.pauseMarker.isEmpty()) {
                             var i = 0
                             startTime = System.nanoTime()
+                            // pauses *after* sending the pauseMarker
                             while (i < byteReq.size && attackState.get() < 3) {
                                 val pausePoint = Utils.helpers.indexOf(byteReq, req.pauseMarker, true, i, byteReq.size)
                                 if (pausePoint == -1) {
@@ -241,7 +242,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                     break
                                 } else {
                                     outputstream.write(byteReq.sliceArray(i until (pausePoint+req.pauseMarker.size)))
-                                    buffer = waitForData(socket, req.pauseTime, false)
+                                    buffer = waitForData(socket, req.pauseTime)
                                 }
                                 i = pausePoint + req.pauseMarker.size
                             }
@@ -436,7 +437,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         }
     }
 
-    private fun waitForData(socket: Socket, pauseTime: Int, explodeOnEarlyRead: Boolean = true): String {
+    private fun waitForData(socket: Socket, pauseTime: Int): String {
         val oldTimeout = socket.soTimeout
         socket.soTimeout = pauseTime
         var len = -1

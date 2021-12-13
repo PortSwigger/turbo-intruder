@@ -263,7 +263,7 @@ class Engine:
 
 class RequestEngine:
 
-    def __init__(self, endpoint, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=100, timeout=10, maxRetriesPerRequest=3, readCallback=None, readSize=1024, resumeSSL=True, autoStart=True):
+    def __init__(self, endpoint, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=100, timeout=10, maxRetriesPerRequest=3, readCallback=None, readSize=1024, resumeSSL=True, autoStart=True, explodeOnEarlyRead=False):
         concurrentConnections = int(concurrentConnections)
         requestsPerConnection = int(requestsPerConnection)
 
@@ -288,7 +288,7 @@ class RequestEngine:
         elif(engine == Engine.BURP2):
             self.engine = burp.BurpRequestEngine(endpoint, concurrentConnections, maxQueueSize, maxRetriesPerRequest, callback, readCallback, False)
         elif(engine == Engine.THREADED):
-            self.engine = burp.ThreadedRequestEngine(endpoint, concurrentConnections, maxQueueSize, readFreq, requestsPerConnection, maxRetriesPerRequest, callback, timeout, readCallback, readSize, resumeSSL)
+            self.engine = burp.ThreadedRequestEngine(endpoint, concurrentConnections, maxQueueSize, readFreq, requestsPerConnection, maxRetriesPerRequest, callback, timeout, readCallback, readSize, resumeSSL, explodeOnEarlyRead)
         elif(engine == Engine.HTTP2):
             self.engine = burp.HTTP2RequestEngine(endpoint, concurrentConnections, maxQueueSize, requestsPerConnection, maxRetriesPerRequest, callback, readCallback)
         else:
