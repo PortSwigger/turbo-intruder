@@ -323,3 +323,6 @@ class RequestEngine:
     def complete(self, timeout=-1):
         self.engine.showStats(timeout)
 
+    def cancel(self):
+        self.engine.cancel()
+

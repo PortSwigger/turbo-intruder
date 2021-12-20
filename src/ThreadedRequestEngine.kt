@@ -1,5 +1,6 @@
 package burp
 
+import jdk.net.ExtendedSocketOptions
 import java.io.*
 import java.net.*
 import java.security.cert.X509Certificate
@@ -161,6 +162,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                 socket!!.soTimeout = timeout * 1000
                 socket.tcpNoDelay = true
                 socket.receiveBufferSize = readSize
+                socket.keepAlive = true
+                socket.setOption(ExtendedSocketOptions.TCP_KEEPIDLE, 30)
                 // todo tweak other TCP options for max performance
 
                 if(!connected) {
@@ -173,7 +176,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                 consecutiveFailedConnections = 0
 
-                var buffer = ""
+
                 var requestsSent = 0
                 answeredRequests = 0
                 while (requestsSent < requestsPerConnection && attackState.get() < 3) {
@@ -181,6 +184,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                     var readCount = 0
                     startTime = 0
                     var endTime: Long = 0
+                    var buffer = ""
 
                     for (j in 1..readFreq) {
                         if (requestsSent >= requestsPerConnection) {
@@ -234,9 +238,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         } else if (!req.pauseMarkers.isEmpty()) {
                             var i = 0
                             startTime = System.nanoTime()
-                            Utils.out("PauseMarkers: "+req.pauseMarkers.joinToString("|"));
                             // pauses *after* sending the pauseMarker
-                            // foobar
                             while (i < byteReq.size && attackState.get() < 3) {
                                 var pausePoint = -1
                                 //val z: ByteArray = req.pauseMarkers.get(0)
@@ -449,6 +451,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
     }
 
     private fun waitForData(socket: Socket, pauseTime: Int): String {
+
         val oldTimeout = socket.soTimeout
         socket.soTimeout = pauseTime
         var len = -1
