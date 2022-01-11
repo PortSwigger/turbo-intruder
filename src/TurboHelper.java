@@ -27,7 +27,7 @@ class TurboHelper implements AutoCloseable {
         this.requestTimeout = requestTimeout;
         String url = service.getProtocol()+"://"+service.getHost()+":"+service.getPort();
         if (reuseConnection) {
-            this.engine = new ThreadedRequestEngine(url, 1, 20, 1, 50, 0, this::callback, requestTimeout, null, 1024, false, false);
+            this.engine = new ThreadedRequestEngine(url, 1, 20, 1, 50, 0, this::callback, requestTimeout, null, 1024, false, true);
         }
         else {
             this.engine = new BurpRequestEngine(url, 1, 20, 0, this::callback, null, true);

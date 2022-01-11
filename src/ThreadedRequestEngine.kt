@@ -223,7 +223,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             if (req.pauseBefore < 0) {
                                 end = byteReq.size + req.pauseBefore
                             } else {
-                                end = req.pauseBefore
+                                end = req.pauseBefore - 1 // since it's 0-indexed
                             }
                             val part1 = byteReq.sliceArray(0 until end)
                             //Utils.out("'"+Utilities.helpers.bytesToString(part1)+"'")
