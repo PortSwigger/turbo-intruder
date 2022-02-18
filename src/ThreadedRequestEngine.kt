@@ -423,6 +423,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             }
                         } else {
                             ex.printStackTrace()
+                            Utils.err("Ignoring error: "+ex.toString())
                             val badReq = inflight.pop()
                             if (ex is IllegalStateException) {
                                 badReq.response = "early-response"
