@@ -107,10 +107,6 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
 
             var stripHost = false
 
-            for ((key, value) in pseudoHeaders) {
-                final.add(Pair(key, value))
-            }
-
             if (!pseudoHeaders.containsKey(":scheme")) {
                 final.add(Pair(":scheme", "https"))
             }
@@ -123,6 +119,10 @@ class Connection(val target: URL, val seedQueue: Queue<Request>, private val req
             if (!pseudoHeaders.containsKey(":authority")) {
                 final.add(Pair(":authority", host))
                 stripHost = true // if there's no :authority and there is a Host header, strip the first instance of the host header
+            }
+
+            for ((key, value) in pseudoHeaders) {
+                final.add(Pair(key, value))
             }
 
             for ((key, value) in headers) {

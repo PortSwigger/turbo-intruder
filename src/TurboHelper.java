@@ -72,13 +72,17 @@ class TurboHelper implements AutoCloseable {
             boolean done = responseLock.await(requestTimeout+1, TimeUnit.SECONDS);
             if (!done) {
                 waitFor(1);
-                return null;
+                return dudResponse(req);
             }
         } catch (InterruptedException e) {
             waitFor(1);
-            return null;
+            return dudResponse(req);
         }
         return resp.get();
+    }
+
+    private Resp dudResponse(byte[] req) {
+        return new Resp(new Req(req, "null".getBytes(), service));
     }
 
     private boolean callback(Request req, boolean interesting) {
