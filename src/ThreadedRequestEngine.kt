@@ -1,6 +1,6 @@
 package burp
 
-import jdk.net.ExtendedSocketOptions
+//import jdk.net.ExtendedSocketOptions
 import java.io.*
 import java.net.*
 import java.security.cert.X509Certificate
@@ -163,7 +163,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                 socket.tcpNoDelay = true
                 socket.receiveBufferSize = readSize
                 socket.keepAlive = true
-                socket.setOption(ExtendedSocketOptions.TCP_KEEPIDLE, 30)
+                // socket.setOption(ExtendedSocketOptions.TCP_KEEPIDLE, 30)
                 // todo tweak other TCP options for max performance
 
                 if(!connected) {
