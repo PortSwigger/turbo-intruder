@@ -306,11 +306,9 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                                 }
                                 var script = textEditor.text
 
-                                // enforce /r/n line endings
-                                script = script.replace("\r\n", "\n")
-                                script = script.replace("\n", "\r\n")
                                 Utils.callbacks.saveExtensionSetting("defaultScript", script)
                                 Utils.callbacks.helpers
+
                                 val baseRequest = Utils.callbacks.helpers.bytesToString(messageEditor.message)
                                 val service = req.httpService
 
@@ -322,6 +320,9 @@ class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds
                                     target = service.protocol + "://" + service.host + ":" + service.port
                                 }
 
+                                // enforce /r/n line endings
+                                script = script.replace("\r\n", "\n")
+                                script = script.replace("\n", "\r\n")
                                 title += " - running"
                                 evalJython(script, baseRequest, messageEditor.message, target, baseInput, requestTable, handler)
                             }
