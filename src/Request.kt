@@ -106,7 +106,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
 
     fun fixContentLength(request: ByteArray): ByteArray {
         if (Utils.getHeaders(String(request)).contains("Content-Length: ")) {
-            val start = getBodyStart(request)
+            val start = Utils.getBodyStart(request)
             val contentLength = request.size - start
             try {
                 return setHeader(request, "Content-Length", Integer.toString(contentLength))
@@ -169,34 +169,6 @@ open class Request(val template: String, val words: List<String?>, val learnBori
         }
         throw RuntimeException("Couldn't find header: '$header'")
     }
-
-    fun getBodyStart(response: ByteArray): Int {
-        var i = 0
-        var newlines_seen = 0
-        while (i < response.size) {
-            val x = response[i]
-            if (x == '\n'.code.toByte()) {
-                newlines_seen++
-            } else if (x != '\r'.code.toByte()) {
-                newlines_seen = 0
-            }
-
-            if (newlines_seen == 2) {
-                break
-            }
-            i += 1
-        }
-
-
-        while (i < response.size && (response[i] == ' '.code.toByte() || response[i] == '\n'.code.toByte() || response[i] == '\r'.code.toByte())) {
-            i++
-        }
-
-        return i
-    }
-
-
-
 }
 
 class BurpRequest(val req: Request): IHttpRequestResponse {

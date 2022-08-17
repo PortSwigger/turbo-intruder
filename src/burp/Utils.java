@@ -119,28 +119,45 @@ public class Utils {
     }
 
     public static int getBodyStart(byte[] response) {
-        int i = 0;
-        int newlines_seen = 0;
-        while (i < response.length) {
-            byte x = response[i];
-            if (x == '\n') {
-                newlines_seen++;
-            } else if (x != '\r') {
-                newlines_seen = 0;
-            }
+        return indexOf(response, "\r\n\r\n".getBytes())+4;
 
-            if (newlines_seen == 2) {
-                break;
-            }
-            i += 1;
-        }
+//        int i = 0;
+//        int newlines_seen = 0;
+//        while (i < response.length) {
+//            byte x = response[i];
+//            if (x == '\n') {
+//                newlines_seen++;
+//            } else if (x != '\r') {
+//                newlines_seen = 0;
+//            }
+//
+//            if (newlines_seen == 2) {
+//                break;
+//            }
+//            i += 1;
+//        }
 
+        // no idea why I did this!
+//        while (i < response.length && (response[i] == ' ' || response[i] == '\n' || response[i] == '\r')) {
+//            i++;
+//        }
 
-        while (i < response.length && (response[i] == ' ' || response[i] == '\n' || response[i] == '\r')) {
-            i++;
-        }
-
-        return i;
+//        return i;
     }
+
+    static public int indexOf(byte[] outerArray, byte[] smallerArray) {
+        for(int i = 0; i < outerArray.length - smallerArray.length+1; ++i) {
+            boolean found = true;
+            for(int j = 0; j < smallerArray.length; ++j) {
+                if (outerArray[i+j] != smallerArray[j]) {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) return i;
+        }
+        return -1;
+    }
+
 
 }
