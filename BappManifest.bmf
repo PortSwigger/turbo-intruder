@@ -6,7 +6,7 @@ ScreenVersion: 1.30
 SerialVersion: 48
 MinPlatformVersion: 0
 ProOnly: False
-Author: James 'albinowax' Kettle, PortSwigger Web Security
+Author: James 'albinowax' Kettle, PortSwigger
 ShortDescription: Send large numbers of HTTP requests and analyze the results
 EntryPoint: build/libs/turbo-intruder-all.jar
 BuildCommand: ./gradlew build fatJar
