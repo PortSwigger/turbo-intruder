@@ -4,7 +4,7 @@ import javax.swing.table.AbstractTableModel
 import java.util.*
 
 class RequestTableModel : AbstractTableModel() {
-    internal var requests: MutableList<Request> = ArrayList()
+    var requests: MutableList<Request> = ArrayList()
     internal var editable: Boolean = false
 
     override fun getRowCount(): Int {
@@ -28,6 +28,7 @@ class RequestTableModel : AbstractTableModel() {
             4 -> java.lang.Integer::class.java
             5 -> java.lang.Long::class.java
             6 -> String::class.java
+            7 -> java.lang.Integer::class.java
             else -> throw RuntimeException()
         }
     }
@@ -43,6 +44,7 @@ class RequestTableModel : AbstractTableModel() {
             4 -> request.length
             5 -> request.time
             6 -> request.label
+            7 -> request.id
             else -> null
         }
     }
@@ -67,6 +69,6 @@ class RequestTableModel : AbstractTableModel() {
     }
 
     companion object {
-        internal val columns = listOf("Row", "Payload", "Status", "Words", "Length", "Time", "Label")
+        internal val columns = listOf("Row", "Payload", "Status", "Words", "Length", "Time", "Label", "Queue ID")
     }
 }

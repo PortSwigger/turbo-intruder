@@ -17,6 +17,7 @@ abstract class RequestEngine: IExtensionStateListener {
     val failedWords = HashMap<String, AtomicInteger>()
     var successfulRequests = AtomicInteger(0)
     val userState = HashMap<String, Any>()
+    val lastRequestID = AtomicInteger(0)
     var connections = AtomicInteger(0)
     val attackState = AtomicInteger(0) // 0 = connecting, 1 = live, 2 = fully queued, 3 = cancelled, 4 = completed
     lateinit var completedLatch: CountDownLatch
@@ -102,6 +103,7 @@ abstract class RequestEngine: IExtensionStateListener {
             request.engine = this
         }
 
+        request.id = lastRequestID.incrementAndGet()
         request.callback = callback
         request.pauseBefore = pauseBefore
         request.pauseTime = pauseTime
@@ -209,6 +211,7 @@ abstract class RequestEngine: IExtensionStateListener {
     }
 
     fun showSummary() {
+        // todo or invoke completedCallback here?
         if (Utils.gotBurp && !Utils.unloaded) {
             Utils.callbacks.removeExtensionStateListener(this)
         }
