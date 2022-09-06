@@ -55,12 +55,7 @@ fun evalJython(code: String, baseRequest: String, rawRequest: ByteArray, endpoin
         pyInterp.exec(code)
         pyInterp.exec("queueRequests(target, wordlists)")
         handler.setComplete()
-        pyInterp.exec("""
-try:
-    completed(table.model.requests)
-except NameError:
-    pass
-""".trimMargin())
+        pyInterp.exec("completed(table.model.requests)".trimMargin())
     }
     catch (ex: Exception) {
         val stackTrace = StringWriter()

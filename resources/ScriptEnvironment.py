@@ -326,3 +326,5 @@ class RequestEngine:
     def cancel(self):
         self.engine.cancel()
 
+def completed(ignored):
+    pass
