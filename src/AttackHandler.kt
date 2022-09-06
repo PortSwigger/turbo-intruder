@@ -5,6 +5,7 @@ class AttackHandler (){
     private var running = false
     private var engine: RequestEngine? = null
     private var statusOverride: String? = null
+    var msg: String = ""
     var code: String = ""
     var baseRequest: String = ""
     var rawRequest: ByteArray = "".toByteArray()
@@ -35,7 +36,7 @@ class AttackHandler (){
         }
 
         if (engine != null) {
-            return engine!!.statusString()
+            return engine!!.statusString() + "| "+msg
         }
 
         return "Engine warming up..."
@@ -43,6 +44,10 @@ class AttackHandler (){
 
     fun overrideStatus(msg: String) {
         statusOverride = msg
+    }
+
+    fun setMessage(msg: String) {
+        this.msg = msg
     }
 
     fun abort() {
