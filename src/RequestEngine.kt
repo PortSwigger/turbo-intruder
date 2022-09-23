@@ -240,7 +240,7 @@ abstract class RequestEngine: IExtensionStateListener {
         // if the request engine isn't a table, we can't update the output
         if (reqTable is RequestTable) {
 
-            val requestsFromTable = reqTable.model.requests
+            val requestsFromTable = reqTable.requests
 
             if (requestsFromTable.size == 0) {
                 return

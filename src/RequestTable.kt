@@ -28,23 +28,31 @@ class UpdateStatusbar(val message: JLabel, val handler: AttackHandler): ActionLi
 }
 
 interface OutputHandler {
-    fun add(req: Request)
+    var requests: MutableList<Request>
+
+    abstract fun add(req: Request)
+    fun save(req: Request) {
+        requests.add(req)
+    }
 }
 
-class ConsolePrinter: OutputHandler {
+class ConsolePrinter() : OutputHandler {
     private val requestID = AtomicInteger(0)
+    override var requests: MutableList<Request> = java.util.ArrayList()
 
     init {
         Utils.out("ID | Word | Status | Wordcount | Length | Time")
     }
 
     override fun add(req: Request) {
+        save(req)
         Utils.out(String.format("%s | %s | %s | %s | %s | %s", requestID.incrementAndGet(), req.words.joinToString(separator="/"), req.code, req.wordcount, req.length, req.time))
     }
 }
 
 class RequestTable(val service: IHttpService, val handler: AttackHandler): JPanel(), OutputHandler {
-    val model = RequestTableModel()
+    override var requests: MutableList<Request> = java.util.ArrayList()
+    val model = RequestTableModel(this)
     val issueTable = JTable(model)
     val requestEditor: IMessageEditor
     val responseEditor: IMessageEditor
@@ -152,7 +160,8 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
 
 
     @Synchronized override fun add(req: Request) {
-        model.addRequest(req)
+        save(req)
+        model.fireTableRowsInserted(requests.lastIndex, requests.lastIndex)
         if (firstEntry) {
             issueTable.changeSelection(0, 0, false, false)
             issueTable.requestFocusInWindow()

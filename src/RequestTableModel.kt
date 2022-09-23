@@ -3,12 +3,12 @@ package burp
 import javax.swing.table.AbstractTableModel
 import java.util.*
 
-class RequestTableModel : AbstractTableModel() {
-    var requests: MutableList<Request> = ArrayList()
+class RequestTableModel(val handler: OutputHandler) : AbstractTableModel() {
+
     internal var editable: Boolean = false
 
     override fun getRowCount(): Int {
-        return requests.size
+        return handler.requests.size
     }
 
     override fun getColumnCount(): Int {
@@ -34,7 +34,7 @@ class RequestTableModel : AbstractTableModel() {
     }
 
     override fun getValueAt(rowIndex: Int, columnIndex: Int): Any? {
-        val request = requests[rowIndex]
+        val request = handler.requests[rowIndex]
 
         return when (columnIndex) {
             0 -> rowIndex
@@ -53,15 +53,10 @@ class RequestTableModel : AbstractTableModel() {
         return editable && columnIndex != 4
     }
 
-    fun addRequest(req: Request) {
-        requests.add(req)
-        fireTableRowsInserted(requests.lastIndex, requests.lastIndex)
-    }
-
 
     fun getRequest(index: Int): Request? {
         return try {
-            requests[index]
+            handler.requests[index]
         } catch (ex: ArrayIndexOutOfBoundsException) {
             null
         }

@@ -33,3 +33,8 @@ Connection: close
 
 def handleResponse(req, interesting):
     table.add(req)
+
+
+def completed(requests):
+    for req in requests:
+        print(req.code)
