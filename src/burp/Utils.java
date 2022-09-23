@@ -1,5 +1,6 @@
 package burp;
 import kotlin.Pair;
+import kotlin.text.Charsets;
 
 import java.awt.*;
 import java.awt.datatransfer.DataFlavor;
@@ -23,6 +24,10 @@ public class Utils {
     public static void setTurboSize(Dimension size) {
         callbacks.saveExtensionSetting("turboHeight", String.valueOf(size.height));
         callbacks.saveExtensionSetting("turboWidth", String.valueOf(size.width));
+    }
+
+    public static String bytesToString(byte[] bytes) {
+        return new String(bytes, Charsets.ISO_8859_1);
     }
 
     public static ArrayList<String> getClipboard() {

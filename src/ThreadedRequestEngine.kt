@@ -243,7 +243,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                 var pausePoint = -1
                                 //val z: ByteArray = req.pauseMarkers.get(0)
                                 for (pauseMarker in req.pauseMarkers) {
-                                    val pauseBytes = Utils.helpers.stringToBytes(pauseMarker)
+                                    val pauseBytes = pauseMarker.toByteArray(Charsets.ISO_8859_1)
                                     pausePoint = Utils.helpers.indexOf(byteReq, pauseBytes, true, i, byteReq.size)
                                     if (pausePoint != -1) {
                                         outputstream.write(byteReq.sliceArray(i until (pausePoint+pauseBytes.size)))
@@ -286,7 +286,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             }
                             endTime = System.nanoTime()
 
-                            val read = String(readBuffer.copyOfRange(0, len), Charsets.ISO_8859_1)
+                            val read = Utils.bytesToString(readBuffer.copyOfRange(0, len))
                             triggerReadCallback(read)
                             buffer += read
                             bodyStart = buffer.indexOf("\r\n\r\n")
@@ -316,7 +316,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                 if (len == -1) {
                                     throw RuntimeException("CL response finished unexpectedly")
                                 }
-                                val read =  String(readBuffer.copyOfRange(0, len), Charsets.ISO_8859_1)
+                                val read =  Utils.bytesToString(readBuffer.copyOfRange(0, len))
                                 triggerReadCallback(read)
                                 buffer += read
                             }
@@ -335,7 +335,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                     if (len == -1) {
                                         throw RuntimeException("Chunked response finished unexpectedly")
                                     }
-                                    val read = String(readBuffer.copyOfRange(0, len), Charsets.ISO_8859_1)
+                                    val read = Utils.bytesToString(readBuffer.copyOfRange(0, len))
                                     triggerReadCallback(read)
                                     buffer += read
                                     chunk = getNextChunkLength(buffer)
@@ -367,7 +367,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                         break
                                     }
 
-                                    buffer = String(readBuffer.copyOfRange(0, len), Charsets.ISO_8859_1)
+                                    buffer = Utils.bytesToString(readBuffer.copyOfRange(0, len))
                                     body += buffer
                                 }
                             } catch (ex: SocketTimeoutException) {
@@ -468,7 +468,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         }
         var read = ""
         if (len != -1) {
-            read = String(readBuffer.copyOfRange(0, len), Charsets.ISO_8859_1)
+            read = Utils.bytesToString(readBuffer.copyOfRange(0, len))
         }
 
         return read
