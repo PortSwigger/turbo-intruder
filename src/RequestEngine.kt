@@ -1,5 +1,6 @@
 package burp
 
+import org.apache.commons.lang3.RandomStringUtils
 import java.io.*
 import java.net.URL
 import java.util.*
@@ -94,7 +95,7 @@ abstract class RequestEngine: IExtensionStateListener {
             throw Exception("Automatic interesting response detection using 'learn=X' isn't support in command line mode.")
         }
 
-        val request = buildRequest(template, payloadsAsStrings, learnBoring, label)
+        val request = buildRequest(template.replace("\$randomplz", RandomStringUtils.randomAlphanumeric(8), true), payloadsAsStrings, learnBoring, label)
         request._engine = this
         if (pythonEngine != null) {
             request.engine = pythonEngine
