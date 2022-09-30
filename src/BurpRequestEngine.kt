@@ -53,23 +53,27 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
         return Request(prepared, payloads, learnBoring ?: 0, label)
     }
 
-    private fun request(service: IHttpService, req: Request): IHttpRequestResponse? {
+    private fun request(service: IHttpService, req: Request): Pair<IHttpRequestResponse?, Long> {
         val resp: IHttpRequestResponse?
+        val startTime = System.nanoTime()
+        var responseTime = 0L
         if (useHTTP1) {
             try {
                 resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes(), true)
+                responseTime = System.nanoTime() - startTime
             } catch (e: NoSuchMethodError) {
                 throw RuntimeException("Please update Burp Suite")
             }
         } else {
             val respBytes = Utils.h2request(service, req.getRequestAsBytes())
+            responseTime = System.nanoTime() - startTime
             if (respBytes != null) {
                 req.response = Utils.helpers.bytesToString(respBytes)
             }
             resp = BurpRequest(req)
         }
 
-        return resp
+        return Pair(resp, responseTime/1000) // convert to microseconds
     }
 
     private fun sendRequests(service: IHttpService) {
@@ -91,14 +95,16 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
                 }
             }
 
-            var resp = request(service, req)
+            var (resp, time) = request(service, req)
             connections.incrementAndGet()
             while (resp!!.response == null && shouldRetry(req)) {
                 Utils.out("Retrying ${req.words}")
-                resp = request(service, req)
+                resp = request(service, req).first
                 connections.incrementAndGet()
                 Utils.out("Retried ${req.words}")
             }
+
+            req.time = time
 
             if(resp.response == null) {
                 req.response = "The server closed the connection without issuing a response."

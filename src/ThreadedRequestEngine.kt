@@ -395,7 +395,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         successfulRequests.getAndIncrement()
                         reqWithResponse.response = msg
                         reqWithResponse.connectionID = connectionID
-                        reqWithResponse.time = (endTime - startTime) / 1000000 // convert to NS and lose precision
+                        reqWithResponse.time = (endTime - startTime) / 1000 // convert ns to microseconds
 
                         answeredRequests += 1
                         val interesting = processResponse(reqWithResponse, (reqWithResponse.response as String).toByteArray(Charsets.ISO_8859_1))
