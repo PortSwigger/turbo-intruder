@@ -30,9 +30,9 @@ class Target(val req: String, val rawreq: ByteArray, val endpoint: String, val b
 class Wordlist(val bruteforce: Bruteforce, val observedWords: ConcurrentHashMap.KeySetView<String, Boolean>, val clipboard: ArrayList<String>)
 
 fun evalJython(code: String, baseRequest: String, rawRequest: ByteArray, endpoint: String, baseInput: String, outputHandler: OutputHandler, handler: AttackHandler) {
+    val pyInterp = PythonInterpreter() // todo add path to bs4
     try {
         Utils.out("Starting attack...")
-        val pyInterp = PythonInterpreter() // todo add path to bs4
         handler.code = code
         handler.baseRequest = baseRequest
         handler.rawRequest = rawRequest
@@ -63,6 +63,7 @@ fun evalJython(code: String, baseRequest: String, rawRequest: ByteArray, endpoin
         val errorContents = stackTrace.toString()
         if (errorContents.contains("Cannot queue any more items - the attack has finished")) {
             Utils.out("Attack aborted with items waiting to be queued.")
+            pyInterp.exec("completed(table.requests)".trimMargin())
         }
         else {
             var message = ex.cause?.message
