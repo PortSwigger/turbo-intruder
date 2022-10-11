@@ -9,9 +9,9 @@ open class Frame(val type: Byte, val flags: Byte, val streamID: Int, val payload
 
     fun asBytes(): ByteArray {
         val length = HTTP2Utils.intToThreeBytes(payload.size)
-//        Connection.debug("Real size: "+payload.size)
-//        Connection.debug("Reversed size: "+threeByteInt(length))
-//        Connection.debug("Reversed raw size: "+length.asList())
+//        H2Connection.debug("Real size: "+payload.size)
+//        H2Connection.debug("Reversed size: "+threeByteInt(length))
+//        H2Connection.debug("Reversed raw size: "+length.asList())
         //checkUnsigned(intToFourBytes(streamID))
         return length + type + flags + HTTP2Utils.intToFourBytes(streamID) + payload
     }
@@ -32,7 +32,7 @@ class HeaderFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray, st
     init {
         //Connection.debug("Parsing headers")
         if ((flags.toInt() and 1) == 1) {
-            Connection.debug("Frame has set END_STREAM")
+            H2Connection.debug("Frame has set END_STREAM")
             die = true
         }
 
@@ -62,7 +62,7 @@ class DataFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray): Fra
         //Connection.debug("Parsing data frame")
         // fixme don't use exact matching on a bloody flag!!
         if ((flags.toInt() and 1) == 1) {
-            Connection.debug("Frame has set END_STREAM")
+            H2Connection.debug("Frame has set END_STREAM")
             die = true
         }
 
@@ -76,11 +76,11 @@ class SettingsFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray):
     var maxConcurrentStreams = 0
 
     init {
-        Connection.debug("Parsing settings...")
+        H2Connection.debug("Parsing settings...")
         // fixme is their double-settings response blowing things up
 
         if (payload.size == 0) {
-            Connection.debug("Just an ack")
+            H2Connection.debug("Just an ack")
         } else {
 
             var head = 0
@@ -88,18 +88,18 @@ class SettingsFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray):
                 val key = HTTP2Utils.twoByteInt(payload.slice(head..head + 1).toByteArray())
                 val value = HTTP2Utils.fourByteInt(payload.slice(head + 2..head + 5).toByteArray())
                 when (key) {
-                    1 -> Connection.debug("HEADER_TABLE_SIZE = $value")
-                    2 -> Connection.debug("ENABLE_PUSH = $value")
+                    1 -> H2Connection.debug("HEADER_TABLE_SIZE = $value")
+                    2 -> H2Connection.debug("ENABLE_PUSH = $value")
                     3 -> {
                         // todo this is actually maxConcurrentStreams
-                        Connection.debug("MAX_CONCURRENT_STREAMS = $value")
+                        H2Connection.debug("MAX_CONCURRENT_STREAMS = $value")
                         maxConcurrentStreams = value
 
                     }
-                    4 -> Connection.debug("INITIAL_WINDOW_SIZE = $value")
-                    5 -> Connection.debug("MAX_FRAME_SIZE = $value")
-                    6 -> Connection.debug("Max headers = $value")
-                    else -> Connection.debug("Unrecognised setting $key=$value")
+                    4 -> H2Connection.debug("INITIAL_WINDOW_SIZE = $value")
+                    5 -> H2Connection.debug("MAX_FRAME_SIZE = $value")
+                    6 -> H2Connection.debug("Max headers = $value")
+                    else -> H2Connection.debug("Unrecognised setting $key=$value")
                 }
 
                 head += 6
@@ -112,8 +112,8 @@ class PingFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray): Fra
     val data: List<Byte>
 
     init {
-        Connection.debug("Parsing PING")
-        Connection.debug("Data: "+payload.asList())
+        H2Connection.debug("Parsing PING")
+        H2Connection.debug("Data: "+payload.asList())
         data = payload.asList()
     }
 }
@@ -122,8 +122,8 @@ class WindowFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray): F
 
 
     init {
-        Connection.debug("Parsing WINDOW_UPDATE")
-        Connection.debug("Increment window size by "+payload.asList())
+        H2Connection.debug("Parsing WINDOW_UPDATE")
+        H2Connection.debug("Increment window size by "+payload.asList())
     }
 }
 
@@ -150,9 +150,9 @@ class GoAwayFrame(type: Byte, flags: Byte, streamID: Int, payload: ByteArray): F
             6 -> "FRAME_SIZE_ERROR"
             else -> "unknown error code"
         }
-        Connection.debug(error_message)
+        H2Connection.debug(error_message)
         if (payload.size > 8) {
-            Connection.debug("Debug data: " + payload.sliceArray(8..payload.size-1).asList())
+            H2Connection.debug("Debug data: " + payload.sliceArray(8..payload.size-1).asList())
         }
     }
 }

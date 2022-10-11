@@ -1,7 +1,7 @@
 package burp
 
 
-class Stream(val connection: Connection, val streamID: Int, val req: Request, fromClient: Boolean) {
+class Stream(val connection: H2Connection, val streamID: Int, val req: Request, fromClient: Boolean) {
 
     companion object {
         const val CLEAN = 0
@@ -28,11 +28,11 @@ class Stream(val connection: Connection, val streamID: Int, val req: Request, fr
         connection.stateLock.readLock().lock()
         val frame = parseFrame(frameBytes, streamID)
 
-        Connection.debug("Stream $streamID type ${frame.type} flags ${frame.flags}")
+        H2Connection.debug("Stream $streamID type ${frame.type} flags ${frame.flags}")
         if (frame is SettingsFrame) {
             if (frame.maxConcurrentStreams != 0) {
                 // this is hard-coded instead
-                Connection.debug("Change max concurrent streams from ${connection.requestsPerConnection} to ${frame.maxConcurrentStreams}")
+                H2Connection.debug("Change max concurrent streams from ${connection.requestsPerConnection} to ${frame.maxConcurrentStreams}")
                 connection.maxConcurrentStreams = frame.maxConcurrentStreams
             }
 
@@ -101,7 +101,7 @@ class Stream(val connection: Connection, val streamID: Int, val req: Request, fr
             val interesting = connection.engine.processResponse(req, (req.response as String).toByteArray(Charsets.ISO_8859_1))
             connection.engine.invokeCallback(req, interesting)
 
-            Connection.debug("Deleting stream $streamID")
+            H2Connection.debug("Deleting stream $streamID")
             connection.streams.remove(streamID)
 
         }

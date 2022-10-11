@@ -13,7 +13,7 @@ import kotlin.concurrent.thread
 
 open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, var requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?): RequestEngine() {
 
-    private val connectionPool = ArrayList<Connection>(threads)
+    private val connectionPool = ArrayList<H2Connection>(threads)
 
     init {
         requestQueue = if (maxQueueSize > 0) {
@@ -28,7 +28,7 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
 
         for (j in 1..threads) {
             connections.incrementAndGet()
-            connectionPool.add(Connection(target, LinkedBlockingQueue(1), requestQueue, requestsPerConnection, this))
+            connectionPool.add(H2Connection(target, LinkedBlockingQueue(1), requestQueue, requestsPerConnection, this))
         }
 
         thread(priority = 1) {
@@ -40,7 +40,7 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
     private fun manageConnections() {
         // showStats changes state from 1 to 2
         // then waits on the completedLatch to hit 3
-        Connection.debug("Connection management thread starting")
+        H2Connection.debug("Connection management thread starting")
         while (attackState.get() < 3) {
             for (i in 1..threads) {
                 val con = connectionPool[i - 1]
@@ -56,7 +56,7 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
 //                    continue
 //                }
 
-                if (con.state == Connection.CLOSED) {
+                if (con.state == H2Connection.CLOSED) {
                     if (con.hasInflightRequests() || con.seedQueue.size > 0 || attackState.get() < 3) {
 
                         val seedQueue = LinkedBlockingQueue<Request>()
@@ -72,13 +72,13 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
                         }
                         seedQueue.addAll(con.seedQueue)
                         connections.incrementAndGet()
-                        connectionPool[i - 1] = Connection(target, seedQueue, requestQueue, requestsPerConnection, this)
+                        connectionPool[i - 1] = H2Connection(target, seedQueue, requestQueue, requestsPerConnection, this)
                     }
                 }
             }
             Thread.sleep(10)
         }
-        Connection.debug("Connection management thread exiting")
+        H2Connection.debug("Connection management thread exiting")
     }
 
     override fun start(timeout: Int) {

@@ -96,7 +96,7 @@ public class Utils {
 
     // based on BulkScan.request()
     public static byte[] h2request(IHttpService service, byte[] req, String connectionID) {
-        LinkedList<Pair<String, String>> h2headers = Connection.Companion.buildReq(new HTTP2Request(helpers.bytesToString(req)));
+        LinkedList<Pair<String, String>> h2headers = H2Connection.Companion.buildReq(new HTTP2Request(helpers.bytesToString(req)));
         ArrayList<IHttpHeader> headers = new ArrayList<>();
         for (Pair<String, String> header: h2headers) {
             headers.add(helpers.buildHeader(header.getFirst(), header.getSecond()));

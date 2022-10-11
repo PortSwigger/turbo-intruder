@@ -16,7 +16,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 import javax.net.ssl.*
 import kotlin.collections.HashMap
 
-class Connection(val target: URL, val seedQueue: Queue<Request>, private val requestQueue: LinkedBlockingQueue<Request>, var requestsPerConnection: Int, val engine: HTTP2RequestEngine) {
+class H2Connection(val target: URL, val seedQueue: Queue<Request>, private val requestQueue: LinkedBlockingQueue<Request>, var requestsPerConnection: Int, val engine: HTTP2RequestEngine) {
 
     companion object {
         const val CONNECTING = 1
