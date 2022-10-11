@@ -58,27 +58,39 @@ fun evalJython(code: String, baseRequest: String, rawRequest: ByteArray, endpoin
         pyInterp.exec("completed(table.requests)".trimMargin())
     }
     catch (ex: Exception) {
-        val stackTrace = StringWriter()
-        ex.printStackTrace(PrintWriter(stackTrace))
-        val errorContents = stackTrace.toString()
-        if (errorContents.contains("Cannot queue any more items - the attack has finished")) {
+        var error = ex
+        var stackTrace = errorToStacktrace(error)
+        if (stackTrace.contains("Cannot queue any more items - the attack has finished")) {
             Utils.out("Attack aborted with items waiting to be queued.")
-            pyInterp.exec("completed(table.requests)".trimMargin())
-        }
-        else {
-            var message = ex.cause?.message
-
-            if (message == null) {
-                message = ex.toString()
+            try {
+                pyInterp.exec("completed(table.requests)".trimMargin())
+                handler.abort()
+                return
+            } catch (ex2: Exception) {
+                error = ex2
+                stackTrace = errorToStacktrace(ex2)
             }
-            handler.overrideStatus("User Python error, check extender for full details: $message")
-            Utils.out("There was an error executing your Python script. This is probably due to a flaw in your script, rather than a bug in Turbo Intruder :)")
-            Utils.out("If you think it is a Turbo Intruder issue, try out this script: https://raw.githubusercontent.com/PortSwigger/turbo-intruder/master/resources/examples/debug.py")
-            Utils.out("For your convenience, here's the full stack trace:")
-            Utils.out(stackTrace.toString())
         }
+
+        var message = error.cause?.message
+        if (message == null) {
+            message = error.toString()
+        }
+        handler.overrideStatus("User Python error, check extender for full details: $message")
+        Utils.out("There was an error executing your Python script. This is probably due to a flaw in your script, rather than a bug in Turbo Intruder :)")
+        Utils.out("If you think it is a Turbo Intruder issue, try out this script: https://raw.githubusercontent.com/PortSwigger/turbo-intruder/master/resources/examples/debug.py")
+        Utils.out("For your convenience, here's the full stack trace:")
+        Utils.out(stackTrace)
+
         handler.abort()
     }
+}
+
+
+fun errorToStacktrace(ex: Exception): String {
+    val stackTrace = StringWriter()
+    ex.printStackTrace(PrintWriter(stackTrace))
+    return stackTrace.toString()
 }
 
 class OfferTurboIntruder(): IContextMenuFactory {
