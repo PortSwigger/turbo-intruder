@@ -64,6 +64,7 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, override val max
                     }
                     val frames = reqToFrames(req, frameFactory)
                     responseStreamHandler.inflight[frames[0].Q] = req
+                    req.time = System.nanoTime()
                     connection.sendFrames(frames)
                 }
             } catch (ex: Exception) {

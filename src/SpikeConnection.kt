@@ -22,6 +22,7 @@ class SpikeConnection(private val engine: SpikeEngine) : StreamFrameProcessor {
         //System.out.println(frame.Q);
         try {
             if (frame is HeaderFrame) {
+                inflight[frame.Q]!!.time = (System.nanoTime() - inflight[frame.Q]!!.time) / 1000
                 val newFrames = headerFrames.computeIfAbsent(
                     frame.Q
                 ) { id: Int? -> LinkedList() }
