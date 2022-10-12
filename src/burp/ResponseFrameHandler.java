@@ -14,25 +14,33 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ResponseFrameHandler implements StreamFrameProcessor {
-    long recordedTime = 0;
 
+    private SpikeEngine engine;
     private final Map<Integer, List<DataFrame>> dataFrames = new ConcurrentHashMap<>();
     private final Map<Integer, List<HeaderFrame>> headerFrames = new ConcurrentHashMap<>();
+
+    public ResponseFrameHandler(SpikeEngine engine) {
+        this.engine = engine;
+    }
 
     @Override
     public void process(Frame frame) {
         //System.out.println(frame.Q);
-        if (frame instanceof HeaderFrame) {
-            List<HeaderFrame> newFrames = this.headerFrames.computeIfAbsent(frame.Q, (id) -> new LinkedList<>());
-            newFrames.add((HeaderFrame) frame);
-        } else if (frame instanceof DataFrame) {
-            List<DataFrame> newFrames = this.dataFrames.computeIfAbsent(frame.Q, (id) -> new LinkedList<>());
-            newFrames.add((DataFrame) frame);
-        }
+        try {
+            if (frame instanceof HeaderFrame) {
+                List<HeaderFrame> newFrames = this.headerFrames.computeIfAbsent(frame.Q, (id) -> new LinkedList<>());
+                newFrames.add((HeaderFrame) frame);
+            } else if (frame instanceof DataFrame) {
+                List<DataFrame> newFrames = this.dataFrames.computeIfAbsent(frame.Q, (id) -> new LinkedList<>());
+                newFrames.add((DataFrame) frame);
+            }
 
-        if (frame.isFlagSet(Http2Constants.END_STREAM_FLAG))
-        {
-            prepareCallback(frame.Q);
+            if (frame.isFlagSet(Http2Constants.END_STREAM_FLAG)) {
+                prepareCallback(frame.Q);
+            }
+        } catch (Exception e) {
+            Utils.out("Oh no: "+e.getMessage());
+            e.printStackTrace();
         }
 
 
@@ -59,15 +67,23 @@ public class ResponseFrameHandler implements StreamFrameProcessor {
         List<HeaderFrame> headers = headerFrames.remove(streamID);
         List<DataFrame> data = dataFrames.remove(streamID);
 
-        System.out.println(streamID);
+        StringBuilder resp = new StringBuilder();
         for (HeaderFrame frame: headers) {
-            System.out.println(frame.headers());
+            for (Header header: frame.headers()) {
+                if (header.isPseudoHeader()) {
+                    resp.append("HTTP/2 "+header.value()+ " OK\r\n");
+                }
+                else {
+                    resp.append(header.http1Header());
+                    resp.append("\r\n");
+                }
+            }
         }
-
+        resp.append("\r\n");
         for (DataFrame frame: data) {
-            System.out.println("Data: "+new String(frame.data()));
+            resp.append(new String(frame.data()));
         }
 
-        System.out.println();
+        engine.handleResponse(streamID, resp.toString());
     }
 }

@@ -260,6 +260,7 @@ class Engine:
     THREADED = 2
     HTTP2 = 3
     BURP2 = 4
+    SPIKE = 5
 
 class RequestEngine:
 
@@ -291,6 +292,8 @@ class RequestEngine:
             self.engine = burp.ThreadedRequestEngine(endpoint, concurrentConnections, maxQueueSize, readFreq, requestsPerConnection, maxRetriesPerRequest, callback, timeout, readCallback, readSize, resumeSSL, explodeOnEarlyRead)
         elif(engine == Engine.HTTP2):
             self.engine = burp.HTTP2RequestEngine(endpoint, concurrentConnections, maxQueueSize, requestsPerConnection, maxRetriesPerRequest, callback, readCallback)
+        elif(engine == Engine.SPIKE):
+            self.engine = burp.SpikeEngine(endpoint, concurrentConnections, maxQueueSize, maxRetriesPerRequest, callback, readCallback)
         else:
             print('Unrecognised engine. Valid engines are Engine.BURP, Engine.THREADED')
 
