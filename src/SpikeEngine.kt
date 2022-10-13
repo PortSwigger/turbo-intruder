@@ -2,8 +2,11 @@ package burp
 
 import burp.H2Connection.Companion.buildReq
 import burp.network.stack.http2.frame.Frame
-import net.hackxor.api.*
+import net.hackxor.api.ConnectionFactory
+import net.hackxor.api.Header
 import net.hackxor.api.Header.header
+import net.hackxor.api.RequestFrameFactory
+import net.hackxor.api.SocketFactory
 import net.hackxor.utils.DefaultThreadLauncher
 import net.hackxor.utils.FrameComparator
 import net.hackxor.utils.TrustAllSocketFactory
@@ -88,13 +91,16 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, override val max
                     }
                     allFrames.sortWith(FrameComparator())
                     val marker = allFrames.size - gatedReqs.size
+//                    Utils.out("Frame batch 1: "+allFrames.subList(0, marker))
+//                    Utils.out("Frame batch 2: "+allFrames.subList(marker, allFrames.size))
+                    socket.tcpNoDelay = false
                     connection.sendFrames(allFrames.subList(0, marker))
-                    Thread.sleep(300)
+                    Thread.sleep(500)
                     for (gatedReq in gatedReqs) {
                         gatedReq.time = System.nanoTime()
                     }
+                    socket.tcpNoDelay = true
                     connection.sendFrames(allFrames.subList(marker, allFrames.size))
-
                 }
             } catch (ex: Exception) {
                 // todo sort out lost inflight requests
