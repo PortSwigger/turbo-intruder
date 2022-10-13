@@ -5,6 +5,7 @@ import burp.network.stack.http2.frame.Frame
 import net.hackxor.api.*
 import net.hackxor.api.Header.header
 import net.hackxor.utils.DefaultThreadLauncher
+import net.hackxor.utils.FrameComparator
 import net.hackxor.utils.TrustAllSocketFactory
 import java.net.URL
 import java.util.concurrent.CountDownLatch
@@ -62,13 +63,43 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, override val max
                         }
                         continue
                     }
-                    val frames = reqToFrames(req, frameFactory)
-                    responseStreamHandler.inflight[frames[0].Q] = req
-                    req.time = System.nanoTime()
-                    connection.sendFrames(frames)
+
+                    if (req.gate == null) {
+                        val frames = reqToFrames(req, frameFactory)
+                        responseStreamHandler.inflight[frames[0].Q] = req
+                        req.time = System.nanoTime()
+                        connection.sendFrames(frames)
+                        continue
+                    }
+
+                    val gatedReqs = ArrayList<Request>(10)
+                    req.gate!!.reportReadyWithoutWaiting()
+                    gatedReqs.add(req)
+                    while (!req.gate!!.isOpen.get() && attackState.get() < 3) {
+                        val nextReq = requestQueue.poll(50, TimeUnit.MILLISECONDS) ?: continue
+                        gatedReqs.add(nextReq)
+                        req.gate!!.reportReadyWithoutWaiting()
+                    }
+                    val allFrames = ArrayList<Frame>(gatedReqs.size*2)
+                    for (gatedReq in gatedReqs) {
+                        val reqFrames = reqToFrames(gatedReq, frameFactory)
+                        allFrames.addAll(reqFrames)
+                        responseStreamHandler.inflight[reqFrames[0].Q] = gatedReq
+                    }
+                    allFrames.sortWith(FrameComparator())
+                    val marker = allFrames.size - gatedReqs.size
+                    connection.sendFrames(allFrames.subList(0, marker))
+                    Thread.sleep(300)
+                    for (gatedReq in gatedReqs) {
+                        gatedReq.time = System.nanoTime()
+                    }
+                    connection.sendFrames(allFrames.subList(marker, allFrames.size))
+
                 }
             } catch (ex: Exception) {
                 // todo sort out lost inflight requests
+                ex.printStackTrace()
+                Utils.out(ex.message)
                 continue
             }
         }

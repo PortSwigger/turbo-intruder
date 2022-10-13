@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class Floodgate {
     final AtomicInteger remaining = new AtomicInteger(1);
-    final private AtomicBoolean isOpen = new AtomicBoolean(false);
+    final AtomicBoolean isOpen = new AtomicBoolean(false);
 
     // the python thread will set here
     void open() {
@@ -54,6 +54,13 @@ public class Floodgate {
             while (!isOpen.get()) {
                 isOpen.wait();
             }
+        }
+    }
+
+    void reportReadyWithoutWaiting() {
+        remaining.decrementAndGet();
+        synchronized (remaining) {
+            remaining.notifyAll();
         }
     }
 
