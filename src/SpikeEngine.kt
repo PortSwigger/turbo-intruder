@@ -42,11 +42,13 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, override val max
     }
 
     private fun sendRequests() {
+        var responseStreamHandler: SpikeConnection? = null
+
         while (!Utils.unloaded && attackState.get() < 3) {
             val socket = socketFactory.create(target.host, 443)
             socket.soTimeout = 10000
             socket.tcpNoDelay = false
-            val responseStreamHandler = SpikeConnection(this)
+            responseStreamHandler = SpikeConnection(this)
             val connectionFactory = ConnectionFactory.create(threadLauncher, responseStreamHandler)
             val connection = connectionFactory.createConnection(socket) { } // callback is invoked when connection is killed
             val frameFactory = RequestFrameFactory.createDefaultRequestFrameFactory(connection.negotiatedMaximumFrameSize())
@@ -61,7 +63,7 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, override val max
                     val req = requestQueue.poll(100, TimeUnit.MILLISECONDS)
                     if (req == null) {
                         if (attackState.get() == 2) {
-                            completedLatch.countDown()
+                            waitForPendingRequests(responseStreamHandler)
                             return
                         }
                         continue
@@ -107,6 +109,18 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, override val max
                 ex.printStackTrace()
                 Utils.out(ex.message)
                 continue
+            }
+        }
+
+        waitForPendingRequests(responseStreamHandler)
+    }
+
+    private fun waitForPendingRequests(responseStreamHandler: SpikeConnection?) {
+        for (x in 1..100) {
+            if (responseStreamHandler != null && !responseStreamHandler.inflight.isEmpty()) {
+                Thread.sleep(100)
+            } else {
+                break
             }
         }
         completedLatch.countDown()
