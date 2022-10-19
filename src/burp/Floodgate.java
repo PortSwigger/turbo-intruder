@@ -6,6 +6,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class Floodgate {
     final AtomicInteger remaining = new AtomicInteger(1);
     final AtomicBoolean isOpen = new AtomicBoolean(false);
+    String name;
+
+    public Floodgate(String name) {
+        this.name = name;
+    }
 
     // the python thread will set here
     void open() {

@@ -13,6 +13,7 @@ class SpikeConnection(private val engine: SpikeEngine) : StreamFrameProcessor {
     var inflight: ConcurrentHashMap<Int, Request>
     private val dataFrames: MutableMap<Int, MutableList<DataFrame>> = ConcurrentHashMap()
     private val headerFrames: MutableMap<Int, MutableList<HeaderFrame>> = ConcurrentHashMap()
+    private val gates: ConcurrentHashMap<String, Int> = ConcurrentHashMap()
 
     init {
         inflight = ConcurrentHashMap<Int, Request>()
@@ -22,7 +23,15 @@ class SpikeConnection(private val engine: SpikeEngine) : StreamFrameProcessor {
         //System.out.println(frame.Q);
         try {
             if (frame is HeaderFrame) {
-                inflight[frame.Q]!!.time = (System.nanoTime() - inflight[frame.Q]!!.time) / 1000
+                val time = System.nanoTime()
+                val req = inflight[frame.Q]!!
+                req.time = (time - req.time) / 1000
+                if (req.gate != null) {
+                    val gateName = req!!.gate!!.name
+                    val seen = gates.getOrDefault(gateName, 0)
+                    req.order = seen
+                    gates[gateName] = seen + 1
+                }
                 val newFrames = headerFrames.computeIfAbsent(
                     frame.Q
                 ) { id: Int? -> LinkedList() }
@@ -68,12 +77,9 @@ class SpikeConnection(private val engine: SpikeEngine) : StreamFrameProcessor {
         for (frame in headers) {
             for (header in frame.headers()) {
                 if (header.isPseudoHeader) {
-                    resp.append(
-                        """HTTP/2 ${header.value()} OK
-"""
-                    )
+                    resp.append("HTTP/2 ${header.value()} OK\r\n")
                 } else {
-                    resp.append(header.http1Header())
+                    resp.append(header.name()+": "+header.value())
                     resp.append("\r\n")
                 }
             }

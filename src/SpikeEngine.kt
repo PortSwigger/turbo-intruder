@@ -55,7 +55,7 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, override val max
 
             try {
                 while (!Utils.unloaded && attackState.get() < 3) {
-                    if (responseStreamHandler.inflight.size > 10){ // todo make this configurable
+                    if (responseStreamHandler.inflight.size > 1){ // todo make this configurable
                         Thread.sleep(10)
                         continue
                     }

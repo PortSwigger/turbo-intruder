@@ -14,19 +14,31 @@ class TurboHelper implements AutoCloseable {
 
     RequestEngine engine;
     private List<Resp> reqs = new LinkedList<>();
+
+    public IHttpService getService() {
+        return service;
+    }
+
     private IHttpService service;
     private int requestTimeout;
     private int id = 0;
 
     TurboHelper(IHttpService service, boolean reuseConnection) {
-        this(service, reuseConnection, 10);
+        this(service, reuseConnection, 10, false);
     }
 
     TurboHelper(IHttpService service, boolean reuseConnection, int requestTimeout) {
+        this(service, reuseConnection, requestTimeout, false);
+    }
+
+    TurboHelper(IHttpService service, boolean reuseConnection, int requestTimeout, boolean forceH2) {
         this.service = service;
         this.requestTimeout = requestTimeout;
         String url = service.getProtocol()+"://"+service.getHost()+":"+service.getPort();
-        if (reuseConnection) {
+        if (forceH2) {
+            this.engine = new SpikeEngine(url, 1, 20, 0, this::callback, null);
+        }
+        else if (reuseConnection) {
             this.engine = new ThreadedRequestEngine(url, 1, 20, 1, 50, 0, this::callback, requestTimeout, null, 1024, false, true);
         }
         else {

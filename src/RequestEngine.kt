@@ -11,6 +11,8 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.zip.GZIPInputStream
 import kotlin.math.ceil
+import kotlin.math.max
+import kotlin.math.min
 
 abstract class RequestEngine: IExtensionStateListener {
 
@@ -86,7 +88,9 @@ abstract class RequestEngine: IExtensionStateListener {
             throw Exception("The request has payloads specified, but no %s injection markers")
         }
         if (!noMarker && noPayload) {
-            throw Exception("The request has a %s injection point, but no payloads specified")
+            val bad = template.indexOf("%s")
+            val context = template.slice(max(bad-5, 0).. min(bad+5, template.length))
+            throw Exception("The request has a %s injection point, but no payloads specified: '$context'")
         }
 
         val payloadsAsStrings = payloads.map { it.toString() }
@@ -113,7 +117,7 @@ abstract class RequestEngine: IExtensionStateListener {
 
         if (gateName != null) {
             synchronized(gateName) {
-                request.gate = floodgates[gateName] ?: Floodgate()
+                request.gate = floodgates[gateName] ?: Floodgate(gateName)
 
                 if (floodgates.containsKey(gateName)) {
                     floodgates[gateName]!!.addWaiter()
