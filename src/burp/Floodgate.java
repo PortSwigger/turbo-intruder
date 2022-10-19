@@ -8,9 +8,11 @@ public class Floodgate {
     final AtomicBoolean isOpen = new AtomicBoolean(false);
     final AtomicBoolean fullyQueued = new AtomicBoolean(false);
     String name;
+    RequestEngine engine;
 
-    public Floodgate(String name) {
+    public Floodgate(String name, RequestEngine engine) {
         this.name = name;
+        this.engine = engine;
     }
 
     // the python thread will set here
@@ -23,11 +25,11 @@ public class Floodgate {
 
         if (remaining.get() > 0) {
             //new Thread(() -> {
-                while (remaining.get() > 0) {
+                while (remaining.get() > 0 && engine.getAttackState().get() < 3) {
                     //Utils.out("Threads remaining: "+remaining.get());
                     synchronized (remaining) {
                         try {
-                            remaining.wait();
+                            remaining.wait(100);
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }

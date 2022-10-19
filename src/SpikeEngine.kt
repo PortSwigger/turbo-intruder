@@ -85,7 +85,7 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, override val max
                     }
 
                     while (!req.gate!!.isOpen.get() && attackState.get() < 3) {
-                        Utils.out("Waiting on ${req.gate!!.remaining.get()} signals for gate to open on ${req.gate!!.name}")
+                        //Utils.out("Waiting on ${req.gate!!.remaining.get()} signals for gate to open on ${req.gate!!.name}")
                         val nextReq = requestQueue.poll(50, TimeUnit.MILLISECONDS) ?: throw RuntimeException("Gate deadlock")
                         if (nextReq.gate!!.name != req.gate!!.name) {
                             throw RuntimeException("Over-read while waiting for gate to open")
@@ -95,6 +95,7 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, override val max
                             break
                         }
                     }
+
                     val allFrames = ArrayList<Frame>(gatedReqs.size*2)
                     for (gatedReq in gatedReqs) {
                         val reqFrames = reqToFrames(gatedReq, frameFactory)

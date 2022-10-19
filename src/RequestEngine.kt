@@ -117,7 +117,7 @@ abstract class RequestEngine: IExtensionStateListener {
 
         if (gateName != null) {
             synchronized(gateName) {
-                request.gate = floodgates[gateName] ?: Floodgate(gateName)
+                request.gate = floodgates[gateName] ?: Floodgate(gateName, this)
 
                 if (floodgates.containsKey(gateName)) {
                     floodgates[gateName]!!.addWaiter()
