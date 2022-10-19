@@ -80,10 +80,20 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, override val max
                     val gatedReqs = ArrayList<Request>(10)
                     req.gate!!.reportReadyWithoutWaiting()
                     gatedReqs.add(req)
+                    while (!req.gate!!.fullyQueued.get() && attackState.get() < 3) {
+                        Thread.sleep(10)
+                    }
+
                     while (!req.gate!!.isOpen.get() && attackState.get() < 3) {
-                        val nextReq = requestQueue.poll(50, TimeUnit.MILLISECONDS) ?: continue
+                        Utils.out("Waiting on ${req.gate!!.remaining.get()} signals for gate to open on ${req.gate!!.name}")
+                        val nextReq = requestQueue.poll(50, TimeUnit.MILLISECONDS) ?: throw RuntimeException("Gate deadlock")
+                        if (nextReq.gate!!.name != req.gate!!.name) {
+                            throw RuntimeException("Over-read while waiting for gate to open")
+                        }
                         gatedReqs.add(nextReq)
-                        req.gate!!.reportReadyWithoutWaiting()
+                        if (nextReq.gate!!.reportReadyWithoutWaiting()) {
+                            break
+                        }
                     }
                     val allFrames = ArrayList<Frame>(gatedReqs.size*2)
                     for (gatedReq in gatedReqs) {
@@ -97,7 +107,7 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, override val max
 //                    Utils.out("Frame batch 2: "+allFrames.subList(marker, allFrames.size))
                     socket.tcpNoDelay = false
                     connection.sendFrames(allFrames.subList(0, marker))
-                    Thread.sleep(500)
+                    Thread.sleep(100) // headstart size
                     for (gatedReq in gatedReqs) {
                         gatedReq.time = System.nanoTime()
                     }

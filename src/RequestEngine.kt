@@ -164,7 +164,7 @@ abstract class RequestEngine: IExtensionStateListener {
     }
 
     open fun openGate(gateName: String) {
-        //Utils.out("Opening gate "+gateName)
+        Utils.out("Requested gate open: $gateName")
         if (!floodgates.containsKey(gateName)) {
             throw Exception("Unrecognised gate name in openGate() invocation")
         }
