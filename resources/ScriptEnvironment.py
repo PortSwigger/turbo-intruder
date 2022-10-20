@@ -293,7 +293,7 @@ class RequestEngine:
         elif(engine == Engine.HTTP2):
             self.engine = burp.HTTP2RequestEngine(endpoint, concurrentConnections, maxQueueSize, requestsPerConnection, maxRetriesPerRequest, callback, readCallback)
         elif(engine == Engine.SPIKE):
-            self.engine = burp.SpikeEngine(endpoint, concurrentConnections, maxQueueSize, maxRetriesPerRequest, callback, readCallback)
+            self.engine = burp.SpikeEngine(endpoint, concurrentConnections, maxQueueSize, requestsPerConnection, maxRetriesPerRequest, callback, readCallback)
         else:
             print('Unrecognised engine. Valid engines are Engine.BURP, Engine.THREADED')
 

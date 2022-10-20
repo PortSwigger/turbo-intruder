@@ -16,7 +16,7 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
-class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?): RequestEngine() {
+class SpikeEngine(url: String, threads: Int, maxQueueSize: Int,  val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?): RequestEngine() {
 
     var threadLauncher: DefaultThreadLauncher
     var socketFactory: SocketFactory
@@ -32,16 +32,17 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, override val max
         threadLauncher = DefaultThreadLauncher()
         socketFactory = TrustAllSocketFactory()
         target = URL(url)
+        val retryQueue = LinkedBlockingQueue<Request>()
 
         completedLatch = CountDownLatch(threads)
         for(j in 1..threads) {
             thread {
-                sendRequests()
+                sendRequests(retryQueue)
             }
         }
     }
 
-    private fun sendRequests() {
+    private fun sendRequests(retryQueue: LinkedBlockingQueue<Request>) {
         var responseStreamHandler: SpikeConnection? = null
 
         while (!Utils.unloaded && attackState.get() < 3) {
@@ -52,15 +53,20 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, override val max
             val connectionFactory = ConnectionFactory.create(threadLauncher, responseStreamHandler)
             val connection = connectionFactory.createConnection(socket) { } // callback is invoked when connection is killed
             val frameFactory = RequestFrameFactory.createDefaultRequestFrameFactory(connection.negotiatedMaximumFrameSize())
+            var requestsSent = 0
 
             try {
-                while (!Utils.unloaded && attackState.get() < 3) {
-                    if (responseStreamHandler.inflight.size > 1){ // todo make this configurable
+                while (requestsSent < requestsPerConnection && !Utils.unloaded && attackState.get() < 3) {
+                    if (responseStreamHandler.inflight.size >= 1){
+                        // todo make this configurable
                         Thread.sleep(10)
                         continue
                     }
 
-                    val req = requestQueue.poll(100, TimeUnit.MILLISECONDS)
+                    var req = retryQueue.poll()
+                    if (req == null) {
+                        req = requestQueue.poll(100, TimeUnit.MILLISECONDS)
+                    }
                     if (req == null) {
                         if (attackState.get() == 2) {
                             waitForPendingRequests(responseStreamHandler)
@@ -74,13 +80,14 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, override val max
                         responseStreamHandler.inflight[frames[0].Q] = req
                         req.time = System.nanoTime()
                         connection.sendFrames(frames)
+                        requestsSent += 1
                         continue
                     }
 
                     val gatedReqs = ArrayList<Request>(10)
                     req.gate!!.reportReadyWithoutWaiting()
                     gatedReqs.add(req)
-                    while (!req.gate!!.fullyQueued.get() && attackState.get() < 3) {
+                    while ((!req.gate!!.fullyQueued.get() || responseStreamHandler.inflight.size != 0) && attackState.get() < 3) {
                         Thread.sleep(10)
                     }
 
@@ -101,6 +108,7 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, override val max
                         val reqFrames = reqToFrames(gatedReq, frameFactory)
                         allFrames.addAll(reqFrames)
                         responseStreamHandler.inflight[reqFrames[0].Q] = gatedReq
+                        requestsSent += 1
                     }
                     allFrames.sortWith(FrameComparator())
                     val marker = allFrames.size - gatedReqs.size
@@ -116,7 +124,13 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, override val max
                     connection.sendFrames(allFrames.subList(marker, allFrames.size))
                 }
             } catch (ex: Exception) {
-                // todo sort out lost inflight requests
+                if (!responseStreamHandler.inflight.isEmpty()) {
+                    for (req in responseStreamHandler.inflight.values) {
+                        if (shouldRetry(req)) {
+                            retryQueue.add(req)
+                        }
+                    }
+                }
                 ex.printStackTrace()
                 Utils.out(ex.message)
                 continue
