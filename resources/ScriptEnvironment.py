@@ -264,7 +264,7 @@ class Engine:
 
 class RequestEngine:
 
-    def __init__(self, endpoint, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=100, timeout=10, maxRetriesPerRequest=3, readCallback=None, readSize=1024, resumeSSL=True, autoStart=True, explodeOnEarlyRead=False):
+    def __init__(self, endpoint, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=100, timeout=10, maxRetriesPerRequest=3, idleTimeout=0, readCallback=None, readSize=1024, resumeSSL=True, autoStart=True, explodeOnEarlyRead=False):
         concurrentConnections = int(concurrentConnections)
         requestsPerConnection = int(requestsPerConnection)
 
@@ -285,15 +285,15 @@ class RequestEngine:
                 print('Read callbacks are not supported in the Burp request engine. Try Engine.THREADED instead.')
 
         if(engine == Engine.BURP):
-            self.engine = burp.BurpRequestEngine(endpoint, concurrentConnections, maxQueueSize, maxRetriesPerRequest, callback, readCallback, True)
+            self.engine = burp.BurpRequestEngine(endpoint, concurrentConnections, maxQueueSize, maxRetriesPerRequest, idleTimeout, callback, readCallback, True)
         elif(engine == Engine.BURP2):
-            self.engine = burp.BurpRequestEngine(endpoint, concurrentConnections, maxQueueSize, maxRetriesPerRequest, callback, readCallback, False)
+            self.engine = burp.BurpRequestEngine(endpoint, concurrentConnections, maxQueueSize, maxRetriesPerRequest, idleTimeout, callback, readCallback, False)
         elif(engine == Engine.THREADED):
-            self.engine = burp.ThreadedRequestEngine(endpoint, concurrentConnections, maxQueueSize, readFreq, requestsPerConnection, maxRetriesPerRequest, callback, timeout, readCallback, readSize, resumeSSL, explodeOnEarlyRead)
+            self.engine = burp.ThreadedRequestEngine(endpoint, concurrentConnections, maxQueueSize, readFreq, requestsPerConnection, maxRetriesPerRequest, idleTimeout, callback, timeout, readCallback, readSize, resumeSSL, explodeOnEarlyRead)
         elif(engine == Engine.HTTP2):
-            self.engine = burp.HTTP2RequestEngine(endpoint, concurrentConnections, maxQueueSize, requestsPerConnection, maxRetriesPerRequest, callback, readCallback)
+            self.engine = burp.HTTP2RequestEngine(endpoint, concurrentConnections, maxQueueSize, requestsPerConnection, maxRetriesPerRequest, idleTimeout, callback, readCallback)
         elif(engine == Engine.SPIKE):
-            self.engine = burp.SpikeEngine(endpoint, concurrentConnections, maxQueueSize, requestsPerConnection, maxRetriesPerRequest, callback, readCallback)
+            self.engine = burp.SpikeEngine(endpoint, concurrentConnections, maxQueueSize, requestsPerConnection, maxRetriesPerRequest, idleTimeout, callback, readCallback)
         else:
             print('Unrecognised engine. Valid engines are Engine.BURP, Engine.THREADED')
 

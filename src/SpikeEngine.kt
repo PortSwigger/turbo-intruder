@@ -16,7 +16,7 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
-class SpikeEngine(url: String, threads: Int, maxQueueSize: Int,  val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?): RequestEngine() {
+class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override var idleTimeout: Long = 0, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?): RequestEngine() {
 
     var threadLauncher: DefaultThreadLauncher
     var socketFactory: SocketFactory
@@ -29,6 +29,7 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int,  val requestsPer
             LinkedBlockingQueue()
         }
 
+        idleTimeout *= 1000
         threadLauncher = DefaultThreadLauncher()
         socketFactory = TrustAllSocketFactory()
         target = URL(url)
@@ -45,7 +46,7 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int,  val requestsPer
     private fun sendRequests(retryQueue: LinkedBlockingQueue<Request>) {
         var responseStreamHandler: SpikeConnection? = null
 
-        while (!Utils.unloaded && attackState.get() < 3) {
+        while (!Utils.unloaded && !shouldAbandonAttack()) {
             val socket = socketFactory.create(target.host, 443)
             socket.soTimeout = 10000
             socket.tcpNoDelay = false
@@ -56,7 +57,7 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int,  val requestsPer
             var requestsSent = 0
 
             try {
-                while (requestsSent < requestsPerConnection && !Utils.unloaded && attackState.get() < 3) {
+                while (requestsSent < requestsPerConnection && !shouldAbandonAttack()) {
                     if (responseStreamHandler.inflight.size >= 1){
                         // todo make this configurable
                         Thread.sleep(10)
@@ -87,11 +88,11 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int,  val requestsPer
                     val gatedReqs = ArrayList<Request>(10)
                     req.gate!!.reportReadyWithoutWaiting()
                     gatedReqs.add(req)
-                    while ((!req.gate!!.fullyQueued.get() || responseStreamHandler.inflight.size != 0) && attackState.get() < 3) {
+                    while ((!req.gate!!.fullyQueued.get() || responseStreamHandler.inflight.size != 0) && !shouldAbandonAttack()) {
                         Thread.sleep(10)
                     }
 
-                    while (!req.gate!!.isOpen.get() && attackState.get() < 3) {
+                    while (!req.gate!!.isOpen.get() && !shouldAbandonAttack()) {
                         //Utils.out("Waiting on ${req.gate!!.remaining.get()} signals for gate to open on ${req.gate!!.name}")
                         val nextReq = requestQueue.poll(50, TimeUnit.MILLISECONDS) ?: throw RuntimeException("Gate deadlock")
                         if (nextReq.gate!!.name != req.gate!!.name) {

@@ -72,7 +72,7 @@ class SpikeConnection(private val engine: SpikeEngine) : StreamFrameProcessor {
 
     fun prepareCallback(streamID: Int) {
         val headers: List<HeaderFrame> = headerFrames.remove(streamID)!!
-        val data: List<DataFrame> = dataFrames.remove(streamID)!!
+        val data: List<DataFrame> = dataFrames.remove(streamID)?: emptyList()
         val resp = StringBuilder()
         for (frame in headers) {
             for (header in frame.headers()) {

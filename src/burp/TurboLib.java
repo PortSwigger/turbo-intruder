@@ -14,7 +14,7 @@ public class TurboLib {
     static Resp request(IHttpService service, byte[] req) {
         synchronized (service) {
             burp.TurboHelper connection;
-            if (cachedConnections.containsKey(service)) {
+            if (cachedConnections.containsKey(service) && !cachedConnections.get(service).engine.shouldAbandonAttack()) {
                 connection = cachedConnections.get(service);
             } else {
                 boolean forceH2 = Utilities.isHTTP2(req);

@@ -34,6 +34,8 @@ abstract class RequestEngine: IExtensionStateListener {
     abstract val maxRetriesPerRequest: Int
     lateinit var target: URL
     private val floodgates = HashMap<String, Floodgate>()
+    var lastLife: Long = System.currentTimeMillis()
+    abstract var idleTimeout: Long
 
     init {
         if (attackState.get() == 3) {
@@ -51,6 +53,7 @@ abstract class RequestEngine: IExtensionStateListener {
     }
 
     fun invokeCallback(req: Request, interesting: Boolean){
+        updateLastLife()
         try {
             req.invokeCallback(interesting)
         } catch (ex: Exception){
@@ -80,6 +83,7 @@ abstract class RequestEngine: IExtensionStateListener {
     }
 
     fun queue(template: String, payloads: List<kotlin.Any?> = emptyList<kotlin.Any>(), learnBoring: Int = 0, callback: ((Request, Boolean) -> Boolean)? = null, gateName: String? = null, label: String? = null, pauseBefore: Int = 0, pauseTime: Int = 1000, pauseMarkers: List<String> = emptyList(), pythonEngine: Any? = null) {
+        updateLastLife()
 
         val noPayload = payloads.isEmpty()
         val noMarker = !template.contains("%s")
@@ -164,11 +168,33 @@ abstract class RequestEngine: IExtensionStateListener {
     }
 
     open fun openGate(gateName: String) {
-        Utils.out("Requested gate open: $gateName")
+        // Utils.out("Requested gate open: $gateName")
         if (!floodgates.containsKey(gateName)) {
             throw Exception("Unrecognised gate name in openGate() invocation")
         }
         floodgates[gateName]!!.open()
+    }
+
+    fun shouldAbandonAttack(): Boolean {
+        if (Utils.unloaded) {
+            return true
+        }
+        if (attackState.get() >= 3) {
+            return true
+        }
+        if (idleTimeout > 0 && System.currentTimeMillis() > lastLife + idleTimeout) {
+            Utils.out("Advising to abandon attack due to timeout")
+            cancel()
+            return true
+        }
+        return false
+    }
+
+    fun updateLastLife() {
+        if (idleTimeout == 0L) {
+            return
+        }
+        lastLife = System.currentTimeMillis()
     }
 
 
