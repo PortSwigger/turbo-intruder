@@ -5,6 +5,7 @@ import burp.network.stack.http2.frame.Frame
 import burp.network.stack.http2.frame.HeaderFrame
 import net.hackxor.api.Http2Constants
 import net.hackxor.api.StreamFrameProcessor
+import java.io.ByteArrayOutputStream
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
@@ -85,8 +86,16 @@ class SpikeConnection(private val engine: SpikeEngine) : StreamFrameProcessor {
             }
         }
         resp.append("\r\n")
+
+        val bodyBytes = ByteArrayOutputStream()
         for (frame in data) {
-            resp.append(String(frame.data()))
+            bodyBytes.writeBytes(frame.data())
+        }
+
+        if (ThreadedRequestEngine.shouldGzip(resp.toString())) {
+            resp.append(ThreadedRequestEngine.decompress(bodyBytes.toByteArray()))
+        } else {
+            resp.append(String(bodyBytes.toByteArray()))
         }
 
         val req = inflight.remove(streamID) ?: throw RuntimeException("Couldn't find "+streamID+ " in inflight: "+inflight.keys().asSequence())
