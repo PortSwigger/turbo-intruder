@@ -92,7 +92,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
             Utils.out("Bad base request ${words.size} words and more %s")
         }
 
-        return req
+        return fixContentLength(req)
     }
 
     fun stringToBytes(string: String?): ByteArray {
@@ -109,6 +109,11 @@ open class Request(val template: String, val words: List<String?>, val learnBori
 
     fun getResponseAsBytes(): ByteArray? {
         return stringToBytes(response)
+    }
+
+    // todo fix performance
+    fun fixContentLength(request: String): String {
+        return String(fixContentLength(request.toByteArray(Charsets.ISO_8859_1)))
     }
 
     fun fixContentLength(request: ByteArray): ByteArray {
