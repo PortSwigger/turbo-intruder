@@ -74,7 +74,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
 
     fun getRequest(): String {
         if (words.isEmpty()) {
-            return template
+            return fixContentLength(template)
         }
 
         if (!template.contains("%s")) {
