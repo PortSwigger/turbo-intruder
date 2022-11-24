@@ -75,10 +75,13 @@ class SpikeConnection(private val engine: SpikeEngine) : StreamFrameProcessor {
         val headers: List<HeaderFrame> = headerFrames.remove(streamID)!!
         val data: List<DataFrame> = dataFrames.remove(streamID)?: emptyList()
         val resp = StringBuilder()
+        var shouldUnzip = false
         for (frame in headers) {
             for (header in frame.headers()) {
                 if (header.isPseudoHeader) {
                     resp.append("HTTP/2 ${header.value()} OK\r\n")
+                } else if ("content-encoding" == header.name() && "gzip" == header.value()) {
+                    shouldUnzip = true
                 } else {
                     resp.append(header.name()+": "+header.value())
                     resp.append("\r\n")
@@ -92,7 +95,7 @@ class SpikeConnection(private val engine: SpikeEngine) : StreamFrameProcessor {
             bodyBytes.writeBytes(frame.data())
         }
 
-        if (ThreadedRequestEngine.shouldGzip(resp.toString())) {
+        if (shouldUnzip) {
             resp.append(ThreadedRequestEngine.decompress(bodyBytes.toByteArray()))
         } else {
             resp.append(String(bodyBytes.toByteArray()))
