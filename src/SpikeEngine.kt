@@ -76,12 +76,11 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
                         }
                         continue
                     }
-                    
-                    req.connectionID = connectionID
 
                     if (req.gate == null) {
                         val frames = reqToFrames(req, frameFactory)
                         responseStreamHandler.inflight[frames[0].Q] = req
+                        req.connectionID = connectionID
                         req.time = System.nanoTime()
                         connection.sendFrames(frames)
                         requestsSent += 1
@@ -90,6 +89,7 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
 
                     val gatedReqs = ArrayList<Request>(10)
                     req.gate!!.reportReadyWithoutWaiting()
+                    req.connectionID = connectionID
                     gatedReqs.add(req)
                     while ((!req.gate!!.fullyQueued.get() || responseStreamHandler.inflight.size != 0) && !shouldAbandonAttack()) {
                         Thread.sleep(10)
@@ -101,6 +101,7 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
                         if (nextReq.gate!!.name != req.gate!!.name) {
                             throw RuntimeException("Over-read while waiting for gate to open")
                         }
+                        nextReq.connectionID = connectionID
                         gatedReqs.add(nextReq)
                         if (nextReq.gate!!.reportReadyWithoutWaiting()) {
                             break
@@ -156,7 +157,7 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
     }
 
     fun reqToFrames(req: Request, factory: RequestFrameFactory): List<Frame> {
-        val headerList = buildReq(HTTP2Request(req.getRequest()))
+        val headerList = buildReq(HTTP2Request(req.getRequest()), false)
         val properHeaders = ArrayList<Header>(headerList.size)
         for (pair in headerList) {
             properHeaders.add(header(pair.first, pair.second))
