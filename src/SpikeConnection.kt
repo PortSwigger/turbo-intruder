@@ -27,6 +27,7 @@ class SpikeConnection(private val engine: SpikeEngine) : StreamFrameProcessor {
                 val time = System.nanoTime()
                 val req = inflight[frame.Q]!!
                 req.time = (time - req.time) / 1000
+                req.arrival = (time - engine.start) / 1000
                 if (req.gate != null) {
                     val gateName = req!!.gate!!.name
                     val seen = gates.getOrDefault(gateName, 0)

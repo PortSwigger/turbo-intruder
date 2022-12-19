@@ -131,10 +131,32 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         val createIssueButton = JMenuItem("Report as issue")
         createIssueButton.addActionListener {
             val reqs = getSelectedRequests().map(Request::getBurpRequest)
+            val htmlTable = StringBuilder()
+            htmlTable.append("<table>")
+            htmlTable.append("<tr><td>Payload</td><td>Status</td><td>Time</td><td>Arrival</td><td>Label</td><td>Queue ID</td><td>Connection ID</td></tr>")
+
+            for (req in getSelectedRequests()) {
+                htmlTable.append("<tr><td>")
+                htmlTable.append(req.words[0])
+                htmlTable.append("</td><td>")
+                htmlTable.append(req.status)
+                htmlTable.append("</td><td>")
+                htmlTable.append(req.time)
+                htmlTable.append("</td><td>")
+                htmlTable.append(req.arrival)
+                htmlTable.append("</td><td>")
+                htmlTable.append(req.label)
+                htmlTable.append("</td><td>")
+                htmlTable.append(req.order)
+                htmlTable.append("</td><td>")
+                htmlTable.append(req.connectionID)
+                htmlTable.append("</td></tr>")
+            }
+            htmlTable.append("</table>")
             val service = reqs[0].httpService
             val baseReq = StubRequest(Utils.callbacks.helpers.stringToBytes(handler.baseRequest), service)
             val url = URL(service.protocol + "://" + service.host + ":" +service.port)
-            val detail = "<b>Status:</b> "+statusLabel.text + "<br/><br/>\n<pre>"+ handler.code.replace("<", "&lt;")+"</pre>\n"
+            val detail = "<b>Status:</b> "+statusLabel.text + "<br/><br/>\n<pre>"+ handler.code.replace("<", "&lt;")+"</pre>\n"+htmlTable
             val issue = TurboScanIssue(service, url, arrayOf<IHttpRequestResponse>(baseReq) + reqs.toTypedArray(), "Turbo Intruder Attack", detail, "Information", "Certain", "")
             Utils.callbacks.addScanIssue(issue)
         }

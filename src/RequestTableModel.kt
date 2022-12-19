@@ -27,9 +27,11 @@ class RequestTableModel(val handler: OutputHandler) : AbstractTableModel() {
             3 -> java.lang.Integer::class.java
             4 -> java.lang.Integer::class.java
             5 -> java.lang.Long::class.java
-            6 -> String::class.java
-            7 -> java.lang.Integer::class.java
+            6 -> java.lang.Long::class.java
+            7 -> String::class.java
             8 -> java.lang.Integer::class.java
+            9 -> java.lang.Integer::class.java
+
             else -> throw RuntimeException()
         }
     }
@@ -44,9 +46,10 @@ class RequestTableModel(val handler: OutputHandler) : AbstractTableModel() {
             3 -> request.wordcount
             4 -> request.length
             5 -> request.time
-            6 -> request.label
-            7 -> request.id
-            8 -> request.connectionID
+            6 -> request.arrival
+            7 -> request.label
+            8 -> request.id
+            9 -> request.connectionID
             else -> null
         }
     }
@@ -66,6 +69,6 @@ class RequestTableModel(val handler: OutputHandler) : AbstractTableModel() {
     }
 
     companion object {
-        internal val columns = listOf("Row", "Payload", "Status", "Words", "Length", "Time", "Label", "Queue ID", "Connection ID")
+        internal val columns = listOf("Row", "Payload", "Status", "Words", "Length", "Time", "Arrival", "Label", "Queue ID", "Connection ID")
     }
 }

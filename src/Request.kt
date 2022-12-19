@@ -17,6 +17,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
     var gate: Floodgate? = null
     var order: Int = 0
     var time: Long = 0
+    var arrival: Long = 0
     var id = -1
     var pauseBefore: Int = 0
     var pauseTime: Int = 1000
