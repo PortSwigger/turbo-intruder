@@ -2,6 +2,7 @@ package burp
 
 import burp.H2Connection.Companion.buildReq
 import burp.network.stack.http2.frame.Frame
+import burp.network.stack.http2.frame.FrameFlags
 import net.hackxor.api.ConnectionFactory
 import net.hackxor.api.Header
 import net.hackxor.api.Header.header
@@ -16,7 +17,7 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
-class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override var idleTimeout: Long = 0, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?): RequestEngine() {
+class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override var idleTimeout: Long = 0, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?, val warmLocalConnection: Boolean = true): RequestEngine() {
 
     var threadLauncher: DefaultThreadLauncher
     var socketFactory: SocketFactory
@@ -119,14 +120,22 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
                     val marker = allFrames.size - gatedReqs.size
 //                    Utils.out("Frame batch 1: "+allFrames.subList(0, marker))
 //                    Utils.out("Frame batch 2: "+allFrames.subList(marker, allFrames.size))
-                    socket.tcpNoDelay = false
+                    socket.tcpNoDelay = false // original
                     connection.sendFrames(allFrames.subList(0, marker))
                     Thread.sleep(100) // headstart size
+
                     for (gatedReq in gatedReqs) {
                         gatedReq.time = System.nanoTime()
                     }
-                    socket.tcpNoDelay = true
-                    connection.sendFrames(allFrames.subList(marker, allFrames.size))
+                    // socket.tcpNoDelay = true // original
+                    val finalFrames = allFrames.subList(marker, allFrames.size)
+                    if (warmLocalConnection) {
+                        //val warmer = burp.network.stack.http2.frame.PingFrame("12345678".toByteArray())
+                        val warmer =
+                            burp.network.stack.http2.frame.DataFrame(finalFrames[0].Q, FrameFlags(0), "".toByteArray())
+                        finalFrames.add(0, warmer)
+                    }
+                    connection.sendFrames(finalFrames)
                 }
             } catch (ex: Exception) {
                 if (!responseStreamHandler.inflight.isEmpty()) {

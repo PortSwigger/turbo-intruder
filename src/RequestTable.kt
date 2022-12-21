@@ -137,7 +137,9 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
 
             for (req in getSelectedRequests()) {
                 htmlTable.append("<tr><td>")
-                htmlTable.append(req.words[0])
+                if (req.words.isNotEmpty()) {
+                    htmlTable.append(req.words[0])
+                }
                 htmlTable.append("</td><td>")
                 htmlTable.append(req.status)
                 htmlTable.append("</td><td>")
