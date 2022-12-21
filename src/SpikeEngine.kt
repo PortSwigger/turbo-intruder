@@ -130,9 +130,9 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
                     // socket.tcpNoDelay = true // original
                     val finalFrames = allFrames.subList(marker, allFrames.size)
                     if (warmLocalConnection) {
-                        //val warmer = burp.network.stack.http2.frame.PingFrame("12345678".toByteArray())
-                        val warmer =
-                            burp.network.stack.http2.frame.DataFrame(finalFrames[0].Q, FrameFlags(0), "".toByteArray())
+                        val warmer = burp.network.stack.http2.frame.PingFrame("12345678".toByteArray())
+                        // val warmer = burp.network.stack.http2.frame.DataFrame(finalFrames[0].Q, FrameFlags(0), "".toByteArray())
+                        // using an empty data frame upsets some servers
                         finalFrames.add(0, warmer)
                     }
                     connection.sendFrames(finalFrames)
