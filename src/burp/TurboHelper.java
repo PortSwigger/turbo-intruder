@@ -60,7 +60,7 @@ class TurboHelper implements AutoCloseable {
     }
 
     void queue(String req, int pauseBefore, int pauseTime) {
-        engine.queue(req, new ArrayList<>(), 0, null, null, null, pauseBefore, pauseTime, new ArrayList<>(), null); // , Integer.toString(id++)
+        engine.queue(req, new ArrayList<>(), 0, null, null, null, pauseBefore, pauseTime, new ArrayList<>(), 0, null); // , Integer.toString(id++)
     }
 
     Resp blockingRequest(byte[] req) {
@@ -81,7 +81,7 @@ class TurboHelper implements AutoCloseable {
                 responseLock.countDown();
                 return false;
             }
-        }, null, null, pauseBefore, pauseTime, new ArrayList<>(), null);
+        }, null, null, pauseBefore, pauseTime, new ArrayList<>(), 0, null);
 
         try {
             //Utils.err("Request queued, waiting "+ (requestTimeout+1) +"s for callback");

@@ -109,33 +109,50 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
                         }
                     }
 
-                    val allFrames = ArrayList<Frame>(gatedReqs.size*2)
+                    val prepFrames = ArrayList<Frame>(gatedReqs.size)
+                    val finalFrames = ArrayList<Pair<Frame, Long>>(gatedReqs.size)
+
                     for (gatedReq in gatedReqs) {
                         val reqFrames = reqToFrames(gatedReq, frameFactory)
-                        allFrames.addAll(reqFrames)
+                        for (frame in reqFrames) {
+                            if (frame.isFlagSet(0x01)) {
+                                finalFrames.add(Pair(frame, gatedReq.delayCompletion))
+                            }
+                            else {
+                                prepFrames.add(frame)
+                            }
+                        }
                         responseStreamHandler.inflight[reqFrames[0].Q] = gatedReq
                         requestsSent += 1
                     }
-                    allFrames.sortWith(FrameComparator())
-                    val marker = allFrames.size - gatedReqs.size
-//                    Utils.out("Frame batch 1: "+allFrames.subList(0, marker))
-//                    Utils.out("Frame batch 2: "+allFrames.subList(marker, allFrames.size))
+
                     socket.tcpNoDelay = false // original
-                    connection.sendFrames(allFrames.subList(0, marker))
+                    connection.sendFrames(prepFrames)
                     Thread.sleep(100) // headstart size
 
                     for (gatedReq in gatedReqs) {
                         gatedReq.time = System.nanoTime()
                     }
-                    // socket.tcpNoDelay = true // original
-                    val finalFrames = allFrames.subList(marker, allFrames.size)
+
                     if (warmLocalConnection) {
                         val warmer = burp.network.stack.http2.frame.PingFrame("12345678".toByteArray())
                         // val warmer = burp.network.stack.http2.frame.DataFrame(finalFrames[0].Q, FrameFlags(0), "".toByteArray())
                         // using an empty data frame upsets some servers
-                        finalFrames.add(0, warmer)
+                        connection.sendFrames(warmer) // just send it straight away
+                        //finalFrames.add(0, warmer)
                     }
-                    connection.sendFrames(finalFrames)
+
+                    for (pair in finalFrames) {
+                        //Utils.out("Sending final frame")
+                        if (pair.second != 0L) {
+                            //Utils.out("Sleeping for "+pair.second)
+                            // fixme response arrives before this frame is sent!
+                            Thread.sleep(pair.second)
+                        }
+                        //Utils.out("Finished sleeping")
+                        connection.sendFrames(pair.first)
+                    }
+                    //connection.sendFrames(finalFrames)
                 }
             } catch (ex: Exception) {
                 if (!responseStreamHandler.inflight.isEmpty()) {
