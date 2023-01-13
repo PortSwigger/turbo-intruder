@@ -55,7 +55,7 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
             val connectionID = connections.incrementAndGet()
             val connectionFactory = ConnectionFactory.create(threadLauncher, responseStreamHandler)
             val connection = connectionFactory.createConnection(socket) { } // callback is invoked when connection is killed
-            val frameFactory = RequestFrameFactory.createDefaultRequestFrameFactory(connection.negotiatedMaximumFrameSize())
+            val frameFactory = RequestFrameFactory.createSmallFinalDataFrameRequestFrameFactory(connection.negotiatedMaximumFrameSize())
             var requestsSent = 0
 
             try {
@@ -80,7 +80,7 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
 
                     if (req.gate == null) {
                         val frames = reqToFrames(req, frameFactory)
-                        responseStreamHandler.inflight[frames[0].Q] = req
+                        responseStreamHandler.inflight[frames[0].G] = req
                         req.connectionID = connectionID
                         req.time = System.nanoTime()
                         connection.sendFrames(frames)
@@ -122,7 +122,7 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
                                 prepFrames.add(frame)
                             }
                         }
-                        responseStreamHandler.inflight[reqFrames[0].Q] = gatedReq
+                        responseStreamHandler.inflight[reqFrames[0].G] = gatedReq
                         requestsSent += 1
                     }
 

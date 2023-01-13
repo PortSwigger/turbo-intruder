@@ -25,7 +25,7 @@ class SpikeConnection(private val engine: SpikeEngine) : StreamFrameProcessor {
         try {
             if (frame is HeaderFrame) {
                 val time = System.nanoTime()
-                val req = inflight[frame.Q]!!
+                val req = inflight[frame.G]!!
                 req.time = (time - req.time) / 1000
                 req.arrival = (time - engine.start) / 1000
                 if (req.gate != null) {
@@ -35,17 +35,17 @@ class SpikeConnection(private val engine: SpikeEngine) : StreamFrameProcessor {
                     gates[gateName] = seen + 1
                 }
                 val newFrames = headerFrames.computeIfAbsent(
-                    frame.Q
+                    frame.G
                 ) { id: Int? -> LinkedList() }
                 newFrames.add(frame)
             } else if (frame is DataFrame) {
                 val newFrames = dataFrames.computeIfAbsent(
-                    frame.Q
+                    frame.G
                 ) { id: Int? -> LinkedList() }
                 newFrames.add(frame)
             }
             if (frame.isFlagSet(Http2Constants.END_STREAM_FLAG)) {
-                prepareCallback(frame.Q)
+                prepareCallback(frame.G)
             }
         } catch (e: Exception) {
             Utils.out("Oh no: " + e.message)
