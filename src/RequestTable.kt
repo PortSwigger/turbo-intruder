@@ -131,6 +131,10 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         val createIssueButton = JMenuItem("Report as issue")
         createIssueButton.addActionListener {
             val reqs = getSelectedRequests().map(Request::getBurpRequest)
+
+
+            val comment = JOptionPane.showInputDialog(menu, "Comment", "", JOptionPane.PLAIN_MESSAGE) as String
+
             val htmlTable = StringBuilder()
             htmlTable.append("<table>")
             htmlTable.append("<tr><td>Payload</td><td>Status</td><td>Time</td><td>Arrival</td><td>Label</td><td>Queue ID</td><td>Connection ID</td></tr>")
@@ -158,7 +162,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
             val service = reqs[0].httpService
             val baseReq = StubRequest(Utils.callbacks.helpers.stringToBytes(handler.baseRequest), service)
             val url = URL(service.protocol + "://" + service.host + ":" +service.port)
-            val detail = "<b>Status:</b> "+statusLabel.text + "<br/><br/>\n<pre>"+ handler.code.replace("<", "&lt;")+"</pre>\n"+htmlTable
+            val detail = "<b>Comment: "+comment+"</b><br/><br/><b>Status:</b> "+statusLabel.text + "<br/><br/>\n<pre>"+ handler.code.replace("<", "&lt;")+"</pre>\n"+htmlTable
             val issue = TurboScanIssue(service, url, arrayOf<IHttpRequestResponse>(baseReq) + reqs.toTypedArray(), "Turbo Intruder Attack", detail, "Information", "Certain", "")
             Utils.callbacks.addScanIssue(issue)
         }
