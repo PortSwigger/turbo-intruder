@@ -66,7 +66,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         //println("Setting current request to "+req!!.word)
         currentRequest = req!!
         requestEditor.setMessage(req.getRequestAsBytes(), true)
-        responseEditor.setMessage(req.getResponseAsBytes(), false)
+        responseEditor.setMessage(Utilities.replaceFirst(req.getResponseAsBytes(), "Content-Encoding: gzip", "X-Content-Encoding: gz"), false)
     }
 
     init {
