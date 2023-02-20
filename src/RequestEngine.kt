@@ -17,7 +17,7 @@ import kotlin.math.min
 abstract class RequestEngine: IExtensionStateListener {
 
     var start: Long = System.nanoTime()
-    val failedWords = HashMap<String, AtomicInteger>()
+    val failedWords = HashMap<Int, AtomicInteger>()
     var successfulRequests = AtomicInteger(0)
     val userState = HashMap<String, Any>()
     val lastRequestID = AtomicInteger(0)
@@ -339,7 +339,7 @@ abstract class RequestEngine: IExtensionStateListener {
             return false
         }
 
-        val reqID = req.getRequest().hashCode().toString()
+        val reqID = req.id // req.getRequest().hashCode().toString() +
 
         val fails = failedWords[reqID]
         if (fails == null){
