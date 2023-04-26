@@ -129,9 +129,8 @@ class RecordResize: ComponentAdapter() {
 
 }
 
-class TurboIntruderFrame(inputRequest: IHttpRequestResponse, val selectionBounds: IntArray, val fixedScript: String?, val requestOverride: ByteArray?): ActionListener, JFrame("Turbo Intruder - " + inputRequest.httpService.host)  {
-    private val req = Utils.callbacks.saveBuffersToTempFiles(inputRequest)
-
+class TurboIntruderFrame(val req: IHttpRequestResponse, val selectionBounds: IntArray, val fixedScript: String?, val requestOverride: ByteArray?): ActionListener, JFrame("Turbo Intruder - " + req.httpService.host)  {
+    // don't use Utils.callbacks.saveBuffersToTempFiles because it changes HTTP/2 to HTTP/1.1 and breaks the offsets
 
     private fun getDefaultScript(): String {
         if (fixedScript != null) {
