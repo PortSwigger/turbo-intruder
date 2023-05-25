@@ -33,7 +33,7 @@ abstract class RequestEngine: IExtensionStateListener {
     abstract var readCallback: ((String) -> Boolean)?
     abstract val maxRetriesPerRequest: Int
     lateinit var target: URL
-    private val floodgates = HashMap<String, Floodgate>()
+    val floodgates = HashMap<String, Floodgate>()
     var lastLife: Long = System.currentTimeMillis()
     abstract var idleTimeout: Long
 

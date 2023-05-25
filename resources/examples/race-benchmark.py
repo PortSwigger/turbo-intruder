@@ -1,46 +1,61 @@
-from decimal import *
-
 def queueRequests(target, wordlists):
-    req = '''GET /time.php HTTP/1.1
-Host: portswigger-labs.net
+
+    global BATCH_SIZE
+    BATCH_SIZE = 20
+
+
+    engine = RequestEngine(endpoint='https://x.psres.net:443/',
+                           concurrentConnections=BATCH_SIZE,
+                           requestsPerConnection=100,
+                           engine=Engine.THREADED,
+                           pipeline=False,
+                           maxQueueSize=BATCH_SIZE
+                           )
+    req = '''GET /wtf/?nottime=%s HTTP/1.1
+Host: x.psres.net
 Accept-Encoding: gzip, deflate
 Accept: */*
-Accept-Language: en
-User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:67.0) Gecko/20100101 Firefox/67.0
-Connection: keep-alive
+Accept-Language: en-US;q=0.9,en;q=0.8
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.5481.78 Safari/537.36
+Cache-Control: max-age=0
 
 '''
 
-    window = []
-    samples = 30
-    for i in range(samples):
+    for i in range(10):
+        gate_id = str(i)
 
-        engine = RequestEngine(endpoint='https://portswigger-labs.net:443',
-                               concurrentConnections=5,
-                               requestsPerConnection=1,
-                               pipeline=False
-                               )
-        engine.userState['results'] = []
-        engine.userState['window'] = window
+        for x in range(BATCH_SIZE):
+            engine.queue(req, '0.000', gate=gate_id)
 
-        for k in range(5):
-            engine.queue(req, gate='race1')
-
-        engine.openGate('race1')
-
-        engine.complete(timeout=60)
-
-    window.sort()
-    print max(window)
-    print min(window)
-    print window[(samples/2)-1]
+        engine.openGate(gate_id)
+        time.sleep(0.5)
 
 
 def handleResponse(req, interesting):
+    xtime= req.response.split('\r\n\r\n')[1]
+    req.label = xtime
     table.add(req)
-    timestamp = req.response.splitlines()[-1].rstrip('\x00')
-    req.engine.userState['results'].append(Decimal(timestamp))
-    if len(req.engine.userState['results']) == 5:
-        sorted = req.engine.userState['results']
-        sorted.sort()
-        req.engine.userState['window'].append(sorted[1] - sorted[0])
+
+
+def completed(reqsFromTable):
+    diffs = []
+    time.sleep(1)
+    print len(reqsFromTable)
+    for i in range(len(reqsFromTable)):
+        if i % BATCH_SIZE != 0:
+            continue
+
+        entries = []
+        for x in range(BATCH_SIZE):
+            entries.append(float(reqsFromTable[i+x].label))
+
+        entries.sort()
+        diffs.append(entries[-1] - entries[0])
+
+    diffs.sort()
+    print('Best: '+str(min(diffs)))
+    print('Mean: '+str(mean(diffs)))
+    print('Stddev: '+str(stddev(diffs)))
+    print('Median: '+str(diffs[len(diffs)/2]))
+    print('Range: '+str(max(diffs)-min(diffs)))
+    handler.setMessage(str(sum(diffs)/len(diffs)))
