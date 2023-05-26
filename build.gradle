@@ -42,6 +42,7 @@ dependencies {
     //implementation files('albinowaxUtils.jar') // skinny?
     implementation files('albinowaxUtils-all.jar') // includes burp API
     implementation files('http2-spike-obfuscated.jar')
+    implementation files('montoya-api-2023.6-1-BLACKHAT.jar') // private build with batched-request API
 } 
 
 task fatJar(type: Jar) {

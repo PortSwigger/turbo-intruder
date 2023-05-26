@@ -1,4 +1,7 @@
 package burp;
+import burp.api.montoya.BurpExtension;
+
+import burp.api.montoya.MontoyaApi;
 import kotlin.Pair;
 import kotlin.text.Charsets;
 
@@ -16,6 +19,7 @@ public class Utils {
     static boolean gotBurp = false;
     static IBurpExtenderCallbacks callbacks;
     static IExtensionHelpers helpers;
+    static MontoyaApi montoyaApi;
     private static PrintWriter stdout;
     private static PrintWriter stderr;
     static WordRecorder witnessedWords = new WordRecorder();

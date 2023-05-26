@@ -11,6 +11,8 @@ import net.hackxor.api.SocketFactory
 import net.hackxor.utils.DefaultThreadLauncher
 import net.hackxor.utils.FrameComparator
 import net.hackxor.utils.TrustAllSocketFactory
+import java.net.InetSocketAddress
+import java.net.Proxy
 import java.net.URL
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue

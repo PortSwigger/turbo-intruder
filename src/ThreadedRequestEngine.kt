@@ -101,6 +101,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         return trustingSslContext.socketFactory
     }
 
+    // val proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress("localhost", 6574))
+
     override fun start(timeout: Int) {
         connectedLatch.await(timeout.toLong(), TimeUnit.SECONDS)
         attackState.set(1)

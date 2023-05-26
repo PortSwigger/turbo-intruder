@@ -6,10 +6,17 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
+import burp.api.montoya.MontoyaApi;
+import burp.api.montoya.http.Http;
+import burp.api.montoya.http.HttpService
+import burp.api.montoya.http.message.HttpRequestResponse
+import burp.api.montoya.http.message.requests.HttpRequest
+import kotlin.collections.ArrayList
 
 open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, override val maxRetriesPerRequest: Int, override var idleTimeout: Long = 0, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?, val useHTTP1: Boolean): RequestEngine() {
 
     private val threadPool = ArrayList<Thread>()
+    private val gatedRequests: HashMap<String, LinkedList<Request>> = HashMap()
 
     init {
         requestQueue = if (maxQueueSize > 0) {
@@ -18,6 +25,7 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
         else {
             LinkedBlockingQueue()
         }
+
 
         completedLatch = CountDownLatch(threads)
 
@@ -59,6 +67,7 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
         var responseTime = 0L
         if (useHTTP1) {
             try {
+
                 resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes(), true)
                 responseTime = System.nanoTime() - startTime
             } catch (e: NoSuchMethodError) {
@@ -76,6 +85,21 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
         return Pair(resp, responseTime/1000) // convert to microseconds
     }
 
+
+    private fun getGatedRequests(): List<Request>? {
+        val gates = gatedRequests.keys
+        for (gate in gates) {
+            synchronized(gate) {
+                if (floodgates.get(gate)?.isOpen?.get() == true) {
+                    val toSend = gatedRequests.get(gate)
+                    gatedRequests.remove(gate)
+                    return toSend
+                }
+            }
+        }
+        return null
+    }
+
     private fun sendRequests(service: IHttpService) {
         while(attackState.get()<1) {
             Thread.sleep(10)
@@ -83,9 +107,42 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
 
 
         while(attackState.get() < 3 && !Utils.unloaded) {
+
+            val requestGroup = getGatedRequests()
+            if (requestGroup != null) {
+                val preppedRequestBatch = ArrayList<HttpRequest>()
+
+                val montoyaService = HttpService.httpService(service.host, service.port, "https".equals(service.protocol))
+
+                for (req in requestGroup) {
+                    val montoyaReq = HttpRequest.httpRequest(montoyaService, req.getRequest())
+                    preppedRequestBatch.add(montoyaReq)
+                }
+
+                val responses = Utils.montoyaApi.http().sendRequests(preppedRequestBatch)
+                var n = 0
+                for (resp in responses) {
+                    val req = requestGroup.get(n++)
+
+                    // todo needs polish
+                    if (resp.response() == null) {
+                        req.response = "The server closed the connection without issuing a response."
+                    } else {
+                        req.response = resp.response().toString()
+                    }
+                    invokeCallback(req, true)
+                }
+
+                continue
+            }
+
             val req = requestQueue.poll(100, TimeUnit.MILLISECONDS)
 
-            if(req == null) {
+            if (req == null) {
+                if (gatedRequests.isNotEmpty()) {
+                    continue;
+                }
+
                 if (attackState.get() == 2) {
                     completedLatch.countDown()
                     return
@@ -93,6 +150,13 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
                 else {
                     continue
                 }
+            }
+
+            if (req.gate != null) {
+                gatedRequests.putIfAbsent(req.gate!!.name, LinkedList<Request>())
+                gatedRequests.get(req.gate!!.name)!!.add(req)
+                req.gate!!.remaining.decrementAndGet() // todo is this right?
+                continue
             }
 
             var (resp, time) = request(service, req)
@@ -106,18 +170,22 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
 
             req.time = time
 
-            if(resp.response == null) {
-                req.response = "The server closed the connection without issuing a response."
-                invokeCallback(req, true)
-            }
+            passToCallback(req, resp)
+        }
 
-            if (resp.response != null) {
-                successfulRequests.getAndIncrement()
-                val interesting = processResponse(req, resp.response)
-                req.response = Utils.helpers.bytesToString(resp.response) // , StandardCharsets.UTF_8
-                invokeCallback(req, interesting)
-            }
+    }
 
+    private fun passToCallback(req: Request, resp: IHttpRequestResponse) {
+        if(resp.response == null) {
+            req.response = "The server closed the connection without issuing a response."
+            invokeCallback(req, true)
+        }
+
+        if (resp.response != null) {
+            successfulRequests.getAndIncrement()
+            val interesting = processResponse(req, resp.response)
+            req.response = Utils.helpers.bytesToString(resp.response) // , StandardCharsets.UTF_8
+            invokeCallback(req, interesting)
         }
     }
 
