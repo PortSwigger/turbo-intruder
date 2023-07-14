@@ -61,6 +61,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
     private val controller = MessageEditorController()
     private var currentRequest: Request? = null
     private var firstEntry = true
+    private val lock = Object()
 
     fun setCurrentRequest(req: Request?) {
         //println("Setting current request to "+req!!.word)
@@ -187,13 +188,15 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
     }
 
 
-    @Synchronized override fun add(req: Request) {
-        save(req)
-        model.fireTableRowsInserted(requests.lastIndex, requests.lastIndex)
-        if (firstEntry) {
-            issueTable.changeSelection(0, 0, false, false)
-            issueTable.requestFocusInWindow()
-            firstEntry = false
+    override fun add(req: Request) {
+        synchronized(lock) {
+            save(req)
+            model.fireTableRowsInserted(requests.lastIndex, requests.lastIndex)
+            if (firstEntry) {
+                issueTable.changeSelection(0, 0, false, false)
+                issueTable.requestFocusInWindow()
+                firstEntry = false
+            }
         }
     }
 
