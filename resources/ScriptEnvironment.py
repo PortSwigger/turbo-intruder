@@ -151,12 +151,12 @@ def UniqueWordCount(instances=1):
                 CodeWords = {}
 
             if "lastreq" in CodeWords:
-                currreqs = req.engine.successfulRequests.intValue()
+                currreqs = req.engine.engine.successfulRequests.intValue()
                 lastreqs = CodeWords["lastreq"]
                 if currreqs < lastreqs:
                     CodeWords = {}
                     CodeWords["lastreq"] = currreqs
-            CodeWords["lastreq"] = req.engine.successfulRequests.intValue()
+            CodeWords["lastreq"] = req.engine.engine.successfulRequests.intValue()
 
             codeword = str(req.status) + str(req.wordcount)
             if codeword in CodeWords:
@@ -180,12 +180,12 @@ def UniqueLineCount(instances=1):
                 CodeLines = {}
 
             if "lastreq" in CodeLines:
-                currreqs = req.engine.successfulRequests.intValue()
+                currreqs = req.engine.engine.successfulRequests.intValue()
                 lastreqs = CodeLines["lastreq"]
                 if currreqs < lastreqs:
                     CodeLines = {}
                     CodeLines["lastreq"] = currreqs
-            CodeLines["lastreq"] = req.engine.successfulRequests.intValue()
+            CodeLines["lastreq"] = req.engine.engine.successfulRequests.intValue()
 
             linecount = len(req.response.split('\n'))
             codeline = str(req.status) + str(linecount)
@@ -210,13 +210,13 @@ def UniqueSize(instances=1):
                 CodeLength = {}
 
             if "lastreq" in CodeLength:
-                currreqs = req.engine.successfulRequests.intValue()
+                currreqs = req.engine.engine.successfulRequests.intValue()
                 lastreqs = CodeLength["lastreq"]
                 if currreqs < lastreqs:
                     CodeLength = {}
                     CodeLength["lastreq"] = currreqs
 
-            CodeLength["lastreq"] = req.engine.successfulRequests.intValue()
+            CodeLength["lastreq"] = req.engine.engine.successfulRequests.intValue()
 
             codelen = str(req.status) + str(req.length)
             if codelen in CodeLength:
