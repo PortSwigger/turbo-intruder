@@ -6,10 +6,8 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
-import burp.api.montoya.MontoyaApi;
-import burp.api.montoya.http.Http;
+import burp.api.montoya.http.HttpMode
 import burp.api.montoya.http.HttpService
-import burp.api.montoya.http.message.HttpRequestResponse
 import burp.api.montoya.http.message.requests.HttpRequest
 import kotlin.collections.ArrayList
 
@@ -119,7 +117,17 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
                     preppedRequestBatch.add(montoyaReq)
                 }
 
-                val responses = Utils.montoyaApi.http().sendRequests(preppedRequestBatch)
+                val protocolVersion: HttpMode
+                if (useHTTP1) {
+                    connections.addAndGet(requestGroup.size)
+                    protocolVersion = HttpMode.HTTP_1
+                } else {
+                    connections.incrementAndGet()
+                    protocolVersion = HttpMode.HTTP_2
+                }
+
+                connections.incrementAndGet()
+                val responses = Utils.montoyaApi.http().sendRequests(preppedRequestBatch, protocolVersion)
                 var n = 0
                 for (resp in responses) {
                     val req = requestGroup.get(n++)
