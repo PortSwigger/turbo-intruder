@@ -84,6 +84,7 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
     }
 
 
+    // this will return null unless there's an open gate with pending requests
     private fun getGatedRequests(): List<Request>? {
         val gates = gatedRequests.keys
         for (gate in gates) {
@@ -128,11 +129,14 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
 
                 connections.incrementAndGet()
                 val responses = Utils.montoyaApi.http().sendRequests(preppedRequestBatch, protocolVersion)
+
+                // fixme the below code was copy+pasted, need to refactor
+                // put retry-logic in separate function
+                // split out object-merge from passToCallback
                 var n = 0
                 for (resp in responses) {
                     val req = requestGroup.get(n++)
 
-                    // todo needs polish
                     if (resp.response() == null) {
                         req.response = "The server closed the connection without issuing a response."
                     } else {
