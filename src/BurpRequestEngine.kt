@@ -119,30 +119,45 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
                 }
 
                 val protocolVersion: HttpMode
+                var connectionID = 0
                 if (useHTTP1) {
                     connections.addAndGet(requestGroup.size)
                     protocolVersion = HttpMode.HTTP_1
                 } else {
-                    connections.incrementAndGet()
                     protocolVersion = HttpMode.HTTP_2
+                    connectionID = connections.incrementAndGet()
                 }
 
-                connections.incrementAndGet()
+                var timer = System.nanoTime()
                 val responses = Utils.montoyaApi.http().sendRequests(preppedRequestBatch, protocolVersion)
+                timer = System.nanoTime() - timer
+                val arrival = System.nanoTime() - start
 
-                // fixme the below code was copy+pasted, need to refactor
-                // put retry-logic in separate function
-                // split out object-merge from passToCallback
                 var n = 0
                 for (resp in responses) {
                     val req = requestGroup.get(n++)
 
                     if (resp.response() == null) {
                         req.response = "The server closed the connection without issuing a response."
+                        permaFails.incrementAndGet()
                     } else {
+                        successfulRequests.getAndIncrement()
                         req.response = resp.response().toString()
                     }
-                    invokeCallback(req, true)
+
+                    // todo use burp's response timer once available
+                    req.time = timer / 1000
+                    req.arrival = arrival / 1000
+
+                    if (useHTTP1) {
+                        req.connectionID = connections.incrementAndGet()
+                    } else {
+                        req.connectionID = connectionID
+                    }
+
+                    val interesting = processResponse(req, resp.response().toByteArray().bytes)
+                    // we don't need to support retries for batches requests
+                    invokeCallback(req, interesting)
                 }
 
                 continue
