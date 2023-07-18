@@ -146,6 +146,7 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
                     }
 
                     // todo use burp's response timer once available
+                    // todo sort responses by time so they appear in the right order in the table
                     req.time = timer / 1000
                     req.arrival = arrival / 1000
 

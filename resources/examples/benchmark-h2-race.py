@@ -1,13 +1,13 @@
 def queueRequests(target, wordlists):
 
     global BATCH_SIZE
-    BATCH_SIZE = 30
+    BATCH_SIZE = 20
 
 
     engine = RequestEngine(endpoint='https://x.psres.net:443',
                            concurrentConnections=1,
                            requestsPerConnection=1000,
-                           engine=Engine.SPIKE,
+                           engine=Engine.BURP2,
                            pipeline=False,
                            maxQueueSize=BATCH_SIZE
                            )
