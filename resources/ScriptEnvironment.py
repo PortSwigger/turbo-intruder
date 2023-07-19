@@ -279,7 +279,7 @@ class RequestEngine:
             readFreq = 1
 
         if (engine == Engine.BURP or engine == Engine.BURP2):
-            if(requestsPerConnection > 1 or pipeline):
+            if(engine == Engine.BURP and (requestsPerConnection > 1 or pipeline)):
                 print('requestsPerConnection has been forced to 1 and pipelining has been disabled due to Burp engine limitations')
             if(readCallback != None):
                 print('Read callbacks are not supported in the Burp request engine. Try Engine.THREADED instead.')
