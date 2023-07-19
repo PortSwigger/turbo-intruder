@@ -10,6 +10,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
 
     var response: String? = null
     var details: IResponseVariations? = null
+    var interesting: Boolean = false
     var _engine: RequestEngine? = null
     var engine: Any? = null
     var connectionID: Int? = null

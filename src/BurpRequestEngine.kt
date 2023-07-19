@@ -128,15 +128,16 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
                     connectionID = connections.incrementAndGet()
                 }
 
-                var timer = System.nanoTime()
+                val timer = System.nanoTime()
                 val responses = Utils.montoyaApi.http().sendRequests(preppedRequestBatch, protocolVersion)
-                timer = System.nanoTime() - timer
-                val arrival = System.nanoTime() - start
 
                 var n = 0
+
+                val reqs: ArrayList<Request> = ArrayList()
                 for (resp in responses) {
                     val req = requestGroup.get(n++)
 
+                    // we don't need to support retries for batches requests
                     if (resp.response() == null) {
                         req.response = "The server closed the connection without issuing a response."
                         permaFails.incrementAndGet()
@@ -145,20 +146,22 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
                         req.response = resp.response().toString()
                     }
 
-                    // todo use burp's response timer once available
-                    // todo sort responses by time so they appear in the right order in the table
-                    req.time = timer / 1000
-                    req.arrival = arrival / 1000
+                    req.time = resp.timingData().get().timeBetweenRequestSentAndStartOfResponse().toNanos() / 1000
+                    req.arrival = (timer - start)/1000 + req.time
 
                     if (useHTTP1) {
                         req.connectionID = connections.incrementAndGet()
                     } else {
                         req.connectionID = connectionID
                     }
+                    req.interesting = processResponse(req, resp.response().toByteArray().bytes)
+                    reqs.add(req)
+                }
 
-                    val interesting = processResponse(req, resp.response().toByteArray().bytes)
-                    // we don't need to support retries for batches requests
-                    invokeCallback(req, interesting)
+                reqs.sortBy { it.time }
+
+                for (req in reqs) {
+                    invokeCallback(req, req.interesting)
                 }
 
                 continue
