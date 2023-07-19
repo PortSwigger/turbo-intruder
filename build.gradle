@@ -41,7 +41,7 @@ dependencies {
     //implementation 'net.portswigger.burp.extender:burp-extender-api:2.3'
     //implementation files('albinowaxUtils.jar') // skinny?
     implementation files('albinowaxUtils-all.jar') // includes burp API
-    implementation files('http2-spike-obfuscated.jar')
+    //implementation files('http2-spike-obfuscated.jar')
     compileOnly files('montoya-api-2023.7-13-BLACKHAT.jar') // private build with batched-request API
 } 
 
