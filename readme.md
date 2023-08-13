@@ -23,3 +23,11 @@ Linux: `./gradlew build fatjar`
 Windows: `gradlew.bat build fatjar`
 
 Grab the output from `build/libs/turbo-intruder-all.jar`
+
+### Single-packet attack reference implementation
+
+If you're interested in creating your own implementation of the [single-packet attack](https://portswigger.net/research/smashing-the-state-machine#single-packet-attack), you can view Turbo Intruder's reference implementation in
+[src/SpikeEngine.kt](https://github.com/PortSwigger/turbo-intruder/blob/89f76a82974f07b1529432bf880157aed5c98045/src/SpikeEngine.kt) and 
+[src/SpikeConnection.kt](https://github.com/PortSwigger/turbo-intruder/blob/89f76a82974f07b1529432bf880157aed5c98045/src/SpikeConnection.kt)
+
+This reference implementation was built on Burp Suite's native HTTP/2 stack. It should be possible to make a similar implementation using any HTTP/2 library that provides a frame-level interface. I've seen Golang's HTTP/2 stack used for some frame-level attacks so that might be a good choice.
