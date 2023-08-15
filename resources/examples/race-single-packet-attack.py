@@ -8,7 +8,8 @@ def queueRequests(target, wordlists):
                            engine=Engine.BURP2
                            )
 
-    # the 'gate' argument withholds the final byte of each request until openGate is invoked
+    # the 'gate' argument withholds part of each request until openGate is invoked
+    # if you see a negative timestamp, the server responded before the request was complete
     for i in range(20):
         engine.queue(target.req, gate='race1')
 
