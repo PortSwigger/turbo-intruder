@@ -2,8 +2,8 @@ apply plugin: 'java'
 
 apply plugin: 'kotlin'
 
-sourceCompatibility = 11
-targetCompatibility = 11
+sourceCompatibility = 17
+targetCompatibility = 17
 
 buildscript {
 
@@ -38,12 +38,9 @@ dependencies {
     implementation 'org.python:jython-standalone:2.7.0' // use 'runtimeOnly' for no-jython build
     implementation 'com.fifesoft:rsyntaxtextarea:3.1.1'
     implementation files('hpack-1.0.2.jar')
-    //implementation 'net.portswigger.burp.extender:burp-extender-api:2.3'
-    //implementation files('albinowaxUtils.jar') // skinny?
-    implementation files('albinowaxUtils-all.jar') // includes burp API
-    //implementation files('http2-spike-obfuscated.jar')
-    compileOnly files('montoya-api-2023.7-13-BLACKHAT.jar') // private build with batched-request API
-} 
+    implementation files('albinowaxUtils-all.jar') // includes burp wiener API
+    implementation 'net.portswigger.burp.extensions:montoya-api:2023.9'
+}
 
 task fatJar(type: Jar) {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
