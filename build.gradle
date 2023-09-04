@@ -35,7 +35,11 @@ sourceSets {
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib:1.5.30"
-    implementation 'org.python:jython-standalone:2.7.0' // use 'runtimeOnly' for no-jython build
+
+
+    implementation 'org.python:jython-standalone:2.7.0' // use this for extension jar
+    // runtimeOnly 'org.python:jython-standalone:2.7.0' // use this for library jar
+
     implementation 'com.fifesoft:rsyntaxtextarea:3.1.1'
     implementation files('hpack-1.0.2.jar')
     implementation files('albinowaxUtils-all.jar') // includes burp wiener API
