@@ -43,7 +43,6 @@ dependencies {
     implementation 'com.fifesoft:rsyntaxtextarea:3.1.1'
     implementation files('hpack-1.0.2.jar')
     implementation files('albinowaxUtils-all.jar') // includes burp wiener API
-    implementation 'net.portswigger.burp.extensions:montoya-api:2023.9'
 }
 
 task fatJar(type: Jar) {
