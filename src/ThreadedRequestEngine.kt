@@ -1,6 +1,8 @@
 package burp
 
 //import jdk.net.ExtendedSocketOptions
+import burp.api.montoya.utilities.CompressionType
+import burp.api.montoya.utilities.CompressionUtils
 import java.io.*
 import java.net.*
 import java.security.cert.X509Certificate
@@ -64,11 +66,25 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
     companion object {
 
-        fun shouldGzip(buf: String): Boolean {
-            return buf.lowercase().indexOf("content-encoding: gzip") != -1
+        fun uncompressIfNecessary(headers: String, body: String): String {
+            if (headers.lowercase().indexOf("content-encoding: ") == -1) {
+                return body
+            }
+            val compressionType: CompressionType
+            if (headers.lowercase().indexOf("content-encoding: gzip") != -1) {
+                compressionType = CompressionType.GZIP
+            } else if (headers.lowercase().indexOf("content-encoding: deflate") != -1) {
+                compressionType = CompressionType.DEFLATE
+            } else if (headers.lowercase().indexOf("content-encoding: br") != -1) {
+                compressionType = CompressionType.BROTLI
+            } else {
+                return body
+            }
+            val decompressed = Utils.montoyaApi.utilities().compressionUtils().decompress(burp.api.montoya.core.ByteArray.byteArray(body), compressionType)
+            return Utils.montoyaApi.utilities().byteUtils().convertToString(decompressed.bytes)
         }
 
-        fun decompress(compressed: ByteArray): String {
+        fun ungzip(compressed: ByteArray): String {
             if (compressed.isEmpty()) {
                 return ""
             }
@@ -297,7 +313,6 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         }
 
                         val contentLength = getContentLength(buffer)
-                        val shouldGzip = shouldGzip(buffer)
 
                         if (buffer.isEmpty()) {
                             throw ConnectException("No response")
@@ -389,11 +404,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         }
 
                         var msg = headers
-                        msg += if (shouldGzip) {
-                            decompress(body.toByteArray(Charsets.ISO_8859_1))
-                        } else {
-                            body
-                        }
+                        msg += uncompressIfNecessary(headers, body)
 
                         reqWithResponse = inflight.removeFirst()
                         successfulRequests.getAndIncrement()

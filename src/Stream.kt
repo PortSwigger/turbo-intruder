@@ -93,9 +93,9 @@ class Stream(val connection: H2Connection, val streamID: Int, val req: Request, 
         if (frame.die) {
             req.time = (System.nanoTime() - req.time) / 1000000
             connection.engine.successfulRequests.getAndIncrement()
-            if (ThreadedRequestEngine.shouldGzip(headers)) {
-                body = ThreadedRequestEngine.decompress(body.toByteArray(Charsets.ISO_8859_1))
-            }
+//            if (ThreadedRequestEngine.shouldUngzip(headers)) {
+//                body = ThreadedRequestEngine.ungzip(body.toByteArray(Charsets.ISO_8859_1))
+//            }
 
             req.response = headers + "\r\n" + body
             val interesting = connection.engine.processResponse(req, (req.response as String).toByteArray(Charsets.ISO_8859_1))
