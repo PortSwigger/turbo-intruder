@@ -28,8 +28,6 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
         completedLatch = CountDownLatch(threads)
 
         target = URL(url)
-
-
         val service = Utils.callbacks.helpers.buildHttpService(target.host, target.port, target.protocol == "https")
 
         for(j in 1..threads) {
@@ -190,11 +188,20 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
                 continue
             }
 
-            var (resp, time) = request(service, req)
+
+            val tempService: IHttpService
+            if (req.endpointOverride != null) {
+                val overrideTarget = URL(req.endpointOverride)
+                tempService = Utils.callbacks.helpers.buildHttpService(overrideTarget.host, overrideTarget.port, overrideTarget.protocol == "https")
+            } else {
+                tempService = service
+            }
+
+            var (resp, time) = request(tempService, req)
             connections.incrementAndGet()
             while (resp!!.response == null && shouldRetry(req)) {
                 Utils.out("Retrying ${req.words}")
-                resp = request(service, req).first
+                resp = request(tempService, req).first
                 connections.incrementAndGet()
                 Utils.out("Retried ${req.words}")
             }
