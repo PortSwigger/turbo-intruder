@@ -202,7 +202,7 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
                     val bytes = Utils.helpers.stringToBytes(req.getRequest().replace("HTTP/2\r\n","HTTP/1.1\r\n"))
                     val startTime = System.nanoTime()
                     resp = Utils.callbacks.makeHttpRequest(tempService, bytes)
-                    time = System.nanoTime() - startTime
+                    time = (System.nanoTime() - startTime) / 1000
                 } else {
                     val pair = request(service, req)
                     resp = pair.first
