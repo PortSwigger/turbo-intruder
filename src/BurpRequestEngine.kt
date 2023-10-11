@@ -189,27 +189,31 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
                     continue
                 }
 
-
-                val tempService: IHttpService
+                var resp: IHttpRequestResponse?
+                var time: Long
                 if (req.endpointOverride != null) {
-                    Utils.out("URL: "+req.endpointOverride)
+                    //Utils.out("URL: "+req.endpointOverride)
                     val overrideTarget = URL(req.endpointOverride)
-                    tempService = Utils.callbacks.helpers.buildHttpService(
+                    val tempService = Utils.callbacks.helpers.buildHttpService(
                         overrideTarget.host,
                         overrideTarget.port,
                         overrideTarget.protocol == "https"
                     )
+                    val bytes = Utils.helpers.stringToBytes(req.getRequest().replace("HTTP/2\r\n","HTTP/1.1\r\n"))
+                    val startTime = System.nanoTime()
+                    resp = Utils.callbacks.makeHttpRequest(tempService, bytes)
+                    time = System.nanoTime() - startTime
                 } else {
-                    tempService = service
-                }
-
-                var (resp, time) = request(tempService, req)
-                connections.incrementAndGet()
-                while (resp!!.response == null && shouldRetry(req)) {
-                    Utils.out("Retrying ${req.words}")
-                    resp = request(tempService, req).first
+                    val pair = request(service, req)
+                    resp = pair.first
+                    time = pair.second
                     connections.incrementAndGet()
-                    Utils.out("Retried ${req.words}")
+                    while (resp!!.response == null && shouldRetry(req)) {
+                        Utils.out("Retrying ${req.words}")
+                        resp = request(service, req).first
+                        connections.incrementAndGet()
+                        Utils.out("Retried ${req.words}")
+                    }
                 }
 
                 req.time = time
@@ -226,13 +230,13 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
         }
     }
 
-    private fun passToCallback(req: Request, resp: IHttpRequestResponse) {
-        if(resp.response == null) {
+    private fun passToCallback(req: Request, resp: IHttpRequestResponse?) {
+        if(resp == null || resp.response == null) {
             req.response = "The server closed the connection without issuing a response."
             invokeCallback(req, true)
         }
 
-        if (resp.response != null) {
+        if (resp!!.response != null) {
             successfulRequests.getAndIncrement()
             val interesting = processResponse(req, resp.response)
             req.response = Utils.helpers.bytesToString(resp.response) // , StandardCharsets.UTF_8
