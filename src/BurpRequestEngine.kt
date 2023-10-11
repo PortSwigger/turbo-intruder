@@ -105,112 +105,125 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
 
         while(attackState.get() < 3 && !Utils.unloaded) {
 
-            val requestGroup = getGatedRequests()
-            if (requestGroup != null) {
-                val preppedRequestBatch = ArrayList<HttpRequest>()
+            try {
+                val requestGroup = getGatedRequests()
+                if (requestGroup != null) {
+                    val preppedRequestBatch = ArrayList<HttpRequest>()
 
-                val montoyaService = HttpService.httpService(service.host, service.port, "https".equals(service.protocol))
+                    val montoyaService =
+                        HttpService.httpService(service.host, service.port, "https".equals(service.protocol))
 
-                for (req in requestGroup) {
-                    val montoyaReq = HttpRequest.httpRequest(montoyaService, req.getRequest())
-                    preppedRequestBatch.add(montoyaReq)
-                }
-
-                val protocolVersion: HttpMode
-                var connectionID = 0
-                if (useHTTP1) {
-                    connections.addAndGet(requestGroup.size)
-                    protocolVersion = HttpMode.HTTP_1
-                } else {
-                    protocolVersion = HttpMode.HTTP_2
-                    connectionID = connections.incrementAndGet()
-                }
-
-                val timer = System.nanoTime()
-                val responses = Utils.montoyaApi.http().sendRequests(preppedRequestBatch, protocolVersion)
-
-                var n = 0
-
-                val reqs: ArrayList<Request> = ArrayList()
-                for (resp in responses) {
-                    val req = requestGroup.get(n++)
-
-                    // we don't need to support retries for batches requests
-                    if (resp.response() == null) {
-                        req.response = "The server closed the connection without issuing a response."
-                        permaFails.incrementAndGet()
-                    } else {
-                        successfulRequests.getAndIncrement()
-                        req.response = resp.response().toString()
+                    for (req in requestGroup) {
+                        val montoyaReq = HttpRequest.httpRequest(montoyaService, req.getRequest())
+                        preppedRequestBatch.add(montoyaReq)
                     }
 
-                    req.time = resp.timingData().get().timeBetweenRequestSentAndStartOfResponse().toNanos() / 1000
-                    req.arrival = (timer - start)/1000 + req.time
-
+                    val protocolVersion: HttpMode
+                    var connectionID = 0
                     if (useHTTP1) {
-                        req.connectionID = connections.incrementAndGet()
+                        connections.addAndGet(requestGroup.size)
+                        protocolVersion = HttpMode.HTTP_1
                     } else {
-                        req.connectionID = connectionID
+                        protocolVersion = HttpMode.HTTP_2
+                        connectionID = connections.incrementAndGet()
                     }
-                    req.interesting = processResponse(req, resp.response().toByteArray().bytes)
-                    reqs.add(req)
-                }
 
-                reqs.sortBy { it.time }
+                    val timer = System.nanoTime()
+                    val responses = Utils.montoyaApi.http().sendRequests(preppedRequestBatch, protocolVersion)
 
-                for (req in reqs) {
-                    invokeCallback(req, req.interesting)
-                }
+                    var n = 0
 
-                continue
-            }
+                    val reqs: ArrayList<Request> = ArrayList()
+                    for (resp in responses) {
+                        val req = requestGroup.get(n++)
 
-            val req = requestQueue.poll(100, TimeUnit.MILLISECONDS)
+                        // we don't need to support retries for batches requests
+                        if (resp.response() == null) {
+                            req.response = "The server closed the connection without issuing a response."
+                            permaFails.incrementAndGet()
+                        } else {
+                            successfulRequests.getAndIncrement()
+                            req.response = resp.response().toString()
+                        }
 
-            if (req == null) {
-                if (gatedRequests.isNotEmpty()) {
-                    continue;
-                }
+                        req.time = resp.timingData().get().timeBetweenRequestSentAndStartOfResponse().toNanos() / 1000
+                        req.arrival = (timer - start) / 1000 + req.time
 
-                if (attackState.get() == 2) {
-                    completedLatch.countDown()
-                    return
-                }
-                else {
+                        if (useHTTP1) {
+                            req.connectionID = connections.incrementAndGet()
+                        } else {
+                            req.connectionID = connectionID
+                        }
+                        req.interesting = processResponse(req, resp.response().toByteArray().bytes)
+                        reqs.add(req)
+                    }
+
+                    reqs.sortBy { it.time }
+
+                    for (req in reqs) {
+                        invokeCallback(req, req.interesting)
+                    }
+
                     continue
                 }
-            }
 
-            if (req.gate != null) {
-                gatedRequests.putIfAbsent(req.gate!!.name, LinkedList<Request>())
-                gatedRequests.get(req.gate!!.name)!!.add(req)
-                req.gate!!.remaining.decrementAndGet() // todo is this right?
+                val req = requestQueue.poll(100, TimeUnit.MILLISECONDS)
+
+                if (req == null) {
+                    if (gatedRequests.isNotEmpty()) {
+                        continue;
+                    }
+
+                    if (attackState.get() == 2) {
+                        completedLatch.countDown()
+                        return
+                    } else {
+                        continue
+                    }
+                }
+
+                if (req.gate != null) {
+                    gatedRequests.putIfAbsent(req.gate!!.name, LinkedList<Request>())
+                    gatedRequests.get(req.gate!!.name)!!.add(req)
+                    req.gate!!.remaining.decrementAndGet() // todo is this right?
+                    continue
+                }
+
+
+                val tempService: IHttpService
+                if (req.endpointOverride != null) {
+                    Utils.out("URL: "+req.endpointOverride)
+                    val overrideTarget = URL(req.endpointOverride)
+                    tempService = Utils.callbacks.helpers.buildHttpService(
+                        overrideTarget.host,
+                        overrideTarget.port,
+                        overrideTarget.protocol == "https"
+                    )
+                } else {
+                    tempService = service
+                }
+
+                var (resp, time) = request(tempService, req)
+                connections.incrementAndGet()
+                while (resp!!.response == null && shouldRetry(req)) {
+                    Utils.out("Retrying ${req.words}")
+                    resp = request(tempService, req).first
+                    connections.incrementAndGet()
+                    Utils.out("Retried ${req.words}")
+                }
+
+                req.time = time
+
+                passToCallback(req, resp)
+
+            } catch (ex: Exception) {
+                ex.printStackTrace()
+                Utils.err("Ignoring error: "+ex.toString())
+                permaFails.getAndIncrement()
+                // todo add null response to table
                 continue
             }
-
-
-            val tempService: IHttpService
-            if (req.endpointOverride != null) {
-                val overrideTarget = URL(req.endpointOverride)
-                tempService = Utils.callbacks.helpers.buildHttpService(overrideTarget.host, overrideTarget.port, overrideTarget.protocol == "https")
-            } else {
-                tempService = service
-            }
-
-            var (resp, time) = request(tempService, req)
-            connections.incrementAndGet()
-            while (resp!!.response == null && shouldRetry(req)) {
-                Utils.out("Retrying ${req.words}")
-                resp = request(tempService, req).first
-                connections.incrementAndGet()
-                Utils.out("Retried ${req.words}")
-            }
-
-            req.time = time
-
-            passToCallback(req, resp)
         }
-
     }
 
     private fun passToCallback(req: Request, resp: IHttpRequestResponse) {

@@ -112,6 +112,9 @@ open class Request(val template: String, val words: List<String?>, val learnBori
     }
 
     fun getResponseAsBytes(): ByteArray? {
+        if (response == null) {
+            return "null".toByteArray()
+        }
         return stringToBytes(response)
     }
 
