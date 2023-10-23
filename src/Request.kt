@@ -17,7 +17,8 @@ open class Request(val template: String, val words: List<String?>, val learnBori
     var callback: ((Request, Boolean) -> Boolean)? = null
     var gate: Floodgate? = null
     var order: Int = 0
-    var time: Long = 0
+    var time: Long = 0L
+    var sent: Long = 0L
     var arrival: Long = 0
     var id = -1
     var pauseBefore: Int = 0

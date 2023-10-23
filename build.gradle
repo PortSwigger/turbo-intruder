@@ -43,6 +43,7 @@ dependencies {
     implementation 'com.fifesoft:rsyntaxtextarea:3.1.1'
     implementation files('hpack-1.0.2.jar')
     implementation files('albinowaxUtils-all.jar') // includes burp wiener API
+    implementation files('http2-spike-enhanced-obfuscated.jar')
 }
 
 task fatJar(type: Jar) {
