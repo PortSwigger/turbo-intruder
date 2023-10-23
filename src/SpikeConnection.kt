@@ -98,14 +98,8 @@ class SpikeConnection(private val engine: SpikeEngine) : StreamFrameProcessor {
         } else {
             resp.append(String(bodyBytes.toByteArray()))
         }
-
         val req = inflight.remove(streamID) ?: throw RuntimeException("Couldn't find "+streamID+ " in inflight: "+inflight.keys().asSequence())
-        while (req.sent == 0L && !engine.shouldAbandonAttack()) {
-            Thread.sleep(10)
-        }
-        req.time = (req.arrival - req.sent) / 1000
-        req.arrival = (req.arrival - engine.start) / 1000
-
-        engine.handleResponse(streamID, resp.toString(), req)
+        req.response = resp.toString()
+        engine.responseQueue.put(req)
     }
 }

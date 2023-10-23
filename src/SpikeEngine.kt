@@ -23,6 +23,7 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
 
     var threadLauncher: DefaultThreadLauncher
     var socketFactory: SocketFactory
+    var responseQueue: LinkedBlockingQueue<Request>
 
     init {
         requestQueue = if (maxQueueSize > 0) {
@@ -32,6 +33,7 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
             LinkedBlockingQueue()
         }
 
+        responseQueue = LinkedBlockingQueue(50)
         idleTimeout *= 1000
         threadLauncher = DefaultThreadLauncher()
         socketFactory = TrustAllSocketFactory()
@@ -43,6 +45,22 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
             thread {
                 sendRequests(retryQueue)
             }
+        }
+
+        thread { processRequests() }
+    }
+
+    private fun processRequests() {
+        while (!Utils.unloaded && !shouldAbandonAttack()) {
+            val resp: Request? = responseQueue.poll(100, TimeUnit.MILLISECONDS) ?: continue
+            successfulRequests.getAndIncrement()
+            while (resp!!.sent == 0L && !shouldAbandonAttack()) {
+                Thread.sleep(100)
+            }
+            resp.time = (resp.arrival - resp.sent) / 1000
+            resp.arrival = (resp.arrival - start) / 1000
+            val interesting = processResponse(resp, resp.getResponseAsBytes()!!)
+            invokeCallback(resp, interesting)
         }
     }
 
@@ -208,13 +226,6 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
 
     override fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?, label: String?): Request {
         return Request(template, payloads, learnBoring ?: 0, label)
-    }
-
-    fun handleResponse(streamID: Int, resp: String, req: Request) {
-        successfulRequests.getAndIncrement()
-        req.response = resp
-        val interesting = processResponse(req, req.getResponseAsBytes()!!)
-        invokeCallback(req, interesting)
     }
 
 
