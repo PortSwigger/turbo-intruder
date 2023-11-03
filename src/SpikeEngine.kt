@@ -1,6 +1,7 @@
 package burp
 
 import burp.H2Connection.Companion.buildReq
+import burp.network.stack.http2.frame.ContinuationFrame
 import burp.network.stack.http2.frame.Frame
 import burp.network.stack.http2.frame.FrameFlags
 import net.hackxor.api.ConnectionFactory
@@ -76,6 +77,7 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
             val connectionFactory = ConnectionFactory.create(threadLauncher, responseStreamHandler)
             val connection = connectionFactory.createConnection(socket) { } // callback is invoked when connection is killed
             val frameFactory = RequestFrameFactory.createSmallFinalDataFrameRequestFrameFactory(connection.negotiatedMaximumFrameSize())
+            // val frameFactory = RequestFrameFactory.createSmallTrailingHeaderRequestFrameFactory(connection.negotiatedMaximumFrameSize())
             var requestsSent = 0
 
             try {
@@ -135,10 +137,16 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
                     for (gatedReq in gatedReqs) {
                         val reqFrames = reqToFrames(gatedReq, frameFactory)
                         for (frame in reqFrames) {
-                            if (frame.isFlagSet(0x01)) {
+                            if (frame.isFlagSet(0x01)) { // end_stream
                                 finalFrames.add(Pair(frame, gatedReq.delayCompletion))
                             }
                             else {
+
+                                // negative spike thing to check for pseudo-only reply
+                                if (frame.isFlagSet(0x04)) {
+                                    frame.v.Z(FrameFlags(0x04))
+                                }
+
                                 prepFrames.add(frame)
                             }
                         }
@@ -147,6 +155,12 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
                     }
 
                     socket.tcpNoDelay = false // original
+
+                    if (warmLocalConnection) {
+                        val warmer = burp.network.stack.http2.frame.PingFrame("12345678".toByteArray())
+                        connection.sendFrames(warmer) // just send it straight away
+                    }
+
                     connection.sendFrames(prepFrames)
                     Thread.sleep(100) // headstart size
 
@@ -208,7 +222,6 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
         for (pair in headerList) {
             properHeaders.add(header(pair.first, pair.second))
         }
-
         return factory.framesFor(properHeaders, Utils.getBodyBytes(req.getRequestAsBytes()))
     }
 
