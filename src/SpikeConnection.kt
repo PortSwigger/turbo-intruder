@@ -3,6 +3,7 @@ package burp
 import burp.network.stack.http2.frame.DataFrame
 import burp.network.stack.http2.frame.Frame
 import burp.network.stack.http2.frame.HeaderFrame
+import burp.network.stack.http2.frame.ResetStreamFrame
 import net.hackxor.api.Http2Constants
 import net.hackxor.api.StreamFrameProcessor
 import java.io.ByteArrayOutputStream
@@ -23,7 +24,7 @@ class SpikeConnection(private val engine: SpikeEngine) : StreamFrameProcessor {
     override fun process(frame: Frame) {
         //System.out.println(frame.Q);
         try {
-            if (frame is HeaderFrame) {
+            if (frame is HeaderFrame || frame is ResetStreamFrame) {
                 val time = System.nanoTime()
                 val req = inflight[frame.G]!!
                 req.arrival = time
@@ -33,15 +34,18 @@ class SpikeConnection(private val engine: SpikeEngine) : StreamFrameProcessor {
                     req.order = seen
                     gates[gateName] = seen + 1
                 }
-                val newFrames = headerFrames.computeIfAbsent(frame.G) { id: Int? -> LinkedList() }
-                newFrames.add(frame)
+                if (frame is HeaderFrame) {
+                    val newFrames = headerFrames.computeIfAbsent(frame.G) { id: Int? -> LinkedList() }
+                    newFrames.add(frame)
+                }
             } else if (frame is DataFrame) {
                 val newFrames = dataFrames.computeIfAbsent(
                     frame.G
                 ) { id: Int? -> LinkedList() }
                 newFrames.add(frame)
             }
-            if (frame.isFlagSet(Http2Constants.END_STREAM_FLAG)) {
+
+            if (frame.isFlagSet(Http2Constants.END_STREAM_FLAG) || frame is ResetStreamFrame ) {
                 prepareCallback(frame.G)
             }
         } catch (e: Exception) {
@@ -70,7 +74,7 @@ class SpikeConnection(private val engine: SpikeEngine) : StreamFrameProcessor {
     }
 
     fun prepareCallback(streamID: Int) {
-        val headers: List<HeaderFrame> = headerFrames.remove(streamID)!!
+        val headers: List<HeaderFrame> = headerFrames.remove(streamID)?: emptyList()
         val data: List<DataFrame> = dataFrames.remove(streamID)?: emptyList()
         val resp = StringBuilder()
         var shouldUnzip = false
@@ -86,7 +90,11 @@ class SpikeConnection(private val engine: SpikeEngine) : StreamFrameProcessor {
                 }
             }
         }
-        resp.append("\r\n")
+        if (headers.isEmpty()){
+            resp.append("null")
+        } else {
+            resp.append("\r\n")
+        }
 
         val bodyBytes = ByteArrayOutputStream()
         for (frame in data) {
