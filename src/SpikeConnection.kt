@@ -24,7 +24,19 @@ class SpikeConnection(private val engine: SpikeEngine) : StreamFrameProcessor {
     override fun process(frame: Frame) {
         //System.out.println(frame.Q);
         try {
-            if (frame is HeaderFrame || frame is ResetStreamFrame) {
+
+            if (frame is ResetStreamFrame) {
+                val time = System.nanoTime()
+                val req = inflight[frame.G] ?: return
+                req.arrival = time
+                if (req.gate != null) {
+                    val gateName = req!!.gate!!.name
+                    val seen = gates.getOrDefault(gateName, 0)
+                    req.order = seen
+                    gates[gateName] = seen + 1
+                }
+                prepareCallback(frame.G)
+            } else if (frame is HeaderFrame) {
                 val time = System.nanoTime()
                 val req = inflight[frame.G]!!
                 req.arrival = time
@@ -45,7 +57,7 @@ class SpikeConnection(private val engine: SpikeEngine) : StreamFrameProcessor {
                 newFrames.add(frame)
             }
 
-            if (frame.isFlagSet(Http2Constants.END_STREAM_FLAG) || frame is ResetStreamFrame ) {
+            if (frame.isFlagSet(Http2Constants.END_STREAM_FLAG) ) {
                 prepareCallback(frame.G)
             }
         } catch (e: Exception) {
