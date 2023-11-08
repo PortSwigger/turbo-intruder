@@ -76,8 +76,15 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
             val connectionID = connections.incrementAndGet()
             val connectionFactory = ConnectionFactory.create(threadLauncher, responseStreamHandler)
             val connection = connectionFactory.createConnection(socket) { } // callback is invoked when connection is killed
-            val frameFactory = RequestFrameFactory.createSmallFinalDataFrameRequestFrameFactory(connection.negotiatedMaximumFrameSize())
-            // val frameFactory = RequestFrameFactory.createSmallTrailingHeaderRequestFrameFactory(connection.negotiatedMaximumFrameSize())
+            val fatPacket = true
+            val frameFactory: RequestFrameFactory
+            if (fatPacket) {
+                frameFactory = RequestFrameFactory.createDefaultRequestFrameFactory(connection.negotiatedMaximumFrameSize())
+            } else {
+                frameFactory = RequestFrameFactory.createSmallFinalDataFrameRequestFrameFactory(connection.negotiatedMaximumFrameSize())
+                // val frameFactory = RequestFrameFactory.createSmallTrailingHeaderRequestFrameFactory(connection.negotiatedMaximumFrameSize())
+            }
+
             var requestsSent = 0
 
             try {
@@ -132,6 +139,30 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
                     }
 
                     val prepFrames = ArrayList<Frame>(gatedReqs.size)
+
+                    if (fatPacket) {
+                        for (gatedReq in gatedReqs) {
+                            val reqFrames = reqToFrames(gatedReq, frameFactory)
+                            for (frame in reqFrames) {
+                                prepFrames.add(frame)
+                            }
+                            responseStreamHandler.inflight[reqFrames[0].G] = gatedReq
+                            requestsSent += 1
+                        }
+
+                        if (warmLocalConnection) {
+                            val warmer = burp.network.stack.http2.frame.PingFrame("12345678".toByteArray())
+                            connection.sendFrames(warmer)
+                        }
+
+                        for (gatedReq in gatedReqs) {
+                            gatedReq.sent = System.nanoTime()
+                        }
+
+                        connection.sendFrames(prepFrames)
+                        continue
+                    }
+
                     val finalFrames = ArrayList<Pair<Frame, Long>>(gatedReqs.size)
 
                     for (gatedReq in gatedReqs) {
