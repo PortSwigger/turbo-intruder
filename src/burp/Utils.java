@@ -25,6 +25,8 @@ public class Utils {
     static WordRecorder witnessedWords = new WordRecorder();
     public static boolean unloaded = false;
 
+    public static Utilities utilities;
+
     public static void setTurboSize(Dimension size) {
         callbacks.saveExtensionSetting("turboHeight", String.valueOf(size.height));
         callbacks.saveExtensionSetting("turboWidth", String.valueOf(size.width));

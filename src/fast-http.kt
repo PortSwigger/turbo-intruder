@@ -1,5 +1,6 @@
 package burp
 
+import burp.api.montoya.http.message.HttpRequestResponse
 import org.fife.ui.rsyntaxtextarea.*
 import org.fife.ui.rtextarea.*
 import org.python.util.PythonInterpreter
@@ -29,7 +30,7 @@ class Target(val req: String, val rawreq: ByteArray, val endpoint: String, val b
 
 class Wordlist(val bruteforce: Bruteforce, val observedWords: ConcurrentHashMap.KeySetView<String, Boolean>, val clipboard: ArrayList<String>)
 
-fun evalJython(code: String, baseRequest: String, rawRequest: ByteArray, endpoint: String, baseInput: String, outputHandler: OutputHandler, handler: AttackHandler) {
+fun evalJython(code: String, baseRequest: String, rawRequest: ByteArray, endpoint: String, baseInput: String, outputHandler: OutputHandler, handler: AttackHandler, reqs: MutableList<HttpRequestResponse>?) {
     val pyInterp = PythonInterpreter() // todo add path to bs4
     try {
         Utils.out("Starting attack...")
@@ -45,9 +46,11 @@ fun evalJython(code: String, baseRequest: String, rawRequest: ByteArray, endpoin
         pyInterp.set("handler", handler)
         pyInterp.set("outputHandler", outputHandler)
         pyInterp.set("table", outputHandler)
+        pyInterp.set("requests", reqs)
         if (Utils.gotBurp) {
             pyInterp.set("callbacks", Utils.callbacks)
             pyInterp.set("helpers", Utils.callbacks.helpers)
+            pyInterp.set("utilities", Utils.utilities)
             pyInterp.setOut(Utils.callbacks.stdout)
             pyInterp.setErr(Utils.callbacks.stderr)
         }
@@ -93,19 +96,6 @@ fun errorToStacktrace(ex: Exception): String {
     return stackTrace.toString()
 }
 
-class OfferTurboIntruder(): IContextMenuFactory {
-    override fun createMenuItems(invocation: IContextMenuInvocation?): MutableList<JMenuItem> {
-        val options = ArrayList<JMenuItem>()
-        if (invocation != null && invocation.selectedMessages != null && invocation.selectedMessages[0] != null && invocation.selectedMessages[0].httpService != null) {
-            val probeButton = JMenuItem("Send to turbo intruder")
-            val bounds = invocation.selectionBounds ?: IntArray(0)
-            probeButton.addActionListener(TurboIntruderFrame(invocation.selectedMessages[0], bounds, null, null))
-            options.add(probeButton)
-        }
-        return options
-    }
-}
-
 class MessageController(val req: IHttpRequestResponse): IMessageEditorController {
     override fun getResponse(): ByteArray {
         return req.response ?: ByteArray(0)
@@ -129,7 +119,7 @@ class RecordResize: ComponentAdapter() {
 
 }
 
-class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: IntArray, val fixedScript: String?, val requestOverride: ByteArray?): ActionListener, JFrame("Turbo Intruder - " + inputReq.httpService.host)  {
+class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: IntArray, val fixedScript: String?, val requestOverride: ByteArray?, val reqs: MutableList<HttpRequestResponse>?): ActionListener, JFrame("Turbo Intruder - " + inputReq.httpService.host)  {
     val req = Utils.callbacks.saveBuffersToTempFiles(inputReq) // warning: currently changes HTTP/2 to HTTP/1.1 and breaks the offsets
 
     private fun getDefaultScript(): String {
@@ -337,7 +327,7 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
                                 script = script.replace("\r\n", "\n")
                                 script = script.replace("\n", "\r\n")
                                 title += " - running"
-                                evalJython(script, baseRequest, messageEditor.message, target, baseInput, requestTable, handler)
+                                evalJython(script, baseRequest, messageEditor.message, target, baseInput, requestTable, handler, reqs)
                             }
                         }
                     }
@@ -447,7 +437,7 @@ fun main(args : Array<String>) {
             req = req.replace("\n", "\r\n")
         }
         val outputHandler = ConsolePrinter()
-        evalJython(code, req, rawReq, endpoint, baseInput, outputHandler, attackHandler)
+        evalJython(code, req, rawReq, endpoint, baseInput, outputHandler, attackHandler, mutableListOf())
     }
 
     catch (e: FileNotFoundException) {

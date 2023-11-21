@@ -2,6 +2,10 @@ package burp
 
 import burp.api.montoya.BurpExtension
 import burp.api.montoya.MontoyaApi
+import burp.api.montoya.ui.contextmenu.ContextMenuEvent
+import burp.api.montoya.ui.contextmenu.ContextMenuItemsProvider
+import java.awt.Component
+import javax.swing.JMenuItem
 import javax.swing.SwingUtilities
 
 class BurpExtender() : IBurpExtender, IExtensionStateListener, BurpExtension {
@@ -22,7 +26,7 @@ class BurpExtender() : IBurpExtender, IExtensionStateListener, BurpExtension {
         callbacks.setExtensionName("Turbo Intruder")
         Utils.out("Loaded Turbo Intruder v$version")
 
-        Utilities(callbacks, HashMap(), "Turbo Intruder")
+        Utils.utilities = Utilities(callbacks, HashMap(), "Turbo Intruder")
         Utilities.globalSettings.registerSetting("learn observed words", false);
 
         SwingUtilities.invokeLater(ConfigMenu())
@@ -30,5 +34,6 @@ class BurpExtender() : IBurpExtender, IExtensionStateListener, BurpExtension {
 
     override fun initialize(montoyaApi: MontoyaApi) {
         Utils.montoyaApi = montoyaApi
+        montoyaApi.userInterface().registerContextMenuItemsProvider(BulkMenu())
     }
 }
