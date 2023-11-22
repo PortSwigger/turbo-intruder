@@ -28,7 +28,11 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
         completedLatch = CountDownLatch(threads)
 
         target = URL(url)
-        val service = Utils.callbacks.helpers.buildHttpService(target.host, target.port, target.protocol == "https")
+        var port = target.port
+        if (port == -1) {
+            port = target.defaultPort
+        }
+        val service = Utils.callbacks.helpers.buildHttpService(target.host, port, target.protocol == "https")
 
         for(j in 1..threads) {
             threadPool.add(
@@ -194,9 +198,13 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
                 if (req.endpointOverride != null) {
                     //Utils.out("URL: "+req.endpointOverride)
                     val overrideTarget = URL(req.endpointOverride)
+                    var port = overrideTarget.port
+                    if (port == -1) {
+                        port = target.defaultPort
+                    }
                     val tempService = Utils.callbacks.helpers.buildHttpService(
                         overrideTarget.host,
-                        overrideTarget.port,
+                        port,
                         overrideTarget.protocol == "https"
                     )
                     val bytes = Utils.helpers.stringToBytes(req.getRequest().replace("HTTP/2\r\n","HTTP/1.1\r\n"))
