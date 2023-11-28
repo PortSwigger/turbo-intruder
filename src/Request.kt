@@ -1,4 +1,5 @@
 package burp
+import burp.api.montoya.http.message.HttpRequestResponse
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.lang.Exception
@@ -26,6 +27,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
     var pauseMarkers: List<String> = emptyList()
     var delayCompletion: Long = 0L
     var endpointOverride: String? = null
+    var montoyaReq: HttpRequestResponse? = null
 
     private val attributes: HashMap<String, Any> = HashMap()
 

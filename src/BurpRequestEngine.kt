@@ -165,6 +165,7 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
                     reqs.sortBy { it.time }
 
                     for (req in reqs) {
+                        successfulRequests.getAndIncrement()
                         invokeCallback(req, req.interesting)
                     }
 
@@ -193,10 +194,8 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
                     continue
                 }
 
-                var resp: IHttpRequestResponse?
-                var time: Long
+
                 if (req.endpointOverride != null) {
-                    //Utils.out("URL: "+req.endpointOverride)
                     val overrideTarget = URL(req.endpointOverride)
                     var port = overrideTarget.port
                     if (port == -1) {
@@ -207,25 +206,32 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
                         port,
                         overrideTarget.protocol == "https"
                     )
-                    val bytes = Utils.helpers.stringToBytes(req.getRequest().replace("HTTP/2\r\n","HTTP/1.1\r\n"))
-                    val startTime = System.nanoTime()
-                    resp = Utils.callbacks.makeHttpRequest(tempService, bytes)
-                    time = (System.nanoTime() - startTime) / 1000
-                } else {
-                    val pair = request(service, req)
-                    resp = pair.first
-                    time = pair.second
+
                     connections.incrementAndGet()
-                    while (resp!!.response == null && shouldRetry(req)) {
-                        Utils.out("Retrying ${req.words}")
-                        resp = request(service, req).first
-                        connections.incrementAndGet()
-                        Utils.out("Retried ${req.words}")
-                    }
+                    val montoyaService =
+                        HttpService.httpService(tempService.host, port, "https".equals(tempService.protocol))
+                    val montoyaResp = Utils.montoyaApi.http().sendRequest(HttpRequest.httpRequest(montoyaService, req.getRequest().replace("HTTP/2\r\n","HTTP/1.1\r\n")))
+                    req.response = montoyaResp.response().toString()
+                    req.montoyaReq = montoyaResp
+                    req.interesting = processResponse(req, montoyaResp.response().toByteArray().bytes)
+                    successfulRequests.getAndIncrement()
+                    invokeCallback(req, req.interesting)
+                    continue
                 }
 
+                var resp: IHttpRequestResponse?
+                var time: Long
+                val pair = request(service, req)
+                resp = pair.first
+                time = pair.second
+                connections.incrementAndGet()
+                while (resp!!.response == null && shouldRetry(req)) {
+                    Utils.out("Retrying ${req.words}")
+                    resp = request(service, req).first
+                    connections.incrementAndGet()
+                    Utils.out("Retried ${req.words}")
+                }
                 req.time = time
-
                 passToCallback(req, resp)
 
             } catch (ex: Exception) {

@@ -202,7 +202,11 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
 
     inner class MessageEditorController : IMessageEditorController {
         override fun getHttpService(): IHttpService? {
-            return service //currentRequest.getHttpService()
+            if (currentRequest?.montoyaReq != null) {
+                val montoyaService = currentRequest!!.montoyaReq!!.httpService()
+                return Utils.callbacks.helpers.buildHttpService(montoyaService.host(), montoyaService.port(), montoyaService.secure())
+            }
+            return service
         }
 
         override fun getRequest(): ByteArray? {
