@@ -164,7 +164,9 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
 
                     reqs.sortBy { it.time }
 
+                    var i = 0
                     for (req in reqs) {
+                        req.order = i++
                         successfulRequests.getAndIncrement()
                         invokeCallback(req, req.interesting)
                     }

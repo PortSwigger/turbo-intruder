@@ -20,7 +20,7 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
-class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override var idleTimeout: Long = 0, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?, val warmLocalConnection: Boolean = true): RequestEngine() {
+class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override var idleTimeout: Long = 0, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?, val warmLocalConnection: Boolean = true, val fatPacket: Boolean = false): RequestEngine() {
 
     var threadLauncher: DefaultThreadLauncher
     var socketFactory: SocketFactory
@@ -76,7 +76,6 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
             val connectionID = connections.incrementAndGet()
             val connectionFactory = ConnectionFactory.create(threadLauncher, responseStreamHandler)
             val connection = connectionFactory.createConnection(socket) { } // callback is invoked when connection is killed
-            val fatPacket = true
             val frameFactory: RequestFrameFactory
             if (fatPacket) {
                 frameFactory = RequestFrameFactory.createDefaultRequestFrameFactory(connection.negotiatedMaximumFrameSize())

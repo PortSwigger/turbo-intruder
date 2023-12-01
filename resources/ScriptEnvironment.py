@@ -264,7 +264,7 @@ class Engine:
 
 class RequestEngine:
 
-    def __init__(self, endpoint, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=100, timeout=10, maxRetriesPerRequest=3, idleTimeout=0, readCallback=None, readSize=1024, resumeSSL=True, autoStart=True, explodeOnEarlyRead=False, warmLocalConnection=True):
+    def __init__(self, endpoint, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=100, timeout=10, maxRetriesPerRequest=3, idleTimeout=0, readCallback=None, readSize=1024, resumeSSL=True, autoStart=True, explodeOnEarlyRead=False, warmLocalConnection=True, fatPacket=False):
         concurrentConnections = int(concurrentConnections)
         requestsPerConnection = int(requestsPerConnection)
 
@@ -293,7 +293,7 @@ class RequestEngine:
         elif(engine == Engine.HTTP2):
             self.engine = burp.HTTP2RequestEngine(endpoint, concurrentConnections, maxQueueSize, requestsPerConnection, maxRetriesPerRequest, idleTimeout, callback, readCallback)
         elif(engine == Engine.SPIKE):
-            self.engine = burp.SpikeEngine(endpoint, concurrentConnections, maxQueueSize, requestsPerConnection, maxRetriesPerRequest, idleTimeout, callback, readCallback, warmLocalConnection)
+            self.engine = burp.SpikeEngine(endpoint, concurrentConnections, maxQueueSize, requestsPerConnection, maxRetriesPerRequest, idleTimeout, callback, readCallback, warmLocalConnection, fatPacket)
         else:
             print('Unrecognised engine. Valid engines are Engine.BURP, Engine.THREADED')
 
