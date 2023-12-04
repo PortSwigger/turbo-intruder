@@ -1,4 +1,5 @@
 package burp;
+import burp.api.montoya.MontoyaApi;
 import kotlin.jvm.functions.Function2;
 
 import java.io.Closeable;
@@ -17,9 +18,17 @@ class TurboHelper implements AutoCloseable {
         return service;
     }
 
+    private int attacks = 0;
+
     private IHttpService service;
     private int requestTimeout;
     private int id = 0;
+
+    static void setup(IBurpExtenderCallbacks callbacks, MontoyaApi api) {
+        Utils.callbacks = callbacks;
+        Utils.helpers = callbacks.getHelpers();
+        Utils.montoyaApi = api;
+    }
 
     TurboHelper(IHttpService service, boolean reuseConnection) {
         this(service, reuseConnection, 10, false);
@@ -75,6 +84,12 @@ class TurboHelper implements AutoCloseable {
     ArrayList<Resp> blockingRequest(ArrayList<byte[]> reqs, int pauseBefore, int pauseTime) {
         ArrayList<Resp> resps = new ArrayList<>();
         CountDownLatch responseLock = new CountDownLatch(reqs.size());
+        String gateName = null;
+        if (reqs.size() > 1) {
+            gateName = String.valueOf(attacks);
+            attacks += 1;
+        }
+
         for (byte[] req: reqs) {
             Utils.out("Queued request ");
             engine.queue(Utilities.helpers.bytesToString(req), new ArrayList<>(), 0, new Function2<Request, Boolean, Boolean>() {
@@ -89,7 +104,11 @@ class TurboHelper implements AutoCloseable {
                     responseLock.countDown();
                     return false;
                 }
-            }, null, null, pauseBefore, pauseTime, new ArrayList<>(), 0, null, null);
+            }, gateName, null, pauseBefore, pauseTime, new ArrayList<>(), 0, null, null);
+        }
+
+        if (gateName != null) {
+            engine.openGate(gateName);
         }
 
         try {
