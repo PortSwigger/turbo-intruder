@@ -3,9 +3,7 @@ import kotlin.jvm.functions.Function2;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -69,33 +67,47 @@ class TurboHelper implements AutoCloseable {
     }
 
     Resp blockingRequest(byte[] req, int pauseBefore, int pauseTime) {
-        AtomicReference<Resp> resp = new AtomicReference<>();
-        CountDownLatch responseLock = new CountDownLatch(1);
-        engine.queue(Utilities.helpers.bytesToString(req), new ArrayList<>(), 0, new Function2<Request, Boolean, Boolean>() {
-            @Override
-            public Boolean invoke(Request req, Boolean interesting) {
-                try {
-                    resp.set(new Resp(new Req(req.getRequestAsBytes(), req.getResponseAsBytes(), service), System.currentTimeMillis() - req.getTime()));
-                } catch (Exception e) {
-                    Utils.err(e.getMessage());
+        ArrayList<byte[]> reqs = new ArrayList<>();
+        reqs.add(req);
+        return blockingRequest(reqs, pauseBefore, pauseTime).get(0);
+    }
+
+    ArrayList<Resp> blockingRequest(ArrayList<byte[]> reqs, int pauseBefore, int pauseTime) {
+        ArrayList<Resp> resps = new ArrayList<>();
+        CountDownLatch responseLock = new CountDownLatch(reqs.size());
+        for (byte[] req: reqs) {
+            Utils.out("Queued request ");
+            engine.queue(Utilities.helpers.bytesToString(req), new ArrayList<>(), 0, new Function2<Request, Boolean, Boolean>() {
+                @Override
+                public Boolean invoke(Request req, Boolean interesting) {
+                    Utils.out("Got callback");
+                    try {
+                        resps.add(new Resp(new Req(req.getRequestAsBytes(), req.getResponseAsBytes(), service), System.currentTimeMillis() - req.getTime()));
+                    } catch (Exception e) {
+                        Utils.err(e.getMessage());
+                    }
+                    responseLock.countDown();
+                    return false;
                 }
-                responseLock.countDown();
-                return false;
-            }
-        }, null, null, pauseBefore, pauseTime, new ArrayList<>(), 0, null, null);
+            }, null, null, pauseBefore, pauseTime, new ArrayList<>(), 0, null, null);
+        }
 
         try {
             //Utils.err("Request queued, waiting "+ (requestTimeout+1) +"s for callback");
             boolean done = responseLock.await(requestTimeout+1, TimeUnit.SECONDS);
             if (!done) {
                 waitFor(1);
-                return dudResponse(req);
             }
         } catch (InterruptedException e) {
             waitFor(1);
-            return dudResponse(req);
         }
-        return resp.get();
+
+        int missingResps = reqs.size() - resps.size();
+        for (int i=0; i<missingResps; i+=1) {
+            resps.add(dudResponse(reqs.get(0)));
+        }
+
+        return resps;
     }
 
     private Resp dudResponse(byte[] req) {
