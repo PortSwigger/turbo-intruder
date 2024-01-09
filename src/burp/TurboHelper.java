@@ -39,12 +39,19 @@ class TurboHelper implements AutoCloseable {
     }
 
     TurboHelper(IHttpService service, boolean reuseConnection, int requestTimeout, boolean forceH2) {
+        this(service, reuseConnection, requestTimeout, forceH2, false);
+    }
+
+    TurboHelper(IHttpService service, boolean reuseConnection, int requestTimeout, boolean forceH2, boolean useSpike) {
         this.service = service;
         this.requestTimeout = requestTimeout;
         String url = service.getProtocol()+"://"+service.getHost()+":"+service.getPort();
         if (forceH2) {
-            //this.engine = new SpikeEngine(url, 1, 20, 90, 0, 10, this::callback, null, true);
-            this.engine = new BurpRequestEngine(url, 1, 20, 0, 0, this::callback, null, false);
+            if (useSpike) {
+                this.engine = new SpikeEngine(url, 1, 20, 90, 0, 10, this::callback, null, true, true);
+            } else {
+                this.engine = new BurpRequestEngine(url, 1, 20, 0, 0, this::callback, null, false);
+            }
         }
         else if (reuseConnection) {
             this.engine = new ThreadedRequestEngine(url, 1, 20, 1, 50, 0, 10, this::callback, requestTimeout, null, 1024, false, true);
@@ -82,7 +89,7 @@ class TurboHelper implements AutoCloseable {
     }
 
     ArrayList<Resp> blockingRequest(ArrayList<byte[]> reqs, int pauseBefore, int pauseTime) {
-        ArrayList<Resp> resps = new ArrayList<>();
+        ArrayList<Resp> resps = new ArrayList<>(reqs.size());
         CountDownLatch responseLock = new CountDownLatch(reqs.size());
         String gateName = null;
         if (reqs.size() > 1) {
@@ -90,14 +97,15 @@ class TurboHelper implements AutoCloseable {
             attacks += 1;
         }
 
+        int index = 0;
         for (byte[] req: reqs) {
-            Utils.out("Queued request ");
+            resps.add(null);
+            int finalI = index;
             engine.queue(Utilities.helpers.bytesToString(req), new ArrayList<>(), 0, new Function2<Request, Boolean, Boolean>() {
                 @Override
                 public Boolean invoke(Request req, Boolean interesting) {
-                    Utils.out("Got callback");
                     try {
-                        resps.add(new Resp(new Req(req.getRequestAsBytes(), req.getResponseAsBytes(), service), System.currentTimeMillis() - req.getTime()));
+                        resps.set(finalI, new Resp(new Req(req.getRequestAsBytes(), req.getResponseAsBytes(), service), System.currentTimeMillis() - req.getTime()));
                     } catch (Exception e) {
                         Utils.err(e.getMessage());
                     }
@@ -105,6 +113,7 @@ class TurboHelper implements AutoCloseable {
                     return false;
                 }
             }, gateName, null, pauseBefore, pauseTime, new ArrayList<>(), 0, null, null);
+            index += 1;
         }
 
         if (gateName != null) {
@@ -121,11 +130,13 @@ class TurboHelper implements AutoCloseable {
             waitFor(1);
         }
 
-        int missingResps = reqs.size() - resps.size();
-        for (int i=0; i<missingResps; i+=1) {
-            resps.add(dudResponse(reqs.get(0)));
+        for (int i=0; i<reqs.size(); i+=1) {
+            if (resps.get(i) == null) {
+                resps.set(i, dudResponse(reqs.get(0)));
+            }
         }
 
+        // todo put the responses in the order the requests were queued. use label as id?
         return resps;
     }
 
