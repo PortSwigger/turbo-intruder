@@ -7,7 +7,12 @@ public class Floodgate {
     final AtomicInteger remaining = new AtomicInteger(1);
     final AtomicBoolean isOpen = new AtomicBoolean(false);
     final AtomicBoolean fullyQueued = new AtomicBoolean(false);
-    String name;
+
+    public String getName() {
+        return name;
+    }
+
+    public String name;
     RequestEngine engine;
 
     public Floodgate(String name, RequestEngine engine) {

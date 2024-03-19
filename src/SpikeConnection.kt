@@ -113,11 +113,8 @@ class SpikeConnection(private val engine: SpikeEngine) : StreamFrameProcessor {
             bodyBytes.writeBytes(frame.data())
         }
 
-        if (shouldUnzip) {
-            resp.append(ThreadedRequestEngine.ungzip(bodyBytes.toByteArray()))
-        } else {
-            resp.append(String(bodyBytes.toByteArray()))
-        }
+        resp.append(ThreadedRequestEngine.uncompressIfNecessary(resp.toString(), String(bodyBytes.toByteArray())))
+        
         val req = inflight.remove(streamID) ?: throw RuntimeException("Couldn't find "+streamID+ " in inflight: "+inflight.keys().asSequence())
         req.response = resp.toString()
         engine.responseQueue.put(req)
