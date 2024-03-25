@@ -67,7 +67,6 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
     companion object {
 
         fun uncompressIfNecessary(headers: String, body: String): String {
-            Utils.out("Checking for compression")
             if (headers.lowercase().indexOf("content-encoding: ") == -1) {
                 return body
             }
