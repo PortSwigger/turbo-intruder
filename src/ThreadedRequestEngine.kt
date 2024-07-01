@@ -529,15 +529,13 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
     private class TrustingTrustManager(val engine: ThreadedRequestEngine) : X509TrustManager {
 
         override fun getAcceptedIssuers(): Array<X509Certificate>? {
-            return null
+            return arrayOf()
         }
 
         override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
 
         override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {
-            for (x in chain.get(0).getSubjectAlternativeNames()) {
-                engine.domains.add(x.get(1).toString())
-            }
+
         }
     }
 }
