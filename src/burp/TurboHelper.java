@@ -1,5 +1,6 @@
 package burp;
 import burp.api.montoya.MontoyaApi;
+import kotlin.NotImplementedError;
 import kotlin.jvm.functions.Function2;
 
 import java.io.Closeable;
@@ -48,7 +49,8 @@ class TurboHelper implements AutoCloseable {
         String url = service.getProtocol()+"://"+service.getHost()+":"+service.getPort();
         if (forceH2) {
             if (useSpike) {
-                this.engine = new SpikeEngine(url, 1, 20, 90, 0, 10, this::callback, null, true, false);
+                throw new NotImplementedError("Spike engine not available");
+                // this.engine = new SpikeEngine(url, 1, 20, 90, 0, 10, this::callback, null, true, false);
             } else {
                 this.engine = new BurpRequestEngine(url, 1, 20, 0, 0, this::callback, null, false);
             }
