@@ -81,7 +81,8 @@ class SpikeEngine(url: String, threads: Int, maxQueueSize: Int, val requestsPerC
                 frameFactory = RequestFrameFactory.createDefaultRequestFrameFactory(connection.negotiatedMaximumFrameSize())
             } else {
                 frameFactory = RequestFrameFactory.createSmallFinalDataFrameRequestFrameFactory(connection.negotiatedMaximumFrameSize())
-                // val frameFactory = RequestFrameFactory.createSmallTrailingHeaderRequestFrameFactory(connection.negotiatedMaximumFrameSize())
+                //RequestFrameFactory.
+                // frameFactory = RequestFrameFactory.createSmallTrailingHeaderRequestFrameFactory(connection.negotiatedMaximumFrameSize()) // this approach sucks
             }
 
             var requestsSent = 0
