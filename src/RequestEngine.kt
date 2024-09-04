@@ -1,5 +1,6 @@
 package burp
 
+import org.apache.commons.lang3.RandomStringUtils
 import java.io.*
 import java.net.URL
 import java.util.*
@@ -10,13 +11,16 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.zip.GZIPInputStream
 import kotlin.math.ceil
+import kotlin.math.max
+import kotlin.math.min
 
 abstract class RequestEngine: IExtensionStateListener {
 
     var start: Long = System.nanoTime()
-    val failedWords = HashMap<String, AtomicInteger>()
+    val failedWords = HashMap<Int, AtomicInteger>()
     var successfulRequests = AtomicInteger(0)
     val userState = HashMap<String, Any>()
+    val lastRequestID = AtomicInteger(0)
     var connections = AtomicInteger(0)
     val attackState = AtomicInteger(0) // 0 = connecting, 1 = live, 2 = fully queued, 3 = cancelled, 4 = completed
     lateinit var completedLatch: CountDownLatch
@@ -29,7 +33,9 @@ abstract class RequestEngine: IExtensionStateListener {
     abstract var readCallback: ((String) -> Boolean)?
     abstract val maxRetriesPerRequest: Int
     lateinit var target: URL
-    private val floodgates = HashMap<String, Floodgate>()
+    val floodgates = HashMap<String, Floodgate>()
+    var lastLife: Long = System.currentTimeMillis()
+    abstract var idleTimeout: Long
 
     init {
         if (attackState.get() == 3) {
@@ -37,6 +43,7 @@ abstract class RequestEngine: IExtensionStateListener {
         }
 
         if (Utils.gotBurp) {
+            // todo use a helper method instead
             Utils.callbacks.registerExtensionStateListener(this)
         }
     }
@@ -46,6 +53,7 @@ abstract class RequestEngine: IExtensionStateListener {
     }
 
     fun invokeCallback(req: Request, interesting: Boolean){
+        updateLastLife()
         try {
             req.invokeCallback(interesting)
         } catch (ex: Exception){
@@ -63,18 +71,19 @@ abstract class RequestEngine: IExtensionStateListener {
     }
 
     fun queue(req: String) {
-        queue(req, emptyList<kotlin.Any>(), 0, null, null, null)
+        queue(req, emptyList())
     }
 
     fun queue(req: String, payload: kotlin.Any) {
-        queue(req, listOf(payload), 0, null, null, null)
+        queue(req, listOf(payload), 0)
     }
 
     fun queue(template: String, payloads:  List<kotlin.Any?>) {
-        queue(template, payloads, 0, null, null, null)
+        queue(template, payloads, 0, null)
     }
 
-    fun queue(template: String, payloads: List<kotlin.Any?>, learnBoring: Int, callback: ((Request, Boolean) -> Boolean)?, gateName: String?, label: String?) {
+    fun queue(template: String, payloads: List<kotlin.Any?> = emptyList<kotlin.Any>(), learnBoring: Int = 0, callback: ((Request, Boolean) -> Boolean)? = null, gateName: String? = null, label: String? = null, pauseBefore: Int = 0, pauseTime: Int = 1000, pauseMarkers: List<String> = emptyList(), delay: Long = 0, endpoint: String? = null, pythonEngine: Any? = null) {
+        updateLastLife()
 
         val noPayload = payloads.isEmpty()
         val noMarker = !template.contains("%s")
@@ -83,23 +92,38 @@ abstract class RequestEngine: IExtensionStateListener {
             throw Exception("The request has payloads specified, but no %s injection markers")
         }
         if (!noMarker && noPayload) {
-            throw Exception("The request has a %s injection point, but no payloads specified")
+            val bad = template.indexOf("%s")
+            val context = template.slice(max(bad-5, 0).. min(bad+5, template.length))
+            throw Exception("The request has a %s injection point, but no payloads specified: '$context'")
         }
 
-        val payloadsAsStrings = payloads.map { it.toString() }
+        val payloadsAsStrings = payloads.map { it.toString().replace("\$randomplz", RandomStringUtils.randomAlphanumeric(8).lowercase(), true) }
 
         if (learnBoring != 0 && !Utils.gotBurp) {
             throw Exception("Automatic interesting response detection using 'learn=X' isn't support in command line mode.")
         }
 
-        val request = buildRequest(template, payloadsAsStrings, learnBoring, label)
-        request.engine = this
+        val request = buildRequest(template.replace("\$randomplz", RandomStringUtils.randomAlphanumeric(8).lowercase(), true), payloadsAsStrings, learnBoring, label)
+        request._engine = this
+        if (pythonEngine != null) {
+            request.engine = pythonEngine
+        }
+        else {
+            request.engine = this
+        }
+
+        request.id = lastRequestID.incrementAndGet()
         request.callback = callback
+        request.pauseBefore = pauseBefore
+        request.pauseTime = pauseTime
+        request.pauseMarkers = pauseMarkers
+        request.delayCompletion = delay
+        request.endpointOverride = endpoint
 
 
         if (gateName != null) {
             synchronized(gateName) {
-                request.gate = floodgates[gateName] ?: Floodgate()
+                request.gate = floodgates[gateName] ?: Floodgate(gateName, this)
 
                 if (floodgates.containsKey(gateName)) {
                     floodgates[gateName]!!.addWaiter()
@@ -146,11 +170,33 @@ abstract class RequestEngine: IExtensionStateListener {
     }
 
     open fun openGate(gateName: String) {
-        //Utils.out("Opening gate "+gateName)
+        // Utils.out("Requested gate open: $gateName")
         if (!floodgates.containsKey(gateName)) {
             throw Exception("Unrecognised gate name in openGate() invocation")
         }
         floodgates[gateName]!!.open()
+    }
+
+    fun shouldAbandonAttack(): Boolean {
+        if (Utils.unloaded) {
+            return true
+        }
+        if (attackState.get() >= 3) {
+            return true
+        }
+        if (idleTimeout > 0 && System.currentTimeMillis() > lastLife + idleTimeout) {
+            Utils.out("Advising to abandon attack due to timeout")
+            cancel()
+            return true
+        }
+        return false
+    }
+
+    fun updateLastLife() {
+        if (idleTimeout == 0L) {
+            return
+        }
+        lastLife = System.currentTimeMillis()
     }
 
 
@@ -198,9 +244,13 @@ abstract class RequestEngine: IExtensionStateListener {
     }
 
     fun showSummary() {
+        // todo or invoke completedCallback here?
+        if (Utils.gotBurp && !Utils.unloaded) {
+            Utils.callbacks.removeExtensionStateListener(this)
+        }
         val duration = System.nanoTime().toFloat() - start
         val requests = successfulRequests.get().toFloat()
-        Utils.err("Sent ${requests.toInt()} requests in ${duration / 1000000000} seconds")
+        Utils.err("Sent ${requests.toInt()} requests over ${connections.toInt()} connections in ${duration / 1000000000} seconds")
         Utils.err(String.format("RPS: %.0f\n", requests / ceil((duration / 1000000000).toDouble())))
     }
 
@@ -223,7 +273,7 @@ abstract class RequestEngine: IExtensionStateListener {
         // if the request engine isn't a table, we can't update the output
         if (reqTable is RequestTable) {
 
-            val requestsFromTable = reqTable.model.requests
+            val requestsFromTable = reqTable.requests
 
             if (requestsFromTable.size == 0) {
                 return
@@ -290,7 +340,7 @@ abstract class RequestEngine: IExtensionStateListener {
             return false
         }
 
-        val reqID = req.getRequest().hashCode().toString()
+        val reqID = req.id // req.getRequest().hashCode().toString() +
 
         val fails = failedWords[reqID]
         if (fails == null){
@@ -322,31 +372,6 @@ abstract class RequestEngine: IExtensionStateListener {
         }
 
         return true
-    }
-
-    fun decompress(compressed: ByteArray): String {
-        if (compressed.isEmpty()) {
-            return ""
-        }
-
-        val out = ByteArrayOutputStream()
-        try {
-            val bytesIn = ByteArrayInputStream(compressed)
-            val unzipped = GZIPInputStream(bytesIn)
-            while (true) {
-                val bytes = ByteArray(1024)
-                val read = unzipped.read(bytes, 0, 1024)
-                if (read <= 0) {
-                    break
-                }
-                out.write(bytes, 0, read)
-            }
-        } catch (e: IOException) {
-            Utils.err("GZIP decompression failed - possible partial response. Using undecompressed bytes instead.")
-            return String(compressed)
-        }
-
-        return String(out.toByteArray())
     }
 
 }

@@ -1,18 +1,22 @@
 package burp
 
-import java.io.PrintWriter
-import java.io.StringWriter
+//import jdk.net.ExtendedSocketOptions
+import burp.api.montoya.utilities.CompressionType
+import burp.api.montoya.utilities.CompressionUtils
+import java.io.*
 import java.net.*
 import java.security.cert.X509Certificate
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
+import java.util.zip.GZIPInputStream
 import javax.net.SocketFactory
 import javax.net.ssl.*
+import kotlin.IllegalStateException
 import kotlin.concurrent.thread
 
-open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, val timeout: Int, override var readCallback: ((String) -> Boolean)?, val readSize: Int, val resumeSSL: Boolean): RequestEngine() {
+open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override var idleTimeout: Long = 0, override val callback: (Request, Boolean) -> Boolean, var timeout: Int, override var readCallback: ((String) -> Boolean)?, val readSize: Int, val resumeSSL: Boolean, var explodeOnEarlyRead: Boolean = false): RequestEngine() {
 
     private val connectedLatch = CountDownLatch(threads)
 
@@ -20,39 +24,100 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
     private val IGNORE_LENGTH = false
 
+    var domains = HashSet<String>()
+
     init {
-        target = URL(url)
 
-        requestQueue = if (maxQueueSize > 0) {
-            LinkedBlockingQueue(maxQueueSize)
-        }
-        else {
-            LinkedBlockingQueue()
-        }
+        idleTimeout *= 1000
 
-        completedLatch = CountDownLatch(threads)
-        val retryQueue = LinkedBlockingQueue<Request>()
-        val ipAddress = InetAddress.getByName(target.host)
-        val port = if (target.port == -1) { target.defaultPort } else { target.port }
+        try {
+            target = URL(url)
 
-        val trustingSslSocketFactory = createSSLSocketFactory()
+            requestQueue = if (maxQueueSize > 0) {
+                LinkedBlockingQueue(maxQueueSize)
+            }
+            else {
+                LinkedBlockingQueue()
+            }
 
-        Utils.err("Warming up...")
-        for(j in 1..threads) {
-            threadPool.add(
-                thread {
-                    sendRequests(target, trustingSslSocketFactory, ipAddress, port, retryQueue, completedLatch, readFreq, requestsPerConnection, connectedLatch)
-                }
-            )
+            completedLatch = CountDownLatch(threads)
+            val retryQueue = LinkedBlockingQueue<Request>()
+            val ipAddress = InetAddress.getByName(target.host)
+            val port = if (target.port == -1) { target.defaultPort } else { target.port }
+
+            val trustingSslSocketFactory = createSSLSocketFactory()
+
+            Utils.err("Establishing $threads connection to $url ...");
+            for(j in 1..threads) {
+                threadPool.add(
+                    thread {
+                        sendRequests(target, trustingSslSocketFactory, ipAddress, port, retryQueue, completedLatch, readFreq, requestsPerConnection, connectedLatch)
+                    }
+                )
+            }
+        } catch(e: Exception) {
+            if (Utils.gotBurp && !Utils.unloaded) {
+                Utils.callbacks.removeExtensionStateListener(this)
+            }
+            throw e
         }
 
     }
 
+    companion object {
+
+        fun uncompressIfNecessary(headers: String, body: String): String {
+            if (headers.lowercase().indexOf("content-encoding: ") == -1) {
+                return body
+            }
+            val compressionType: CompressionType
+            if (headers.lowercase().indexOf("content-encoding: gzip") != -1) {
+                compressionType = CompressionType.GZIP
+            } else if (headers.lowercase().indexOf("content-encoding: deflate") != -1) {
+                compressionType = CompressionType.DEFLATE
+            } else if (headers.lowercase().indexOf("content-encoding: br") != -1) {
+                compressionType = CompressionType.BROTLI
+            } else {
+                return body
+            }
+            val decompressed = Utils.montoyaApi.utilities().compressionUtils().decompress(burp.api.montoya.core.ByteArray.byteArray(body), compressionType)
+            return Utils.montoyaApi.utilities().byteUtils().convertToString(decompressed.bytes)
+        }
+
+        fun ungzip(compressed: ByteArray): String {
+            if (compressed.isEmpty()) {
+                return ""
+            }
+
+            val out = ByteArrayOutputStream()
+            try {
+                val bytesIn = ByteArrayInputStream(compressed)
+                val unzipped = GZIPInputStream(bytesIn)
+                while (true) {
+                    val bytes = ByteArray(1024)
+                    val read = unzipped.read(bytes, 0, 1024)
+                    if (read <= 0) {
+                        break
+                    }
+                    out.write(bytes, 0, read)
+                }
+            } catch (e: IOException) {
+                Utils.err("GZIP decompression failed - possible partial response. Using undecompressed bytes instead.")
+                return String(compressed)
+            }
+
+            return String(out.toByteArray())
+        }
+
+
+    }
     fun createSSLSocketFactory(): SSLSocketFactory {
         val trustingSslContext = SSLContext.getInstance("TLS")
-        trustingSslContext.init(null, arrayOf<TrustManager>(TrustingTrustManager()), null)
+        trustingSslContext.init(null, arrayOf<TrustManager>(TrustingTrustManager(this)), null)
         return trustingSslContext.socketFactory
     }
+
+    // val proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress("localhost", 6574))
 
     override fun start(timeout: Int) {
         connectedLatch.await(timeout.toLong(), TimeUnit.SECONDS)
@@ -61,11 +126,17 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
     }
 
     override fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?, label: String?): Request {
-        if(Utils.getHeaders(template).contains("Connection: close")) {
-            return Request(template.replaceFirst("Connection: close", "Connection: keep-alive"), payloads, learnBoring ?: 0, label)
+        var prepared = template
+
+        if (Utilities.isHTTP2(prepared.toByteArray())) {
+            prepared = prepared.replaceFirst("HTTP/2\r\n", "HTTP/1.1\r\n")
         }
 
-        return Request(template, payloads, learnBoring?: 0, label)
+        if(Utils.getHeaders(prepared).contains("Connection: close")) {
+            prepared = prepared.replaceFirst("Connection: close", "Connection: keep-alive")
+        }
+
+        return Request(prepared, payloads, learnBoring?: 0, label)
     }
 
     private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, retryQueue: LinkedBlockingQueue<Request>, completedLatch: CountDownLatch, baseReadFreq: Int, baseRequestsPerConnection: Int, connectedLatch: CountDownLatch) {
@@ -77,15 +148,11 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         var answeredRequests = 0
         val badWords = HashSet<String>()
         var consecutiveFailedConnections = 0
-
+        var startTime: Long = 0
         var reuseSSL = resumeSSL
 
-        while (!Utils.unloaded) {
+        while (!shouldAbandonAttack()) {
             try {
-
-                if(attackState.get() == 3) {
-                    return
-                }
 
                 val socket: Socket?
                 try {
@@ -115,43 +182,44 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                 socket!!.soTimeout = timeout * 1000
                 socket.tcpNoDelay = true
                 socket.receiveBufferSize = readSize
+                socket.keepAlive = true
+                // socket.setOption(ExtendedSocketOptions.TCP_KEEPIDLE, 30)
                 // todo tweak other TCP options for max performance
 
                 if(!connected) {
                     connected = true
                     connectedLatch.countDown()
-                    while(attackState.get() == 0) {
+                    while(!Utils.unloaded && attackState.get() == 0 && !shouldAbandonAttack()) {
                         Thread.sleep(10)
                     }
                 }
 
                 consecutiveFailedConnections = 0
 
+
                 var requestsSent = 0
                 answeredRequests = 0
-                while (requestsSent < requestsPerConnection) {
-
-                    if(attackState.get() == 3) {
-                        return
-                    }
+                while (requestsSent < requestsPerConnection && !shouldAbandonAttack()) {
 
                     var readCount = 0
-                    var startTime: Long = 0
+                    startTime = 0
                     var endTime: Long = 0
+                    var buffer = ""
+
                     for (j in 1..readFreq) {
                         if (requestsSent >= requestsPerConnection) {
                             break
                         }
 
                         var req = retryQueue.poll()
-                        while (req == null) {
+                        while (req == null && !shouldAbandonAttack()) {
                             req = requestQueue.poll(100, TimeUnit.MILLISECONDS)
 
                             if (req == null) {
                                 if (readCount > 0) {
                                     break
                                 }
-                                if(attackState.get() == 2) {
+                                if(attackState.get() >= 2) {
                                     completedLatch.countDown()
                                     return
                                 }
@@ -170,6 +238,48 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             startTime = System.nanoTime()
                             outputstream.write(byteReq, byteReq.size-withHold, withHold)
                         }
+                        else if (req.pauseBefore != 0) {
+                            val end: Int
+                            if (req.pauseBefore < 0) {
+                                end = byteReq.size + req.pauseBefore
+                            } else {
+                                end = req.pauseBefore - 1 // since it's 0-indexed
+                            }
+                            val part1 = byteReq.sliceArray(0 until end)
+                            //Utils.out("'"+Utilities.helpers.bytesToString(part1)+"'")
+                            outputstream.write(part1)
+                            startTime = System.nanoTime()
+
+                            waitForData(socket, req.pauseTime)
+
+                            val part2 = byteReq.sliceArray(end until byteReq.size)
+                            outputstream.write(part2)
+                            //Utils.out("'"+Utilities.helpers.bytesToString(part2)+"'")
+                        } else if (!req.pauseMarkers.isEmpty()) {
+                            var i = 0
+                            startTime = System.nanoTime()
+                            // pauses *after* sending the pauseMarker
+                            while (i < byteReq.size && !shouldAbandonAttack()) {
+                                var pausePoint = -1
+                                //val z: ByteArray = req.pauseMarkers.get(0)
+                                for (pauseMarker in req.pauseMarkers) {
+                                    val pauseBytes = pauseMarker.toByteArray(Charsets.ISO_8859_1)
+                                    pausePoint = Utils.helpers.indexOf(byteReq, pauseBytes, true, i, byteReq.size)
+                                    if (pausePoint != -1) {
+                                        outputstream.write(byteReq.sliceArray(i until (pausePoint+pauseBytes.size)))
+                                        buffer = waitForData(socket, req.pauseTime)
+                                        i = pausePoint + pauseBytes.size
+                                        break
+                                    }
+                                }
+
+                                if (pausePoint == -1) {
+                                    outputstream.write(byteReq.sliceArray(i until byteReq.size))
+                                    break
+                                }
+
+                            }
+                        }
                         else {
                             outputstream.write(byteReq)
                             startTime = System.nanoTime()
@@ -181,31 +291,37 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                     }
 
                     val readBuffer = ByteArray(readSize)
-                    var buffer = ""
 
                     for (k in 1..readCount) {
 
                         var bodyStart = buffer.indexOf("\r\n\r\n")
-                        while (bodyStart == -1) {
+                        if (bodyStart != -1) {
+                            endTime = System.nanoTime()
+                        }
+
+                        while (bodyStart == -1 && !shouldAbandonAttack()) {
                             val len = socket.getInputStream().read(readBuffer)
                             if(len == -1) {
                                 break
                             }
                             endTime = System.nanoTime()
 
-                            val read = String(readBuffer.copyOfRange(0, len), Charsets.ISO_8859_1)
+                            val read = Utils.bytesToString(readBuffer.copyOfRange(0, len))
                             triggerReadCallback(read)
                             buffer += read
                             bodyStart = buffer.indexOf("\r\n\r\n")
                         }
 
                         val contentLength = getContentLength(buffer)
-                        val shouldGzip = shouldGzip(buffer)
 
                         if (buffer.isEmpty()) {
                             throw ConnectException("No response")
                         } else if (bodyStart == -1) {
                             throw ConnectException("Unterminated response")
+                        }
+
+                        if (contentLength > 10000000) {
+                            throw ConnectException("Response too large - 10mb max")
                         }
 
                         val headers = buffer.substring(0, bodyStart+4)
@@ -214,9 +330,12 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         if (contentLength != -1 && !IGNORE_LENGTH) {
                             val responseLength = bodyStart + contentLength + 4
 
-                            while (buffer.length < responseLength) {
+                            while (buffer.length < responseLength && !shouldAbandonAttack()) {
                                 val len = socket.getInputStream().read(readBuffer)
-                                val read =  String(readBuffer.copyOfRange(0, len), Charsets.ISO_8859_1)
+                                if (len == -1) {
+                                    throw RuntimeException("CL response finished unexpectedly")
+                                }
+                                val read =  Utils.bytesToString(readBuffer.copyOfRange(0, len))
                                 triggerReadCallback(read)
                                 buffer += read
                             }
@@ -224,18 +343,18 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             body = buffer.substring(bodyStart + 4, responseLength)
                             buffer = buffer.substring(responseLength)
                         }
-                        else if (headers.toLowerCase().contains("transfer-encoding: chunked") || headers.contains("^transfer-encoding:[ ]*chunked".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)))  && !IGNORE_LENGTH) {
+                        else if (headers.lowercase().contains("transfer-encoding: chunked") || headers.contains("^transfer-encoding:[ ]*chunked".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)))  && !IGNORE_LENGTH) {
 
                             buffer = buffer.substring(bodyStart + 4)
 
-                            while (true) {
+                            while (!shouldAbandonAttack()) {
                                 var chunk = getNextChunkLength(buffer)
                                 while (chunk.length == -1 || buffer.length < (chunk.length+2)) {
                                     val len = socket.getInputStream().read(readBuffer)
                                     if (len == -1) {
                                         throw RuntimeException("Chunked response finished unexpectedly")
                                     }
-                                    val read = String(readBuffer.copyOfRange(0, len), Charsets.ISO_8859_1)
+                                    val read = Utils.bytesToString(readBuffer.copyOfRange(0, len))
                                     triggerReadCallback(read)
                                     buffer += read
                                     chunk = getNextChunkLength(buffer)
@@ -260,14 +379,14 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                             try {
                                 body += buffer.substring(bodyStart + 4)
-                                while (true) {
+                                while (!shouldAbandonAttack()) {
                                     val len = socket.getInputStream().read(readBuffer)
 
                                     if (len == -1) {
                                         break
                                     }
 
-                                    buffer = String(readBuffer.copyOfRange(0, len), Charsets.ISO_8859_1)
+                                    buffer = Utils.bytesToString(readBuffer.copyOfRange(0, len))
                                     body += buffer
                                 }
                             } catch (ex: SocketTimeoutException) {
@@ -285,17 +404,14 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         }
 
                         var msg = headers
-                        msg += if (shouldGzip) {
-                            decompress(body.toByteArray(Charsets.ISO_8859_1))
-                        } else {
-                            body
-                        }
+                        msg += uncompressIfNecessary(headers, body)
 
                         reqWithResponse = inflight.removeFirst()
                         successfulRequests.getAndIncrement()
                         reqWithResponse.response = msg
                         reqWithResponse.connectionID = connectionID
-                        reqWithResponse.time = (endTime - startTime) / 1000000 // convert to NS and lose precision
+                        reqWithResponse.time = (endTime - startTime) / 1000 // convert ns to microseconds
+                        reqWithResponse.arrival = (endTime - start) / 1000
 
                         answeredRequests += 1
                         val interesting = processResponse(reqWithResponse, (reqWithResponse.response as String).toByteArray(Charsets.ISO_8859_1))
@@ -323,8 +439,16 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             }
                         } else {
                             ex.printStackTrace()
+                            Utils.err("Ignoring error: "+ex.toString())
                             val badReq = inflight.pop()
-                            badReq.response = "null"
+                            if (ex is IllegalStateException) {
+                                badReq.response = "early-response"
+                            } else {
+                                badReq.response = "null"
+                            }
+                            if (startTime != 0L) {
+                                badReq.time = (System.nanoTime() - startTime) / 1000000 // convert to NS and lose precision
+                            }
                             invokeCallback(badReq, true)
                         }
                     } else {
@@ -343,6 +467,29 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         }
     }
 
+    private fun waitForData(socket: Socket, pauseTime: Int): String {
+
+        val oldTimeout = socket.soTimeout
+        socket.soTimeout = pauseTime
+        var len = -1
+        val readBuffer = ByteArray(readSize)
+        try {
+            len = socket.getInputStream().read(readBuffer)
+        } catch (e: Exception) {
+
+        }
+        socket.soTimeout = oldTimeout
+        if (explodeOnEarlyRead && len != -1) {
+            throw IllegalStateException()
+        }
+        var read = ""
+        if (len != -1) {
+            read = Utils.bytesToString(readBuffer.copyOfRange(0, len))
+        }
+
+        return read
+    }
+
     fun getContentLength(buf: String): Int {
         val cstart = buf.indexOf("Content-Length: ")+16
         if (cstart == 15) {
@@ -355,10 +502,6 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         } catch (e: NumberFormatException) {
             throw RuntimeException("Can't parse content length in $buf")
         }
-    }
-
-    fun shouldGzip(buf: String): Boolean {
-        return buf.toLowerCase().indexOf("content-encoding: gzip") != -1
     }
 
     data class Result(val skip: Int, val length: Int)
@@ -383,13 +526,18 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         }
     }
 
-    private class TrustingTrustManager : X509TrustManager {
+    private class TrustingTrustManager(val engine: ThreadedRequestEngine) : X509TrustManager {
+
         override fun getAcceptedIssuers(): Array<X509Certificate>? {
             return null
         }
 
         override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
 
-        override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
+        override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {
+            for (x in chain.get(0).getSubjectAlternativeNames()) {
+                engine.domains.add(x.get(1).toString())
+            }
+        }
     }
 }

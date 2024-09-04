@@ -1,22 +1,39 @@
 package burp;
+import burp.api.montoya.BurpExtension;
+
+import burp.api.montoya.MontoyaApi;
+import kotlin.Pair;
+import kotlin.text.Charsets;
+
 import java.awt.*;
 import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.StringSelection;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
 
 public class Utils {
 
     static boolean gotBurp = false;
     static IBurpExtenderCallbacks callbacks;
+    static IExtensionHelpers helpers;
+    static MontoyaApi montoyaApi;
     private static PrintWriter stdout;
     private static PrintWriter stderr;
     static WordRecorder witnessedWords = new WordRecorder();
     public static boolean unloaded = false;
 
+    public static Utilities utilities;
+
     public static void setTurboSize(Dimension size) {
         callbacks.saveExtensionSetting("turboHeight", String.valueOf(size.height));
         callbacks.saveExtensionSetting("turboWidth", String.valueOf(size.width));
+    }
+
+    public static String bytesToString(byte[] bytes) {
+        return new String(bytes, Charsets.ISO_8859_1);
     }
 
     public static ArrayList<String> getClipboard() {
@@ -27,6 +44,11 @@ public class Utils {
             err("failed to read from clipboard");
         }
         return new ArrayList<>(Arrays.asList(clipboard.split("\\r?\\n")));
+    }
+
+    public static void setClipboard(String contents) {
+        StringSelection selection = new StringSelection(contents);
+        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, selection);
     }
 
     public static Dimension getTurboSize() {
@@ -42,6 +64,7 @@ public class Utils {
     static void setBurpPresent(IBurpExtenderCallbacks incallbacks) {
         gotBurp = true;
         callbacks = incallbacks;
+        helpers = callbacks.getHelpers();
         stdout = new PrintWriter(callbacks.getStdout(), true);
         stderr = new PrintWriter(callbacks.getStderr(), true);
     }
@@ -71,5 +94,81 @@ public class Utils {
         }
         return request.substring(0, bodyStart);
     }
+
+
+    public static byte[] h2request(IHttpService service, byte[] req) {
+        return h2request(service, req, null);
+    }
+
+    // based on BulkScan.request()
+    public static byte[] h2request(IHttpService service, byte[] req, String connectionID) {
+        LinkedList<Pair<String, String>> h2headers = H2Connection.Companion.buildReq(new HTTP2Request(helpers.bytesToString(req)));
+        ArrayList<IHttpHeader> headers = new ArrayList<>();
+        for (Pair<String, String> header: h2headers) {
+            headers.add(helpers.buildHeader(header.getFirst(), header.getSecond()));
+        }
+        //h2headers.forEach((key, value) -> { headers.add(helpers.buildHeader(key, value)); });
+        byte[] body = getBodyBytes(req);
+        byte[] responseBytes;
+        try {
+
+            if (connectionID == null) {
+                responseBytes = callbacks.makeHttp2Request(service, headers, body, true);
+            } else {
+                responseBytes = callbacks.makeHttp2Request(service, headers, body, true, connectionID);
+            }
+        } catch (RuntimeException e) {
+            responseBytes = null;
+        }
+        return responseBytes;
+    }
+
+    static byte[] getBodyBytes(byte[] response) {
+        if (response == null) { return null; }
+        int bodyStart = getBodyStart(response);
+        return Arrays.copyOfRange(response, bodyStart, response.length);
+    }
+
+    public static int getBodyStart(byte[] response) {
+        return indexOf(response, "\r\n\r\n".getBytes())+4;
+
+//        int i = 0;
+//        int newlines_seen = 0;
+//        while (i < response.length) {
+//            byte x = response[i];
+//            if (x == '\n') {
+//                newlines_seen++;
+//            } else if (x != '\r') {
+//                newlines_seen = 0;
+//            }
+//
+//            if (newlines_seen == 2) {
+//                break;
+//            }
+//            i += 1;
+//        }
+
+        // no idea why I did this!
+//        while (i < response.length && (response[i] == ' ' || response[i] == '\n' || response[i] == '\r')) {
+//            i++;
+//        }
+
+//        return i;
+    }
+
+    static public int indexOf(byte[] outerArray, byte[] smallerArray) {
+        for(int i = 0; i < outerArray.length - smallerArray.length+1; ++i) {
+            boolean found = true;
+            for(int j = 0; j < smallerArray.length; ++j) {
+                if (outerArray[i+j] != smallerArray[j]) {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) return i;
+        }
+        return -1;
+    }
+
 
 }

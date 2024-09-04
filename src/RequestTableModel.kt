@@ -3,12 +3,12 @@ package burp
 import javax.swing.table.AbstractTableModel
 import java.util.*
 
-class RequestTableModel : AbstractTableModel() {
-    internal var requests: MutableList<Request> = ArrayList()
+class RequestTableModel(val handler: OutputHandler) : AbstractTableModel() {
+
     internal var editable: Boolean = false
 
     override fun getRowCount(): Int {
-        return requests.size
+        return handler.requests.size
     }
 
     override fun getColumnCount(): Int {
@@ -27,13 +27,17 @@ class RequestTableModel : AbstractTableModel() {
             3 -> java.lang.Integer::class.java
             4 -> java.lang.Integer::class.java
             5 -> java.lang.Long::class.java
-            6 -> String::class.java
+            6 -> java.lang.Long::class.java
+            7 -> String::class.java
+            8 -> java.lang.Integer::class.java
+            9 -> java.lang.Integer::class.java
+
             else -> throw RuntimeException()
         }
     }
 
     override fun getValueAt(rowIndex: Int, columnIndex: Int): Any? {
-        val request = requests[rowIndex]
+        val request = handler.requests[rowIndex]
 
         return when (columnIndex) {
             0 -> rowIndex
@@ -42,7 +46,10 @@ class RequestTableModel : AbstractTableModel() {
             3 -> request.wordcount
             4 -> request.length
             5 -> request.time
-            6 -> request.label
+            6 -> request.arrival
+            7 -> request.label
+            8 -> request.id
+            9 -> request.connectionID
             else -> null
         }
     }
@@ -51,15 +58,10 @@ class RequestTableModel : AbstractTableModel() {
         return editable && columnIndex != 4
     }
 
-    fun addRequest(req: Request) {
-        requests.add(req)
-        fireTableRowsInserted(requests.lastIndex, requests.lastIndex)
-    }
-
 
     fun getRequest(index: Int): Request? {
         return try {
-            requests[index]
+            handler.requests[index]
         } catch (ex: ArrayIndexOutOfBoundsException) {
             null
         }
@@ -67,6 +69,6 @@ class RequestTableModel : AbstractTableModel() {
     }
 
     companion object {
-        internal val columns = listOf("Row", "Payload", "Status", "Words", "Length", "Time", "Label")
+        internal val columns = listOf("Row", "Payload", "Status", "Words", "Length", "Time", "Arrival", "Label", "Queue ID", "Connection ID")
     }
 }

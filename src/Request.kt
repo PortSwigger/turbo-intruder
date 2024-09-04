@@ -1,7 +1,9 @@
 package burp
+import burp.api.montoya.http.message.HttpRequestResponse
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.lang.Exception
+import java.net.URL
 import java.util.*
 import kotlin.collections.HashMap
 
@@ -9,11 +11,23 @@ open class Request(val template: String, val words: List<String?>, val learnBori
 
     var response: String? = null
     var details: IResponseVariations? = null
-    var engine: RequestEngine? = null
+    var interesting: Boolean = false
+    var _engine: RequestEngine? = null
+    var engine: Any? = null
     var connectionID: Int? = null
     var callback: ((Request, Boolean) -> Boolean)? = null
     var gate: Floodgate? = null
-    var time: Long = 0
+    var order: Int = 0
+    var time: Long = 0L
+    var sent: Long = 0L
+    var arrival: Long = 0
+    var id = -1
+    var pauseBefore: Int = 0
+    var pauseTime: Int = 1000
+    var pauseMarkers: List<String> = emptyList()
+    var delayCompletion: Long = 0L
+    var endpointOverride: String? = null
+    var montoyaReq: HttpRequestResponse? = null
 
     private val attributes: HashMap<String, Any> = HashMap()
 
@@ -27,7 +41,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
             callback!!.invoke(this, isinteresting)
         }
         else {
-            engine!!.callback(this, isinteresting)
+            _engine!!.callback(this, isinteresting)
         }
     }
 
@@ -47,6 +61,10 @@ open class Request(val template: String, val words: List<String?>, val learnBori
             return 0
         }
         try {
+            if(response!!.startsWith(":status")) {
+                return Integer.parseInt(response!!.split(" ", "\r", "\n", limit=3).get(1))
+            }
+
             return Integer.parseInt(response?.split(" ", ignoreCase = false, limit = 3)?.get(1))
         } catch (e: Exception) {
             return 0
@@ -63,7 +81,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
 
     fun getRequest(): String {
         if (words.isEmpty()) {
-            return template
+            return fixContentLength(template)
         }
 
         if (!template.contains("%s")) {
@@ -81,22 +99,36 @@ open class Request(val template: String, val words: List<String?>, val learnBori
             Utils.out("Bad base request ${words.size} words and more %s")
         }
 
-        return req
+        return fixContentLength(req)
+    }
+
+    fun stringToBytes(string: String?): ByteArray {
+        // todo look up actual charset from headers and use that
+        if (Utils.helpers != null) {
+            return Utils.helpers.stringToBytes(string)
+        }
+        return string?.toByteArray(Charsets.ISO_8859_1) ?: ByteArray(0) // Charsets.UTF_8
     }
 
     fun getRequestAsBytes(): ByteArray {
-        return fixContentLength(getRequest().toByteArray(Charsets.UTF_8))
+        return fixContentLength(stringToBytes(getRequest()))
     }
 
     fun getResponseAsBytes(): ByteArray? {
-        // todo look up actual charset from headers and use that
-        // or use bytes from end to end
-        return response?.toByteArray(Charsets.UTF_8)
+        if (response == null) {
+            return "null".toByteArray()
+        }
+        return stringToBytes(response)
+    }
+
+    // todo fix performance
+    fun fixContentLength(request: String): String {
+        return String(fixContentLength(request.toByteArray(Charsets.ISO_8859_1)))
     }
 
     fun fixContentLength(request: ByteArray): ByteArray {
         if (Utils.getHeaders(String(request)).contains("Content-Length: ")) {
-            val start = getBodyStart(request)
+            val start = Utils.getBodyStart(request)
             val contentLength = request.size - start
             try {
                 return setHeader(request, "Content-Length", Integer.toString(contentLength))
@@ -133,15 +165,15 @@ open class Request(val template: String, val words: List<String?>, val learnBori
             val line_start = i
 
             // Make ' foo: bar' get interpreted as 'foo: bar'
-            if (request[i] == ' '.toByte()) {
+            if (request[i] == ' '.code.toByte()) {
                 i++
             }
 
-            while (i < end && request[i++] != ' '.toByte()) {
+            while (i < end && request[i++] != ' '.code.toByte()) {
             }
             val header_name = request.copyOfRange(line_start, i - 2)
             val headerValueStart = i
-            while (i < end && request[i++] != '\n'.toByte()) {
+            while (i < end && request[i++] != '\n'.code.toByte()) {
             }
             if (i == end) {
                 break
@@ -153,40 +185,12 @@ open class Request(val template: String, val words: List<String?>, val learnBori
                 return intArrayOf(line_start, headerValueStart, i - 2)
             }
 
-            if (i + 2 < end && request[i] == '\r'.toByte() && request[i + 1] == '\n'.toByte()) {
+            if (i + 2 < end && request[i] == '\r'.code.toByte() && request[i + 1] == '\n'.code.toByte()) {
                 break
             }
         }
         throw RuntimeException("Couldn't find header: '$header'")
     }
-
-    fun getBodyStart(response: ByteArray): Int {
-        var i = 0
-        var newlines_seen = 0
-        while (i < response.size) {
-            val x = response[i]
-            if (x == '\n'.toByte()) {
-                newlines_seen++
-            } else if (x != '\r'.toByte()) {
-                newlines_seen = 0
-            }
-
-            if (newlines_seen == 2) {
-                break
-            }
-            i += 1
-        }
-
-
-        while (i < response.size && (response[i] == ' '.toByte() || response[i] == '\n'.toByte() || response[i] == '\r'.toByte())) {
-            i++
-        }
-
-        return i
-    }
-
-
-
 }
 
 class BurpRequest(val req: Request): IHttpRequestResponse {
@@ -201,7 +205,7 @@ class BurpRequest(val req: Request): IHttpRequestResponse {
     }
 
     override fun getHttpService(): IHttpService {
-        val url = req.engine!!.target
+        val url = req._engine!!.target
         return Utils.callbacks.helpers.buildHttpService(url.host, url.port, url.protocol)
     }
 
@@ -227,6 +231,7 @@ class BurpRequest(val req: Request): IHttpRequestResponse {
 
     override fun setHighlight(color: String?) {
     }
+
 }
 
 class StubRequest(val req: ByteArray, val service: IHttpService): IHttpRequestResponse {
@@ -264,4 +269,5 @@ class StubRequest(val req: ByteArray, val service: IHttpService): IHttpRequestRe
 
     override fun setHighlight(color: String?) {
     }
+
 }

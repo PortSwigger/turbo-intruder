@@ -28,23 +28,31 @@ class UpdateStatusbar(val message: JLabel, val handler: AttackHandler): ActionLi
 }
 
 interface OutputHandler {
-    fun add(req: Request)
+    var requests: MutableList<Request>
+
+    abstract fun add(req: Request)
+    fun save(req: Request) {
+        requests.add(req)
+    }
 }
 
-class ConsolePrinter: OutputHandler {
+class ConsolePrinter() : OutputHandler {
     private val requestID = AtomicInteger(0)
+    override var requests: MutableList<Request> = java.util.ArrayList()
 
     init {
         Utils.out("ID | Word | Status | Wordcount | Length | Time")
     }
 
     override fun add(req: Request) {
+        save(req)
         Utils.out(String.format("%s | %s | %s | %s | %s | %s", requestID.incrementAndGet(), req.words.joinToString(separator="/"), req.code, req.wordcount, req.length, req.time))
     }
 }
 
 class RequestTable(val service: IHttpService, val handler: AttackHandler): JPanel(), OutputHandler {
-    val model = RequestTableModel()
+    override var requests: MutableList<Request> = java.util.ArrayList()
+    val model = RequestTableModel(this)
     val issueTable = JTable(model)
     val requestEditor: IMessageEditor
     val responseEditor: IMessageEditor
@@ -52,12 +60,14 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
     val requestListView: JScrollPane
     private val controller = MessageEditorController()
     private var currentRequest: Request? = null
+    private var firstEntry = true
+    private val lock = Object()
 
     fun setCurrentRequest(req: Request?) {
         //println("Setting current request to "+req!!.word)
         currentRequest = req!!
         requestEditor.setMessage(req.getRequestAsBytes(), true)
-        responseEditor.setMessage(req.getResponseAsBytes(), false)
+        responseEditor.setMessage(Utilities.replaceFirst(req.getResponseAsBytes(), "Content-Encoding: gzip", "X-Content-Encoding: gz"), false)
     }
 
     init {
@@ -122,10 +132,38 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         val createIssueButton = JMenuItem("Report as issue")
         createIssueButton.addActionListener {
             val reqs = getSelectedRequests().map(Request::getBurpRequest)
+
+
+            val comment = JOptionPane.showInputDialog(menu, "Comment", "", JOptionPane.PLAIN_MESSAGE) as String
+
+            val htmlTable = StringBuilder()
+            htmlTable.append("<table>")
+            htmlTable.append("<tr><td>Payload</td><td>Status</td><td>Time</td><td>Arrival</td><td>Label</td><td>Queue ID</td><td>Connection ID</td></tr>")
+
+            for (req in getSelectedRequests()) {
+                htmlTable.append("<tr><td>")
+                if (req.words.isNotEmpty()) {
+                    htmlTable.append(req.words[0])
+                }
+                htmlTable.append("</td><td>")
+                htmlTable.append(req.status)
+                htmlTable.append("</td><td>")
+                htmlTable.append(req.time)
+                htmlTable.append("</td><td>")
+                htmlTable.append(req.arrival)
+                htmlTable.append("</td><td>")
+                htmlTable.append(req.label)
+                htmlTable.append("</td><td>")
+                htmlTable.append(req.order)
+                htmlTable.append("</td><td>")
+                htmlTable.append(req.connectionID)
+                htmlTable.append("</td></tr>")
+            }
+            htmlTable.append("</table>")
             val service = reqs[0].httpService
             val baseReq = StubRequest(Utils.callbacks.helpers.stringToBytes(handler.baseRequest), service)
             val url = URL(service.protocol + "://" + service.host + ":" +service.port)
-            val detail = "<b>Status:</b> "+statusLabel.text + "<br/><br/>\n<pre>"+ handler.code.replace("<", "&lt;")+"</pre>\n"
+            val detail = "<b>Comment: "+comment+"</b><br/><br/><b>Status:</b> "+statusLabel.text + "<br/><br/>\n<pre>"+ handler.code.replace("<", "&lt;")+"</pre>\n"+htmlTable
             val issue = TurboScanIssue(service, url, arrayOf<IHttpRequestResponse>(baseReq) + reqs.toTypedArray(), "Turbo Intruder Attack", detail, "Information", "Certain", "")
             Utils.callbacks.addScanIssue(issue)
         }
@@ -150,13 +188,25 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
     }
 
 
-    @Synchronized override fun add(req: Request) {
-        model.addRequest(req)
+    override fun add(req: Request) {
+        synchronized(lock) {
+            save(req)
+            model.fireTableRowsInserted(requests.lastIndex, requests.lastIndex)
+            if (firstEntry) {
+                issueTable.changeSelection(0, 0, false, false)
+                issueTable.requestFocusInWindow()
+                firstEntry = false
+            }
+        }
     }
 
     inner class MessageEditorController : IMessageEditorController {
         override fun getHttpService(): IHttpService? {
-            return service //currentRequest.getHttpService()
+            if (currentRequest?.montoyaReq != null) {
+                val montoyaService = currentRequest!!.montoyaReq!!.httpService()
+                return Utils.callbacks.helpers.buildHttpService(montoyaService.host(), montoyaService.port(), montoyaService.secure())
+            }
+            return service
         }
 
         override fun getRequest(): ByteArray? {

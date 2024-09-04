@@ -1,15 +1,20 @@
 package burp
+import java.lang.RuntimeException
 import java.net.URL
-import java.nio.charset.StandardCharsets
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
+import burp.api.montoya.http.HttpMode
+import burp.api.montoya.http.HttpService
+import burp.api.montoya.http.message.requests.HttpRequest
+import kotlin.collections.ArrayList
 
-open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, override val maxRetriesPerRequest: Int, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?): RequestEngine() {
+open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, override val maxRetriesPerRequest: Int, override var idleTimeout: Long = 0, override val callback: (Request, Boolean) -> Boolean, override var readCallback: ((String) -> Boolean)?, val useHTTP1: Boolean): RequestEngine() {
 
     private val threadPool = ArrayList<Thread>()
+    private val gatedRequests: HashMap<String, LinkedList<Request>> = HashMap()
 
     init {
         requestQueue = if (maxQueueSize > 0) {
@@ -19,12 +24,15 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
             LinkedBlockingQueue()
         }
 
+
         completedLatch = CountDownLatch(threads)
 
         target = URL(url)
-
-
-        val service = Utils.callbacks.helpers.buildHttpService(target.host, target.port, target.protocol == "https")
+        var port = target.port
+        if (port == -1) {
+            port = target.defaultPort
+        }
+        val service = Utils.callbacks.helpers.buildHttpService(target.host, port, target.protocol == "https")
 
         for(j in 1..threads) {
             threadPool.add(
@@ -42,9 +50,56 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
 
 
     override fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?, label: String?): Request {
-        return Request(template.replace("Connection: keep-alive", "Connection: close"), payloads, learnBoring ?: 0, label)
+        var prepared = template
+        if (useHTTP1) {
+            prepared = prepared.replace("Connection: keep-alive", "Connection: close").replaceFirst("HTTP/2\r\n", "HTTP/1.1\r\n")
+        } else {
+            if (!Utilities.isHTTP2(prepared.toByteArray())) {
+                prepared = prepared.replaceFirst("HTTP/1.1\r\n", "HTTP/2\r\n")
+            }
+        }
+        return Request(prepared, payloads, learnBoring ?: 0, label)
     }
 
+    private fun request(service: IHttpService, req: Request): Pair<IHttpRequestResponse?, Long> {
+        val resp: IHttpRequestResponse?
+        val startTime = System.nanoTime()
+        var responseTime = 0L
+        if (useHTTP1) {
+            try {
+
+                resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes(), true)
+                responseTime = System.nanoTime() - startTime
+            } catch (e: NoSuchMethodError) {
+                throw RuntimeException("Please update Burp Suite")
+            }
+        } else {
+            val respBytes = Utils.h2request(service, req.getRequestAsBytes())
+            responseTime = System.nanoTime() - startTime
+            if (respBytes != null) {
+                req.response = Utils.helpers.bytesToString(respBytes)
+            }
+            resp = BurpRequest(req)
+        }
+
+        return Pair(resp, responseTime/1000) // convert to microseconds
+    }
+
+
+    // this will return null unless there's an open gate with pending requests
+    private fun getGatedRequests(): List<Request>? {
+        val gates = gatedRequests.keys
+        for (gate in gates) {
+            synchronized(gate) {
+                if (floodgates.get(gate)?.isOpen?.get() == true) {
+                    val toSend = gatedRequests.get(gate)
+                    gatedRequests.remove(gate)
+                    return toSend
+                }
+            }
+        }
+        return null
+    }
 
     private fun sendRequests(service: IHttpService) {
         while(attackState.get()<1) {
@@ -53,39 +108,155 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
 
 
         while(attackState.get() < 3 && !Utils.unloaded) {
-            val req = requestQueue.poll(100, TimeUnit.MILLISECONDS)
 
-            if(req == null) {
-                if (attackState.get() == 2) {
-                    completedLatch.countDown()
-                    return
-                }
-                else {
+            try {
+                val requestGroup = getGatedRequests()
+                if (requestGroup != null) {
+                    val preppedRequestBatch = ArrayList<HttpRequest>()
+
+                    val montoyaService =
+                        HttpService.httpService(service.host, service.port, "https".equals(service.protocol))
+
+                    for (req in requestGroup) {
+                        val montoyaReq = HttpRequest.httpRequest(montoyaService, req.getRequest())
+                        preppedRequestBatch.add(montoyaReq)
+                    }
+
+                    val protocolVersion: HttpMode
+                    var connectionID = 0
+                    if (useHTTP1) {
+                        connections.addAndGet(requestGroup.size)
+                        protocolVersion = HttpMode.HTTP_1
+                    } else {
+                        protocolVersion = HttpMode.HTTP_2
+                        connectionID = connections.incrementAndGet()
+                    }
+
+                    val timer = System.nanoTime()
+                    val responses = Utils.montoyaApi.http().sendRequests(preppedRequestBatch, protocolVersion)
+
+                    var n = 0
+
+                    val reqs: ArrayList<Request> = ArrayList()
+                    for (resp in responses) {
+                        val req = requestGroup.get(n++)
+
+                        // we don't need to support retries for batches requests
+                        if (resp.response() == null) {
+                            req.response = "The server closed the connection without issuing a response."
+                            permaFails.incrementAndGet()
+                        } else {
+                            successfulRequests.getAndIncrement()
+                            req.response = resp.response().toString()
+                        }
+
+                        req.time = resp.timingData().get().timeBetweenRequestSentAndStartOfResponse().toNanos() / 1000
+                        req.arrival = (timer - start) / 1000 + req.time
+
+                        if (useHTTP1) {
+                            req.connectionID = connections.incrementAndGet()
+                        } else {
+                            req.connectionID = connectionID
+                        }
+                        req.interesting = processResponse(req, resp.response().toByteArray().bytes)
+                        reqs.add(req)
+                    }
+
+                    reqs.sortBy { it.time }
+
+                    var i = 0
+                    for (req in reqs) {
+                        req.order = i++
+                        successfulRequests.getAndIncrement()
+                        invokeCallback(req, req.interesting)
+                    }
+
                     continue
                 }
-            }
 
-            var resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes())
-            connections.incrementAndGet()
-            while (resp.response == null && shouldRetry(req)) {
-                Utils.out("Retrying ${req.words}")
-                resp = Utils.callbacks.makeHttpRequest(service, req.getRequestAsBytes())
+                val req = requestQueue.poll(100, TimeUnit.MILLISECONDS)
+
+                if (req == null) {
+                    if (gatedRequests.isNotEmpty()) {
+                        continue;
+                    }
+
+                    if (attackState.get() == 2) {
+                        completedLatch.countDown()
+                        return
+                    } else {
+                        continue
+                    }
+                }
+
+                if (req.gate != null) {
+                    gatedRequests.putIfAbsent(req.gate!!.name, LinkedList<Request>())
+                    gatedRequests.get(req.gate!!.name)!!.add(req)
+                    req.gate!!.remaining.decrementAndGet() // todo is this right?
+                    continue
+                }
+
+
+                if (req.endpointOverride != null) {
+                    val overrideTarget = URL(req.endpointOverride)
+                    var port = overrideTarget.port
+                    if (port == -1) {
+                        port = target.defaultPort
+                    }
+                    val tempService = Utils.callbacks.helpers.buildHttpService(
+                        overrideTarget.host,
+                        port,
+                        overrideTarget.protocol == "https"
+                    )
+
+                    connections.incrementAndGet()
+                    val montoyaService =
+                        HttpService.httpService(tempService.host, port, "https".equals(tempService.protocol))
+                    val montoyaResp = Utils.montoyaApi.http().sendRequest(HttpRequest.httpRequest(montoyaService, req.getRequest().replace("HTTP/2\r\n","HTTP/1.1\r\n")))
+                    req.response = montoyaResp.response().toString()
+                    req.montoyaReq = montoyaResp
+                    req.interesting = processResponse(req, montoyaResp.response().toByteArray().bytes)
+                    successfulRequests.getAndIncrement()
+                    invokeCallback(req, req.interesting)
+                    continue
+                }
+
+                var resp: IHttpRequestResponse?
+                var time: Long
+                val pair = request(service, req)
+                resp = pair.first
+                time = pair.second
                 connections.incrementAndGet()
-                Utils.out("Retried ${req.words}")
-            }
+                while (resp!!.response == null && shouldRetry(req)) {
+                    Utils.out("Retrying ${req.words}")
+                    resp = request(service, req).first
+                    connections.incrementAndGet()
+                    Utils.out("Retried ${req.words}")
+                }
+                req.time = time
+                passToCallback(req, resp)
 
-            if(resp.response == null) {
-                req.response = "The server closed the connection without issuing a response."
-                invokeCallback(req, true)
+            } catch (ex: Exception) {
+                ex.printStackTrace()
+                Utils.err("Ignoring error: "+ex.toString())
+                permaFails.getAndIncrement()
+                // todo add null response to table
+                continue
             }
+        }
+    }
 
-            if (resp.response != null) {
-                successfulRequests.getAndIncrement()
-                val interesting = processResponse(req, resp.response)
-                req.response = String(resp.response) // , StandardCharsets.UTF_8
-                invokeCallback(req, interesting)
-            }
+    private fun passToCallback(req: Request, resp: IHttpRequestResponse?) {
+        if(resp == null || resp.response == null) {
+            req.response = "The server closed the connection without issuing a response."
+            invokeCallback(req, true)
+        }
 
+        if (resp!!.response != null) {
+            successfulRequests.getAndIncrement()
+            val interesting = processResponse(req, resp.response)
+            req.response = Utils.helpers.bytesToString(resp.response) // , StandardCharsets.UTF_8
+            invokeCallback(req, interesting)
         }
     }
 
