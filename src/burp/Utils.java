@@ -170,5 +170,17 @@ public class Utils {
         return -1;
     }
 
+    public static byte[] stringToBytes(String string) {
+        // todo look up actual charset from headers and use that
+        if (Utils.helpers != null) {
+            return Utils.helpers.stringToBytes(string);
+        }
+
+        try {
+            return string.getBytes("ISO-8859-1");
+        } catch (Exception e) {
+            throw new RuntimeException("failed to convert string to bytes");
+        }
+    }
 
 }
