@@ -9,6 +9,7 @@ import java.awt.*;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -171,13 +172,13 @@ public class Utils {
     }
 
     public static byte[] stringToBytes(String string) {
-        // todo look up actual charset from headers and use that
-        if (Utils.helpers != null) {
-            return Utils.helpers.stringToBytes(string);
-        }
+//        // todo look up actual charset from headers and use that
+//        if (Utils.helpers != null) {
+//            return Utils.helpers.stringToBytes(string);
+//        }
 
         try {
-            return string.getBytes("ISO-8859-1");
+            return string.getBytes(StandardCharsets.UTF_8); // ISO_8859_1
         } catch (Exception e) {
             throw new RuntimeException("failed to convert string to bytes");
         }
