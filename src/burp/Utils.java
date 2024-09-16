@@ -178,7 +178,7 @@ public class Utils {
 //        }
 
         try {
-            return string.getBytes(StandardCharsets.UTF_8); // ISO_8859_1
+            return string.getBytes(StandardCharsets.ISO_8859_1); // ISO_8859_1
         } catch (Exception e) {
             throw new RuntimeException("failed to convert string to bytes");
         }
