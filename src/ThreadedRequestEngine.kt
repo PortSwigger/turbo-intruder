@@ -80,6 +80,16 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
             } else {
                 return body
             }
+
+            if (Utilities.montoyaApi == null) {
+                if (compressionType == CompressionType.GZIP) {
+                    return ungzip(body.toByteArray(Charsets.ISO_8859_1))
+                }
+                Utils.out("Can't decompress response")
+                return body;
+            }
+
+
             val decompressed = Utils.montoyaApi.utilities().compressionUtils().decompress(burp.api.montoya.core.ByteArray.byteArray(body), compressionType)
             return Utils.montoyaApi.utilities().byteUtils().convertToString(decompressed.bytes)
         }
