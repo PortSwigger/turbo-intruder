@@ -2,8 +2,9 @@ package burp
 
 import javax.swing.table.AbstractTableModel
 import java.util.*
+import javax.swing.table.DefaultTableModel
 
-class RequestTableModel(val handler: OutputHandler) : AbstractTableModel() {
+class RequestTableModel(val handler: OutputHandler): AbstractTableModel() {
 
     internal var editable: Boolean = false
 

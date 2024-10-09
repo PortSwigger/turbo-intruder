@@ -63,6 +63,13 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
     private var firstEntry = true
     private val lock = Object()
 
+    fun clear() {
+        SwingUtilities.invokeLater({
+            requests.clear()
+            model.fireTableDataChanged()
+        })
+    }
+
     fun setCurrentRequest(req: Request?) {
         //println("Setting current request to "+req!!.word)
         currentRequest = req!!
