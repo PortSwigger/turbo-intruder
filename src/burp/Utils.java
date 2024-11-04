@@ -184,4 +184,12 @@ public class Utils {
         }
     }
 
+    private static void printBytes(byte[] bytes) {
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : bytes) {
+            hexString.append(String.format("%02X ", b)); // Converts byte to hex
+        }
+        Utilities.out(hexString.toString().trim());
+    }
+
 }
