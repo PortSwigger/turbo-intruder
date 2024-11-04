@@ -7,7 +7,6 @@ import java.awt.event.ActionListener
 import java.net.URL
 import java.util.concurrent.atomic.AtomicInteger
 import javax.swing.*
-import javax.swing.Timer
 import javax.swing.border.BevelBorder
 import javax.swing.table.TableRowSorter
 
@@ -127,6 +126,18 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         panelUpdater.start()
 
         val menu = JPopupMenu()
+
+        val reportToOrganizerButton = JMenuItem("Save to Organizer")
+        reportToOrganizerButton.addActionListener {
+            val comment = JOptionPane.showInputDialog(menu, "Comment", "",  JOptionPane.PLAIN_MESSAGE) as String
+            val reqs = getSelectedRequests().map(Request::getMontoyaRequest)
+            val notes = comment + "\n" + handler.statusString() + "\n\n" + handler.code
+            for (req in reqs) {
+                req!!.annotations().setNotes(notes)
+                Utils.montoyaApi.organizer().sendToOrganizer(req)
+            }
+        }
+        menu.add(reportToOrganizerButton)
 
         val addToSitemap = JMenuItem("Add to sitemap")
         addToSitemap.addActionListener {

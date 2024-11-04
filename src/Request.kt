@@ -79,6 +79,13 @@ open class Request(val template: String, val words: List<String?>, val learnBori
         return BurpRequest(this)
     }
 
+    fun getMontoyaRequest(): HttpRequestResponse? {
+        montoyaReq?.let {
+            return montoyaReq
+        }
+        return Utilities.buildMontoyaResp(Resp(getBurpRequest()))
+    }
+
     fun getRequest(): String {
         if (words.isEmpty()) {
             return fixContentLength(template)
