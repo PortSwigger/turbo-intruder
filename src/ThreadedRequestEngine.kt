@@ -309,16 +309,38 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             endTime = System.nanoTime()
                         }
 
-                        while (bodyStart == -1 && !shouldAbandonAttack()) {
-                            val len = socket.getInputStream().read(readBuffer)
-                            if(len == -1) {
+                        var consumeFirstBlock = buffer.startsWith("HTTP/1.1 100")
+                        var ateContinue = false
+                        var continueBlock = ""
+
+                        while ((bodyStart == -1 || (consumeFirstBlock && !ateContinue)) && !shouldAbandonAttack()) {
+                            try {
+                                val len = socket.getInputStream().read(readBuffer)
+                                if(len == -1) {
+                                    break
+                                }
+                                endTime = System.nanoTime()
+
+                                val read = Utils.bytesToString(readBuffer.copyOfRange(0, len))
+                                triggerReadCallback(read)
+                                buffer += read
+                                consumeFirstBlock = buffer.startsWith("HTTP/1.1 100")
+                                bodyStart = buffer.indexOf("\r\n\r\n")
+                                if (consumeFirstBlock && bodyStart != -1 && !ateContinue) {
+                                    Utils.out("Eating continue")
+                                    consumeFirstBlock = false
+                                    ateContinue = true
+                                    continueBlock = buffer.substring(0, bodyStart+4)
+                                    buffer = buffer.substring(bodyStart+4)
+                                    bodyStart = -1
+                                }
+                            } catch (ex: SocketTimeoutException) {
                                 break
                             }
-                            endTime = System.nanoTime()
+                        }
 
-                            val read = Utils.bytesToString(readBuffer.copyOfRange(0, len))
-                            triggerReadCallback(read)
-                            buffer += read
+                        if (buffer.isEmpty() && !continueBlock.isEmpty()) {
+                            buffer = continueBlock
                             bodyStart = buffer.indexOf("\r\n\r\n")
                         }
 
@@ -379,10 +401,12 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             }
                         }
                         else {
+
                             if (IGNORE_LENGTH) {
                                 socket.soTimeout = 5000
-                            }
-                            else {
+                            } else if (ateContinue) {
+                                socket.soTimeout = 100
+                            } else {
                                 Utils.err("Response has no content-length - doing a one-second socket read instead. This is slow!")
                                 socket.soTimeout = 1000
                             }
