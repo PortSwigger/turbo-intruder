@@ -573,7 +573,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
 
         override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {
-            for (x in chain.get(0).getSubjectAlternativeNames()) {
+            val altNames = chain.get(0).subjectAlternativeNames ?: return
+            for (x in altNames) {
                 engine.domains.add(x.get(1).toString())
             }
         }
