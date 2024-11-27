@@ -327,21 +327,21 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                 consumeFirstBlock = buffer.startsWith("HTTP/1.1 100")
                                 bodyStart = buffer.indexOf("\r\n\r\n")
                                 if (consumeFirstBlock && bodyStart != -1 && !ateContinue) {
-                                    Utils.out("Eating continue")
                                     consumeFirstBlock = false
                                     ateContinue = true
                                     continueBlock = buffer.substring(0, bodyStart+4)
                                     buffer = buffer.substring(bodyStart+4)
-                                    bodyStart = -1
+                                    bodyStart = buffer.indexOf("\r\n\r\n")
                                 }
                             } catch (ex: SocketTimeoutException) {
                                 break
                             }
                         }
 
-                        if (buffer.isEmpty() && !continueBlock.isEmpty()) {
+                        if (buffer.isEmpty() && ateContinue) {
                             buffer = continueBlock
-                            bodyStart = buffer.indexOf("\r\n\r\n")
+                            continueBlock = ""
+                            bodyStart = buffer.length
                         }
 
                         val contentLength = getContentLength(buffer)
@@ -349,7 +349,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         if (buffer.isEmpty()) {
                             throw ConnectException("No response")
                         } else if (bodyStart == -1) {
-                            throw ConnectException("Unterminated response")
+                            throw ConnectException("Unterminated response: '"+buffer+"'")
                         }
 
                         if (contentLength > 10000000) {
@@ -438,6 +438,10 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         }
 
                         var msg = headers
+                        if (continueBlock.isNotEmpty()) {
+                            msg = continueBlock + msg
+                        }
+
                         msg += uncompressIfNecessary(headers, body)
 
                         reqWithResponse = inflight.removeFirst()
