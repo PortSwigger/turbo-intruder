@@ -107,6 +107,7 @@ class TurboHelper implements AutoCloseable {
                 @Override
                 public Boolean invoke(Request req, Boolean interesting) {
                     try {
+                        // fixme this messes up the responseTime, making req.failed() incorrect
                         resps.set(finalI, new Resp(new Req(req.getRequestAsBytes(), req.getResponseAsBytes(), service), System.currentTimeMillis() - req.getTime()));
                     } catch (Exception e) {
                         Utils.err(e.getMessage());

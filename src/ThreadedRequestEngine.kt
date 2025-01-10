@@ -210,7 +210,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                 var requestsSent = 0
                 answeredRequests = 0
                 while (requestsSent < requestsPerConnection && !shouldAbandonAttack()) {
-
+                    var ditchConnection = false;
                     var readCount = 0
                     startTime = 0
                     var endTime: Long = 0
@@ -365,15 +365,21 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             while (buffer.length < responseLength && !shouldAbandonAttack()) {
                                 val len = socket.getInputStream().read(readBuffer)
                                 if (len == -1) {
-                                    throw RuntimeException("CL response finished unexpectedly")
+                                    ditchConnection = true
+                                    body = buffer.substring(bodyStart + 4)
+                                    buffer = ""
+                                    break
+                                    //throw RuntimeException("CL response finished unexpectedly")
                                 }
                                 val read =  Utils.bytesToString(readBuffer.copyOfRange(0, len))
                                 triggerReadCallback(read)
                                 buffer += read
                             }
 
-                            body = buffer.substring(bodyStart + 4, responseLength)
-                            buffer = buffer.substring(responseLength)
+                            if (!ditchConnection) {
+                                body = buffer.substring(bodyStart + 4, responseLength)
+                                buffer = buffer.substring(responseLength)
+                            }
                         }
                         else if (headers.lowercase().contains("transfer-encoding: chunked") || headers.contains("^transfer-encoding:[ ]*chunked".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)))  && !IGNORE_LENGTH) {
 
@@ -409,6 +415,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             } else {
                                 Utils.err("Response has no content-length - doing a one-second socket read instead. This is slow!")
                                 socket.soTimeout = 1000
+                                ditchConnection = true
                             }
 
                             try {
@@ -458,6 +465,10 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                     }
                     badWords.clear()
+
+                    if (ditchConnection) {
+                        break
+                    }
                 }
             } catch (ex: Exception) {
 
