@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.zip.GZIPInputStream
+import kotlin.collections.HashMap
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
@@ -36,6 +37,8 @@ abstract class RequestEngine: IExtensionStateListener {
     val floodgates = HashMap<String, Floodgate>()
     var lastLife: Long = System.currentTimeMillis()
     abstract var idleTimeout: Long
+
+    val internalSettings: HashMap<String, Any> = HashMap()
 
     init {
         if (attackState.get() == 3) {
@@ -356,6 +359,13 @@ abstract class RequestEngine: IExtensionStateListener {
 
         retries.getAndIncrement()
         return true
+    }
+
+    fun applySetting(settingName: String, settingValue: Any) {
+        if (!internalSettings.containsKey(settingName)) {
+            throw Exception("Unrecognised setting name: $settingName")
+        }
+        internalSettings[settingName] = settingValue
     }
 
     fun clearErrors() {

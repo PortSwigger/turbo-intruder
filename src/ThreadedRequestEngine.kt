@@ -2,7 +2,6 @@ package burp
 
 //import jdk.net.ExtendedSocketOptions
 import burp.api.montoya.utilities.CompressionType
-import burp.api.montoya.utilities.CompressionUtils
 import java.io.*
 import java.net.*
 import java.security.cert.X509Certificate
@@ -22,11 +21,11 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
     private val threadPool = ArrayList<Thread>()
 
-    private val IGNORE_LENGTH = false
-
     var domains = HashSet<String>()
 
     init {
+
+        internalSettings.put("ignoreLength", false)
 
         idleTimeout *= 1000
 
@@ -206,10 +205,10 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                 consecutiveFailedConnections = 0
 
-
                 var requestsSent = 0
                 answeredRequests = 0
                 while (requestsSent < requestsPerConnection && !shouldAbandonAttack()) {
+                    val ignoreLength = internalSettings.get("ignoreLength") as Boolean
                     var ditchConnection = false;
                     var readCount = 0
                     startTime = 0
@@ -359,7 +358,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         val headers = buffer.substring(0, bodyStart+4)
                         var body = ""
 
-                        if (contentLength != -1 && !IGNORE_LENGTH) {
+                        if (contentLength != -1 && !ignoreLength) {
                             val responseLength = bodyStart + contentLength + 4
 
                             while (buffer.length < responseLength && !shouldAbandonAttack()) {
@@ -381,7 +380,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                 buffer = buffer.substring(responseLength)
                             }
                         }
-                        else if (headers.lowercase().contains("transfer-encoding: chunked") || headers.contains("^transfer-encoding:[ ]*chunked".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)))  && !IGNORE_LENGTH) {
+                        else if (headers.lowercase().contains("transfer-encoding: chunked") || headers.contains("^transfer-encoding:[ ]*chunked".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)))  && !ignoreLength) {
 
                             buffer = buffer.substring(bodyStart + 4)
 
@@ -408,7 +407,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         }
                         else {
 
-                            if (IGNORE_LENGTH) {
+                            if (ignoreLength) {
                                 socket.soTimeout = 5000
                             } else if (ateContinue) {
                                 socket.soTimeout = 100

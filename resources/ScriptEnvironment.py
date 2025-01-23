@@ -317,6 +317,9 @@ class RequestEngine:
     def openGate(self, gate):
         self.engine.openGate(gate)
 
+    def applySetting(self, settingName, settingValue):
+        self.engine.applySetting(settingName, settingValue)
+
     def start(self, timeout=5):
         if self.autoStart or self.engine.attackState.get() != 0:
             print 'The engine has already started - you no longer need to invoke engine.start() manually. If you prefer to invoke engine.start() manually, set autoStart=False in the constructor'
