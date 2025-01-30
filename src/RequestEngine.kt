@@ -363,7 +363,8 @@ abstract class RequestEngine: IExtensionStateListener {
 
     fun applySetting(settingName: String, settingValue: Any) {
         if (!internalSettings.containsKey(settingName)) {
-            throw Exception("Unrecognised setting name: $settingName")
+            val msg = "Unrecognised setting name: $settingName. This engine supports the following settings: ${internalSettings.keys}"
+            throw Exception(msg)
         }
         internalSettings[settingName] = settingValue
     }

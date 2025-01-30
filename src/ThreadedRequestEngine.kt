@@ -341,6 +341,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             buffer = continueBlock
                             continueBlock = ""
                             bodyStart = buffer.length
+                            // todo handle missing body
                         }
 
                         val contentLength = getContentLength(buffer)
@@ -546,7 +547,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
         val cend = buf.indexOf("\r", cstart)
         try {
-            return buf.substring(cstart, cend).toInt()
+            return buf.substring(cstart, cend).trim().toInt()
         } catch (e: NumberFormatException) {
             throw RuntimeException("Can't parse content length in $buf")
         }
