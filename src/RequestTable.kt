@@ -76,6 +76,11 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         responseEditor.setMessage(Utilities.replaceFirst(req.getResponseAsBytes(), "Content-Encoding: gzip", "X-Content-Encoding: gz"), false)
     }
 
+    fun setSortOrder(column: Int, descending: Boolean) {
+        val order = if (descending) SortOrder.DESCENDING else SortOrder.ASCENDING
+        issueTable.rowSorter.sortKeys = listOf(RowSorter.SortKey(column, order))
+    }
+
     init {
 
         issueTable.rowSorter = TableRowSorter(model)
