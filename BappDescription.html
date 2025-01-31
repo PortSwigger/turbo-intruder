@@ -1,19 +1,25 @@
-<p>Turbo Intruder is a Burp Suite extension for sending large numbers of HTTP requests and analyzing the results. It's intended to complement Burp Intruder by handling attacks that require extreme speed or complexity. The following features set it apart:</p>
+<p>Turbo Intruder is a Burp Suite extension for sending large numbers of HTTP requests and analyzing the results. It's intended to complement Burp Intruder by handling attacks that require extreme speed or complexity.</p>
+
+<h2>Features</h2>
 
 <ul>
-
-<li>Fast - Turbo Intruder uses a HTTP stack hand-coded from scratch with speed in mind. As a result, on many targets it can seriously outpace even fashionable asynchronous Go scripts.</li>
-    <li>Flexible - Attacks are configured using Python. This enables handling of complex requirements such as signed requests and multi-step attack sequences. Also, the custom HTTP stack means it can handle malformed requests that break other libraries.</li>
-    <li>Scalable - Turbo Intruder can achieve flat memory usage, enabling reliable multi-day attacks. It can also be run in headless environments via the command line.</li>
-    <li>Convenient - Boring results can be automatically filtered out by an advanced diffing algorithm adapted from Backslash Powered Scanner</li>
+	<li><b>Fast</b> - Turbo Intruder uses a HTTP stack hand-coded from scratch with speed in mind. As a result, on many targets it can seriously outpace even fashionable asynchronous Go scripts.</li>
+	<li><b>Flexible</b> - Attacks are configured using Python. This enables handling of complex requirements such as signed requests and multi-step attack sequences. Also, the custom HTTP stack means it can handle malformed requests that break other libraries.</li>
+	<li><b>Scalable</b> - Turbo Intruder can achieve flat memory usage, enabling reliable multi-day attacks. It can also be run in headless environments via the command line.</li>
+	<li><b>Convenient</b> - Boring results can be automatically filtered out by an advanced diffing algorithm adapted from Backslash Powered Scanner</li>
 </ul>
 
 <p>On the other hand it's undeniably harder to use, and the network stack isn't as reliable and battle-tested as core Burp's.</p>
 
-<p><b>Basic use</b></p>
+<h2>Basic use</h2>
 
-<p>To use it, simply highlight the area you want to inject over, then right click and 'Send to Turbo Intruder'. This will open a window containing a Python snippet which you can customise before launching the attack.</p>
+<ol>
+	<li>Highlight the area you would like to inject over.</li>
+	<li>Right click, and use the context menu option "Send to Turbo Intruder". A new window containing your request will open.</li>
+	<li>Customize the Python code snippet to configure your attack.</li>
+	<li>Launch your attack by clicking the "Attack" button.</li>
+</ol>
 
-<p>For full usage instructions, please refer to <a href="https://portswigger.net/blog/turbo-intruder-embracing-the-billion-request-attack">the documentation</a>.</p>
+<p>To get started with Turbo Intruder, please refer to the video and documentation at <a href="https://portswigger.net/blog/turbo-intruder-embracing-the-billion-request-attack">Embracing the billion-request attack</a>.</p>
 
-<p>Copyright &copy; 2018-2023 PortSwigger Ltd.<p>
+<p><br>Copyright &copy; 2018-2025 PortSwigger Ltd.<p>
