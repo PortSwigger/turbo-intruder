@@ -49,6 +49,7 @@ class ConsolePrinter() : OutputHandler {
     }
 }
 
+
 class RequestTable(val service: IHttpService, val handler: AttackHandler): JPanel(), OutputHandler {
     override var requests: MutableList<Request> = java.util.ArrayList()
     val model = RequestTableModel(this)
@@ -200,15 +201,17 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
     }
 
     private fun getSelectedRequests(): ArrayList<Request> {
-        val requests = ArrayList<Request>()
-        val table = issueTable.model as RequestTableModel
-        for (index in issueTable.selectedRows) {
-            val req = table.getRequest(issueTable.convertRowIndexToModel(index))
-            if (req != null) {
-                requests.add(req)
+        synchronized(lock) {
+            val requests = ArrayList<Request>()
+            val table = issueTable.model as RequestTableModel
+            for (index in issueTable.selectedRows) {
+                val req = table.getRequest(issueTable.convertRowIndexToModel(index))
+                if (req != null) {
+                    requests.add(req)
+                }
             }
+            return requests
         }
-        return requests
     }
 
 
