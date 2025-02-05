@@ -85,7 +85,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
     init {
 
         issueTable.rowSorter = TableRowSorter(model)
-        //issueTable.rowSorter.sortKeys = listOf(RowSorter.SortKey(0, SortOrder.DESCENDING));
+        issueTable.rowSorter.sortKeys = listOf(RowSorter.SortKey(0, SortOrder.DESCENDING));
 
         issueTable.autoResizeMode = JTable.AUTO_RESIZE_OFF
         //issueTable.getColumnModel().getColumn(0).setPreferredWidth(500)
