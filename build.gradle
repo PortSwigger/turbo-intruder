@@ -2,8 +2,8 @@ apply plugin: 'java'
 
 apply plugin: 'kotlin'
 
-sourceCompatibility = 17
-targetCompatibility = 17
+sourceCompatibility = 21
+targetCompatibility = 21
 
 buildscript {
 
@@ -11,7 +11,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.5.30"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.10"
     }
 }
 
@@ -34,7 +34,7 @@ sourceSets {
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.5.30"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:2.1.10"
 
 
     implementation 'org.python:jython-standalone:2.7.0' // use this for extension jar
@@ -53,7 +53,6 @@ task fatJar(type: Jar) {
                 'Main-Class': 'burp.Fast_httpKt'
         )
     }
-    baseName = project.name + '-all'
     from { configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
     with jar
 }
