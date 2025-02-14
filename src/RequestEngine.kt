@@ -30,7 +30,7 @@ abstract class RequestEngine: IExtensionStateListener {
     val permaFails = AtomicInteger(0)
     lateinit var outputHandler: OutputHandler
     lateinit var requestQueue: LinkedBlockingQueue<Request>
-    abstract val callback: (Request, Boolean) -> Boolean
+    abstract val callback: (Request, Boolean) -> Boolean?
     abstract var readCallback: ((String) -> Boolean)?
     abstract val maxRetriesPerRequest: Int
     lateinit var target: URL
@@ -61,6 +61,7 @@ abstract class RequestEngine: IExtensionStateListener {
             req.invokeCallback(interesting)
         } catch (ex: Exception){
             Utils.out("Error in user-defined callback: $ex")
+            //ex.printStackTrace()
             permaFails.incrementAndGet()
         }
     }
