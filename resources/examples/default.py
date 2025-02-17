@@ -3,17 +3,16 @@ def queueRequests(target, wordlists):
     engine = RequestEngine(endpoint=target.endpoint,
                            concurrentConnections=5,
                            requestsPerConnection=100,
-                           pipeline=False
+                           pipeline=False,
+                           engine=Engine.THREADED
                            )
 
-    for i in range(3, 8):
-        engine.queue(target.req, randstr(i), learn=1)
-        engine.queue(target.req, target.baseInput, learn=2)
+    for x in range(10, 20):
+        engine.queue(target.req, x)
 
     for word in open('/usr/share/dict/words'):
         engine.queue(target.req, word.rstrip())
 
 
 def handleResponse(req, interesting):
-    if interesting:
-        table.add(req)
+    table.add(req)

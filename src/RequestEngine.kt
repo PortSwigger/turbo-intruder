@@ -328,7 +328,7 @@ abstract class RequestEngine: IExtensionStateListener {
             }
             base.updateWith(response)
 
-            reinvokeCallbacks()
+            //reinvokeCallbacks()
             return false
         }
         else if (baselines.isEmpty()) {
