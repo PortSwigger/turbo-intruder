@@ -67,6 +67,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
     private var currentRequest: Request? = null
     private var firstEntry = true
     private val lock = Object()
+    private var descending = true
 
     fun clear() {
         SwingUtilities.invokeLater({
@@ -91,6 +92,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
     }
 
     fun setSortOrder(column: Int, descending: Boolean) {
+        this.descending = descending
         val order = if (descending) SortOrder.DESCENDING else SortOrder.ASCENDING
         issueTable.rowSorter.sortKeys = listOf(RowSorter.SortKey(column, order))
     }
@@ -232,10 +234,10 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         synchronized(lock) {
             try {
                 save(req)
-                if (issueTable.rowSorter.sortKeys.equals(listOf(RowSorter.SortKey(0, SortOrder.ASCENDING)))) {
-                    model.fireTableRowsInserted(requests.lastIndex, requests.lastIndex)
-                } else {
+                if (descending) {
                     model.fireTableRowsInserted(0, 0)
+                } else {
+                    model.fireTableRowsInserted(requests.lastIndex, requests.lastIndex)
                 }
                 if (firstEntry && issueTable.rowCount > 0) {
                     issueTable.changeSelection(0, 0, false, false) // this is nuking the first row
