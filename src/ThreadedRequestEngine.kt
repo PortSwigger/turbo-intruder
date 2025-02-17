@@ -356,6 +356,10 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             throw ConnectException("Response too large - 10mb max")
                         }
 
+                        if (bodyStart+4 > buffer.length) {
+                            bodyStart = buffer.length - 4
+                        }
+
                         val headers = buffer.substring(0, bodyStart+4)
                         var body = ""
 

@@ -61,7 +61,7 @@ abstract class RequestEngine: IExtensionStateListener {
             req.invokeCallback(interesting)
         } catch (ex: Exception){
             Utils.out("Error in user-defined callback: $ex")
-            //ex.printStackTrace()
+            ex.printStackTrace()
             permaFails.incrementAndGet()
         }
     }
