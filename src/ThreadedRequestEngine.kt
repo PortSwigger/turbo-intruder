@@ -325,7 +325,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                 buffer += read
                                 consumeFirstBlock = buffer.startsWith("HTTP/1.1 100")
                                 bodyStart = buffer.indexOf("\r\n\r\n")
-                                if (consumeFirstBlock && bodyStart != -1 && !ateContinue) {
+                                if (consumeFirstBlock && bodyStart != -1 && !ateContinue && !ignoreLength) {
                                     consumeFirstBlock = false
                                     ateContinue = true
                                     continueBlock = buffer.substring(0, bodyStart+4)
