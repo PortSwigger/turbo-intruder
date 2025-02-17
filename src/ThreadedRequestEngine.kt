@@ -380,7 +380,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                 buffer += read
                             }
 
-                            if (!ditchConnection) {
+                            if (!ditchConnection && !shouldAbandonAttack()) {
                                 body = buffer.substring(bodyStart + 4, responseLength)
                                 buffer = buffer.substring(responseLength)
                             }
