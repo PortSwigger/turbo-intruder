@@ -33,7 +33,7 @@ class RequestTableModel(val handler: OutputHandler): AbstractTableModel() {
             8 -> java.lang.Integer::class.java
             9 -> java.lang.Integer::class.java
 
-            else -> throw RuntimeException()
+            else -> throw RuntimeException("Invalid column requested")
         }
     }
 
@@ -51,7 +51,7 @@ class RequestTableModel(val handler: OutputHandler): AbstractTableModel() {
             7 -> request.label
             8 -> request.id
             9 -> request.connectionID
-            else -> null
+            else -> throw RuntimeException("Invalid column requested")
         }
     }
 
@@ -64,7 +64,8 @@ class RequestTableModel(val handler: OutputHandler): AbstractTableModel() {
         return try {
             handler.requests[index]
         } catch (ex: ArrayIndexOutOfBoundsException) {
-            null
+            Utils.out("Couldn't get request at index $index")
+            throw ex
         }
 
     }

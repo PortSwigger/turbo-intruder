@@ -31,7 +31,12 @@ interface OutputHandler {
 
     abstract fun add(req: Request)
     fun save(req: Request) {
-        requests.add(req)
+        try {
+            requests.add(req)
+        } catch (e: Exception) {
+            Utils.err("Error saving request: "+e.message)
+            e.printStackTrace()
+        }
     }
 }
 
@@ -72,9 +77,17 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
 
     fun setCurrentRequest(req: Request?) {
         //println("Setting current request to "+req!!.word)
-        currentRequest = req!!
-        requestEditor.setMessage(req.getRequestAsBytes(), true)
-        responseEditor.setMessage(Utilities.replaceFirst(req.getResponseAsBytes(), "Content-Encoding: gzip", "X-Content-Encoding: gz"), false)
+        synchronized(lock) {
+            currentRequest = req!!
+            requestEditor.setMessage(req.getRequestAsBytes(), true)
+            responseEditor.setMessage(
+                Utilities.replaceFirst(
+                    req.getResponseAsBytes(),
+                    "Content-Encoding: gzip",
+                    "X-Content-Encoding: gz"
+                ), false
+            )
+        }
     }
 
     fun setSortOrder(column: Int, descending: Boolean) {
@@ -217,14 +230,25 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
 
     override fun add(req: Request) {
         synchronized(lock) {
-            save(req)
-            model.fireTableRowsInserted(requests.lastIndex, requests.lastIndex)
-            if (firstEntry) {
-                issueTable.changeSelection(0, 0, false, false)
-                issueTable.requestFocusInWindow()
-                firstEntry = false
+            try {
+                save(req)
+                if (issueTable.rowSorter.sortKeys.equals(listOf(RowSorter.SortKey(0, SortOrder.ASCENDING)))) {
+                    model.fireTableRowsInserted(requests.lastIndex, requests.lastIndex)
+                } else {
+                    model.fireTableRowsInserted(0, 0)
+                }
+                if (firstEntry && issueTable.rowCount > 0) {
+                    issueTable.changeSelection(0, 0, false, false) // this is nuking the first row
+                    issueTable.requestFocusInWindow()
+                    firstEntry = false
+                }
+            } catch (e: Exception) {
+                Utils.err("Error adding request to table: "+e.message)
+                Utilities.showError(e)
+                e.printStackTrace()
             }
         }
+
     }
 
     inner class MessageEditorController : IMessageEditorController {
