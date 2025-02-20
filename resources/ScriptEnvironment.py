@@ -306,7 +306,7 @@ class RequestEngine:
             self.engine.start(5)
 
 
-    def queue(self, template, payloads=None, learn=0, callback=None, gate=None, label=None, pauseBefore=0, pauseTime=1000, pauseMarker=[], delay=0, endpoint=None):
+    def queue(self, template, payloads=None, learn=0, callback=None, gate=None, label="", pauseBefore=0, pauseTime=1000, pauseMarker=[], delay=0, endpoint=None):
         if payloads == None:
             payloads = []
         elif not isinstance(payloads, list):

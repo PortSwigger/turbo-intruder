@@ -27,37 +27,29 @@ class UpdateStatusbar(val message: JLabel, val handler: AttackHandler): ActionLi
 }
 
 interface OutputHandler {
-    var requests: MutableList<Request>
-
     abstract fun add(req: Request)
-    fun save(req: Request) {
-        try {
-            requests.add(req)
-        } catch (e: Exception) {
-            Utils.err("Error saving request: "+e.message)
-            e.printStackTrace()
-        }
-    }
+    abstract fun getAllRquests(): List<Request>
 }
 
 class ConsolePrinter() : OutputHandler {
     private val requestID = AtomicInteger(0)
-    override var requests: MutableList<Request> = java.util.ArrayList()
 
     init {
         Utils.out("ID | Word | Status | Wordcount | Length | Time")
     }
 
     override fun add(req: Request) {
-        save(req)
         Utils.out(String.format("%s | %s | %s | %s | %s | %s", requestID.incrementAndGet(), req.words.joinToString(separator="/"), req.code, req.wordcount, req.length, req.time))
+    }
+
+    override fun getAllRquests(): List<Request> {
+        return listOf()
     }
 }
 
 
 class RequestTable(val service: IHttpService, val handler: AttackHandler): JPanel(), OutputHandler {
-    override var requests: MutableList<Request> = java.util.ArrayList()
-    val model = RequestTableModel(this)
+    val model = RequestTableModel()
     val issueTable = JTable(model)
     val requestEditor: IMessageEditor
     val responseEditor: IMessageEditor
@@ -70,14 +62,10 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
     private var descending = true
 
     fun clear() {
-        SwingUtilities.invokeLater({
-            requests.clear()
-            model.fireTableDataChanged()
-        })
+        model.clear()
     }
 
     fun setCurrentRequest(req: Request?) {
-        //println("Setting current request to "+req!!.word)
         synchronized(lock) {
             currentRequest = req!!
             requestEditor.setMessage(req.getRequestAsBytes(), true)
@@ -229,28 +217,19 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         }
     }
 
-
     override fun add(req: Request) {
         synchronized(lock) {
-            try {
-                save(req)
-                if (descending) {
-                    model.fireTableRowsInserted(0, 0)
-                } else {
-                    model.fireTableRowsInserted(requests.lastIndex, requests.lastIndex)
-                }
-                if (firstEntry && issueTable.rowCount > 0) {
-                    issueTable.changeSelection(0, 0, false, false) // this is nuking the first row
-                    issueTable.requestFocusInWindow()
-                    firstEntry = false
-                }
-            } catch (e: Exception) {
-                Utils.err("Error adding request to table: "+e.message)
-                Utilities.showError(e)
-                e.printStackTrace()
-            }
+            model.addRow(req)
         }
 
+        if (firstEntry) {
+            setCurrentRequest(req)
+            firstEntry = false
+        }
+    }
+
+    override fun getAllRquests(): List<Request> {
+        return model.getAllRequests()
     }
 
     inner class MessageEditorController : IMessageEditorController {

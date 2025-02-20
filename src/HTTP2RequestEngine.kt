@@ -86,7 +86,7 @@ open class HTTP2RequestEngine(url: String, val threads: Int, maxQueueSize: Int, 
         start = System.nanoTime()
     }
 
-    override fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?, label: String?): Request {
+    override fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?, label: String): Request {
         return Request(template, payloads, learnBoring?: 0, label)
     }
 

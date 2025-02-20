@@ -134,7 +134,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         start = System.nanoTime()
     }
 
-    override fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?, label: String?): Request {
+    override fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?, label: String): Request {
         var prepared = template
 
         if (Utilities.isHTTP2(prepared.toByteArray())) {
@@ -443,6 +443,9 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             }
                         }
 
+                        if (shouldAbandonAttack()) {
+                            break
+                        }
 
                         if (!headers.startsWith("HTTP")) {
                             throw Exception("no http")

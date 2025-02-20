@@ -68,7 +68,7 @@ abstract class RequestEngine: IExtensionStateListener {
 
     abstract fun start(timeout: Int = 10)
 
-    abstract fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?, label: String?): Request
+    abstract fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?, label: String): Request
 
     fun triggerReadCallback(data: String) {
         readCallback?.invoke(data)
@@ -86,7 +86,7 @@ abstract class RequestEngine: IExtensionStateListener {
         queue(template, payloads, 0, null)
     }
 
-    fun queue(template: String, payloads: List<kotlin.Any?> = emptyList<kotlin.Any>(), learnBoring: Int = 0, callback: ((Request, Boolean) -> Boolean)? = null, gateName: String? = null, label: String? = null, pauseBefore: Int = 0, pauseTime: Int = 1000, pauseMarkers: List<String> = emptyList(), delay: Long = 0, endpoint: String? = null, pythonEngine: Any? = null) {
+    fun queue(template: String, payloads: List<kotlin.Any?> = emptyList<kotlin.Any>(), learnBoring: Int = 0, callback: ((Request, Boolean) -> Boolean)? = null, gateName: String? = null, label: String = "", pauseBefore: Int = 0, pauseTime: Int = 1000, pauseMarkers: List<String> = emptyList(), delay: Long = 0, endpoint: String? = null, pythonEngine: Any? = null) {
         updateLastLife()
 
         val noPayload = payloads.isEmpty()
@@ -268,36 +268,6 @@ abstract class RequestEngine: IExtensionStateListener {
             state < 3 -> statusString
             state == 3 -> statusString + " | Cancelled"
             else -> statusString + " | Completed"
-        }
-    }
-
-    fun reinvokeCallbacks() {
-        val reqTable = outputHandler
-
-        // if the request engine isn't a table, we can't update the output
-        if (reqTable is RequestTable) {
-
-            val requestsFromTable = reqTable.requests
-
-            if (requestsFromTable.size == 0) {
-                return
-            }
-
-            val copy = ArrayList<Request>(requestsFromTable.size)
-            for (tableReq in requestsFromTable) {
-                copy.add(tableReq)
-            }
-
-            requestsFromTable.clear()
-            //reqTable.model.fireTableRowsDeleted(0, requestsFromTable.size)
-
-            for (request in copy) {
-                val interesting = processResponse(request, request.getResponseAsBytes()!!)
-                callback(request, interesting)
-            }
-
-            reqTable.model.fireTableDataChanged()
-            //reqTable.repaint()
         }
     }
 

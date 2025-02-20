@@ -2,14 +2,14 @@ package burp
 
 import javax.swing.table.AbstractTableModel
 import java.util.*
-import javax.swing.table.DefaultTableModel
+import javax.swing.SwingUtilities
 
-class RequestTableModel(val handler: OutputHandler): AbstractTableModel() {
+class RequestTableModel: AbstractTableModel() {
 
-    internal var editable: Boolean = false
+    private val requests: MutableList<Request> = ArrayList()
 
     override fun getRowCount(): Int {
-        return handler.requests.size
+        return requests.size
     }
 
     override fun getColumnCount(): Int {
@@ -17,52 +17,69 @@ class RequestTableModel(val handler: OutputHandler): AbstractTableModel() {
     }
 
     override fun getColumnName(column: Int): String {
-        return columns[column]
-    }
-
-    override fun getColumnClass(columnIndex: Int): Class<*> {
-        return when (columnIndex) {
-            0 -> java.lang.Integer::class.java
-            1 -> String::class.java
-            2 -> java.lang.Integer::class.java
-            3 -> java.lang.Integer::class.java
-            4 -> java.lang.Integer::class.java
-            5 -> java.lang.Long::class.java
-            6 -> java.lang.Long::class.java
-            7 -> String::class.java
-            8 -> java.lang.Integer::class.java
-            9 -> java.lang.Integer::class.java
-
-            else -> throw RuntimeException("Invalid column requested")
+        try {
+            return columns[column]
+        } catch (e: Exception) {
+            Utils.err("Error getting column name: "+e.message)
+            e.printStackTrace()
+            throw e
         }
     }
 
-    override fun getValueAt(rowIndex: Int, columnIndex: Int): Any? {
-        val request = handler.requests[rowIndex]
+    override fun getColumnClass(columnIndex: Int): Class<*> {
+        try {
+            return when (columnIndex) {
+                0 -> java.lang.Integer::class.java
+                1 -> String::class.java
+                2 -> java.lang.Integer::class.java
+                3 -> java.lang.Integer::class.java
+                4 -> java.lang.Integer::class.java
+                5 -> java.lang.Long::class.java
+                6 -> java.lang.Long::class.java
+                7 -> String::class.java
+                8 -> java.lang.Integer::class.java
+                9 -> java.lang.Integer::class.java
 
-        return when (columnIndex) {
-            0 -> rowIndex
-            1 -> request.words.joinToString(separator="/")
-            2 ->  request.code
-            3 -> request.wordcount
-            4 -> request.length
-            5 -> request.time
-            6 -> request.arrival
-            7 -> request.label
-            8 -> request.id
-            9 -> request.connectionID
-            else -> throw RuntimeException("Invalid column requested")
+                else -> throw RuntimeException("Invalid column requested")
+            }
+        } catch (e: Exception) {
+            Utils.err("Error getting column class: "+e.message)
+            e.printStackTrace()
+            throw e
+        }
+    }
+
+    override fun getValueAt(rowIndex: Int, columnIndex: Int): Any {
+        try {
+            val request = requests[rowIndex]
+
+            return when (columnIndex) {
+                0 -> rowIndex
+                1 -> request.words.joinToString(separator = "/")
+                2 -> request.code
+                3 -> request.wordcount
+                4 -> request.length
+                5 -> request.time
+                6 -> request.arrival
+                7 -> request.label
+                8 -> request.id
+                9 -> request.connectionID
+                else -> throw RuntimeException("Invalid column requested")
+            }
+        } catch (e: Exception) {
+            Utils.err("Error getting value at row $rowIndex, column $columnIndex: "+e.message)
+            e.printStackTrace()
+            throw e
         }
     }
 
     override fun isCellEditable(rowIndex: Int, columnIndex: Int): Boolean {
-        return editable && columnIndex != 4
+        return false
     }
-
 
     fun getRequest(index: Int): Request? {
         return try {
-            handler.requests[index]
+            requests[index]
         } catch (ex: ArrayIndexOutOfBoundsException) {
             Utils.out("Couldn't get request at index $index")
             throw ex
@@ -72,5 +89,27 @@ class RequestTableModel(val handler: OutputHandler): AbstractTableModel() {
 
     companion object {
         internal val columns = listOf("Row", "Payload", "Status", "Words", "Length", "Time", "Arrival", "Label", "Queue ID", "Connection ID")
+    }
+
+    fun getAllRequests(): List<Request> {
+        return requests
+    }
+
+    fun addRow(req: Request) {
+        requests.add(req)
+        try {
+            fireTableRowsInserted(requests.lastIndex, requests.lastIndex)
+        } catch (e: Exception) {
+//            Utils.err("Error firing table rows inserted: "+e.message)
+//            Utilities.showError(e)
+//            e.printStackTrace()
+        }
+    }
+
+    fun clear() {
+        SwingUtilities.invokeLater({
+            requests.clear()
+            fireTableDataChanged()
+        })
     }
 }

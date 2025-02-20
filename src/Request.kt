@@ -7,14 +7,14 @@ import java.net.URL
 import java.util.*
 import kotlin.collections.HashMap
 
-open class Request(val template: String, val words: List<String?>, val learnBoring: Int, var label: String?) {
+open class Request(val template: String, val words: List<String?>, val learnBoring: Int, var label: String = "") {
 
     var response: String? = null
     var details: IResponseVariations? = null
     var interesting: Boolean = false
     var _engine: RequestEngine? = null
     var engine: Any? = null
-    var connectionID: Int? = null
+    var connectionID: Int = -1
     var callback: ((Request, Boolean) -> Boolean)? = null
     var gate: Floodgate? = null
     var order: Int = 0
@@ -71,9 +71,9 @@ open class Request(val template: String, val words: List<String?>, val learnBori
         }
     }
 
-    constructor(template: String): this(template, emptyList<String>(), 0, null)
-    constructor(template: String, words: List<String?>): this(template, words, 0, null)
-    constructor(template: String, words: List<String?>, learnBoring: Int): this(template, words, learnBoring, null)
+    constructor(template: String): this(template, emptyList<String>(), 0, "")
+    constructor(template: String, words: List<String?>): this(template, words, 0, "")
+    constructor(template: String, words: List<String?>, learnBoring: Int): this(template, words, learnBoring, "")
 
     fun getBurpRequest(): IHttpRequestResponse {
         return BurpRequest(this)
