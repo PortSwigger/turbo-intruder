@@ -11,7 +11,7 @@ import javax.swing.SwingUtilities
 class BurpExtender() : IBurpExtender, IExtensionStateListener, BurpExtension {
 
     companion object {
-        const val version = "1.52"
+        const val version = "1.53"
     }
 
     override fun extensionUnloaded() {
