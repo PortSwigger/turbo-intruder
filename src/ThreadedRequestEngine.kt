@@ -28,6 +28,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         internalSettings.put("ignoreLength", false)
 
         idleTimeout *= 1000
+        lastLife = System.currentTimeMillis()
 
         try {
             target = URL(url)

@@ -41,6 +41,8 @@ abstract class RequestEngine: IExtensionStateListener {
     val internalSettings: HashMap<String, Any> = HashMap()
 
     init {
+        lastLife = System.currentTimeMillis()
+
         if (attackState.get() == 3) {
             throw Exception("You cannot create a new request engine for a cancelled attack")
         }
@@ -189,7 +191,7 @@ abstract class RequestEngine: IExtensionStateListener {
             return true
         }
         if (idleTimeout > 0 && System.currentTimeMillis() > lastLife + idleTimeout) {
-            Utils.out("Advising to abandon attack due to timeout")
+            Utils.out("Cancelling attack due to total timeout exceeded: "+ idleTimeout)
             cancel()
             return true
         }

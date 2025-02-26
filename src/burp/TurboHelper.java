@@ -56,7 +56,7 @@ class TurboHelper implements AutoCloseable {
             }
         }
         else if (reuseConnection) {
-            this.engine = new ThreadedRequestEngine(url, 1, 20, 1, 50, 0, 10, this::callback, requestTimeout, null, 1024, false, true);
+            this.engine = new ThreadedRequestEngine(url, 1, 20, 1, 50, 0, requestTimeout*10, this::callback, requestTimeout, null, 1024, false, true);
         }
         else {
             this.engine = new BurpRequestEngine(url, 1, 20, 0, 0, this::callback, null, true);
@@ -77,7 +77,7 @@ class TurboHelper implements AutoCloseable {
     }
 
     void queue(String req, int pauseBefore, int pauseTime) {
-        engine.queue(req, new ArrayList<>(), 0, null, null, null, pauseBefore, pauseTime, new ArrayList<>(), 0, null, null); // , Integer.toString(id++)
+        engine.queue(req, new ArrayList<>(), 0, null, null, "", pauseBefore, pauseTime, new ArrayList<>(), 0, null, null); // , Integer.toString(id++)
     }
 
     Resp blockingRequest(byte[] req) {
@@ -115,7 +115,7 @@ class TurboHelper implements AutoCloseable {
                     responseLock.countDown();
                     return false;
                 }
-            }, gateName, null, pauseBefore, pauseTime, new ArrayList<>(), 0, null, null);
+            }, gateName, "", pauseBefore, pauseTime, new ArrayList<>(), 0, null, null);
             index += 1;
         }
 
