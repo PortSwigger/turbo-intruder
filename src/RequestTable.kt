@@ -149,13 +149,14 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         }
         menu.add(reportToOrganizerButton)
 
-//        val addToSitemap = JMenuItem("Add to sitemap")
-//        addToSitemap.addActionListener {
-//            for (req in getSelectedRequests()) {
-//                Utils.callbacks.addToSiteMap(req.getBurpRequest())
-//            }
-//        }
-//        menu.add(addToSitemap)
+        // warning, this doesn't reliably save entries with duplicate URLs
+        val addToSitemap = JMenuItem("Add to sitemap")
+        addToSitemap.addActionListener {
+            for (req in getSelectedRequests()) {
+                Utils.callbacks.addToSiteMap(req.getBurpRequest())
+            }
+        }
+        menu.add(addToSitemap)
 
         val createIssueButton = JMenuItem("Report as issue")
         createIssueButton.addActionListener {
