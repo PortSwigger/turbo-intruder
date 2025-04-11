@@ -4,6 +4,10 @@ def queueRequests(target, wordlists):
                            engine=Engine.BURP # Use Burp's HTTP/1 network stack, including upstream proxies etc. You can also use Engine.BURP2 for HTTP/2.
                            )
 
+
+    # generate a collaborator domain - interactions will appear in the Collaborator tab
+    collabDomain = api.collaborator().defaultPayloadGenerator().generatePayload()
+
     for i in range(3, 8):
         engine.queue(target.req, randstr(i), learn=1)
 

@@ -51,6 +51,7 @@ fun evalJython(code: String, baseRequest: String, rawRequest: ByteArray, endpoin
             pyInterp.set("callbacks", Utils.callbacks)
             pyInterp.set("helpers", Utils.callbacks.helpers)
             pyInterp.set("utilities", Utils.utilities)
+            pyInterp.set("api", Utils.montoyaApi)
             pyInterp.setOut(Utils.callbacks.stdout)
             pyInterp.setErr(Utils.callbacks.stderr)
         }
