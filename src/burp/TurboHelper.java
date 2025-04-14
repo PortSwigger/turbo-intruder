@@ -56,7 +56,7 @@ class TurboHelper implements AutoCloseable {
             }
         }
         else if (reuseConnection) {
-            this.engine = new ThreadedRequestEngine(url, 1, 20, 1, 50, 0, requestTimeout*10, this::callback, requestTimeout, null, 1024, false, true);
+            this.engine = new ThreadedRequestEngine(url, 1, 20, 1, 50, 0, requestTimeout*10, this::callback, requestTimeout, null, 1024, false, false);
         }
         else {
             this.engine = new BurpRequestEngine(url, 1, 20, 0, 0, this::callback, null, true);
@@ -87,10 +87,21 @@ class TurboHelper implements AutoCloseable {
     Resp blockingRequest(byte[] req, int pauseBefore, int pauseTime) {
         ArrayList<byte[]> reqs = new ArrayList<>();
         reqs.add(req);
-        return blockingRequest(reqs, pauseBefore, pauseTime).get(0);
+        return blockingRequest(reqs, pauseBefore, new ArrayList<>(), pauseTime).get(0);
     }
 
+    Resp blockingRequest(byte[] req, List<String> pauseMarkers, int pauseTime) {
+        ArrayList<byte[]> reqs = new ArrayList<>();
+        reqs.add(req);
+        return blockingRequest(reqs, 0, pauseMarkers, pauseTime).get(0);
+    }
+
+
     ArrayList<Resp> blockingRequest(ArrayList<byte[]> reqs, int pauseBefore, int pauseTime) {
+        return blockingRequest(reqs, pauseBefore, new ArrayList<>(), pauseTime);
+    }
+
+    ArrayList<Resp> blockingRequest(ArrayList<byte[]> reqs, int pauseBefore, List<String> pauseMarkers, int pauseTime) {
         ArrayList<Resp> resps = new ArrayList<>(reqs.size());
         CountDownLatch responseLock = new CountDownLatch(reqs.size());
         String gateName = null;
@@ -115,7 +126,7 @@ class TurboHelper implements AutoCloseable {
                     responseLock.countDown();
                     return false;
                 }
-            }, gateName, "", pauseBefore, pauseTime, new ArrayList<>(), 0, null, null);
+            }, gateName, "", pauseBefore, pauseTime, pauseMarkers, 0, null, null);
             index += 1;
         }
 

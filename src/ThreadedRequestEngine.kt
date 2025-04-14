@@ -260,7 +260,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             outputstream.write(part1)
                             startTime = System.nanoTime()
 
-                            waitForData(socket, req.pauseTime)
+                            buffer = waitForData(socket, req.pauseTime)
 
                             val part2 = byteReq.sliceArray(end until byteReq.size)
                             outputstream.write(part2)

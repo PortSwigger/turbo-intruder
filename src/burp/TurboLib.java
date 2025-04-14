@@ -43,7 +43,7 @@ public class TurboLib {
             }
             // TurboHelper connection = createConnectionIfRequired(service, reqList.get(0).toByteArray().getBytes());
             TurboHelper connection = new TurboHelper(service, true, 5, true, true);
-            ArrayList<Resp> resps = connection.blockingRequest(reqs, 0, 0);
+            ArrayList<Resp> resps = connection.blockingRequest(reqs, 0, new ArrayList<>(), 0);
             List<HttpRequestResponse> montoyaResps = new ArrayList<>();
             for (Resp resp: resps) {
                 montoyaResps.add(Utilities.buildMontoyaResp(resp));
