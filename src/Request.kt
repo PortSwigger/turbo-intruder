@@ -28,6 +28,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
     var delayCompletion: Long = 0L
     var endpointOverride: String? = null
     var montoyaReq: HttpRequestResponse? = null
+    var autoFixContentLength: Boolean = true
 
     private val attributes: HashMap<String, Any> = HashMap()
 
@@ -126,6 +127,10 @@ open class Request(val template: String, val words: List<String?>, val learnBori
     }
 
     fun fixContentLength(request: ByteArray): ByteArray {
+        if (!autoFixContentLength) {
+            return request
+        }
+
         if (Utils.getHeaders(String(request)).contains("Content-Length: ")) {
             val start = Utils.getBodyStart(request)
             val contentLength = request.size - start

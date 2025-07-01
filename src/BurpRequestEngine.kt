@@ -52,7 +52,7 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
     override fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?, label: String): Request {
         var prepared = template
         if (useHTTP1) {
-            prepared = prepared.replace("Connection: keep-alive", "Connection: close").replaceFirst("HTTP/2\r\n", "HTTP/1.1\r\n")
+            prepared = prepared.replaceFirst("HTTP/2\r\n", "HTTP/1.1\r\n")
         } else {
             if (!Utilities.isHTTP2(prepared.toByteArray())) {
                 prepared = prepared.replaceFirst("HTTP/1.1\r\n", "HTTP/2\r\n")

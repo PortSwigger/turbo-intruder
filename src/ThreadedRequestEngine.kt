@@ -313,6 +313,20 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         var ateContinue = false
                         var continueBlock = ""
 
+
+                        while (bodyStart == -1 && !shouldAbandonAttack()) {
+                            val len = socket.getInputStream().read(readBuffer)
+                            if(len == -1) {
+                                break
+                            }
+                            endTime = System.nanoTime()
+
+                            val read = Utils.bytesToString(readBuffer.copyOfRange(0, len))
+                            triggerReadCallback(read)
+                            buffer += read
+                            bodyStart = buffer.indexOf("\r\n\r\n")
+                        }
+
                         while ((bodyStart == -1 || (consumeFirstBlock && !ateContinue)) && !shouldAbandonAttack()) {
                             try {
                                 val len = socket.getInputStream().read(readBuffer)
