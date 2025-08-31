@@ -7,6 +7,10 @@ import org.python.util.PythonInterpreter
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.Frame
+import java.awt.GridBagLayout
+import java.awt.GridBagConstraints
+import java.awt.Insets
+import java.awt.FlowLayout
 import java.awt.event.*
 import java.io.*
 import java.nio.file.Files
@@ -21,7 +25,46 @@ import kotlin.concurrent.thread
 class Scripts() {
     companion object {
         val SCRIPTENVIRONMENT = Scripts::class.java.getResource("/ScriptEnvironment.py").readText()
-        val SAMPLEBURPSCRIPT = Scripts::class.java.getResource("/examples/default.py").readText()
+        val DEFAULT_RAW_REQUEST: String = listOf(
+            "GET / HTTP/1.1",
+            "Host: example.com",
+            "Cache-Control: max-age=0",
+            "Sec-Ch-Ua: \"Google Chrome\";v=\"139\", \"Not=A?Brand\";v=\"8\", \"Chromium\";v=\"139\"",
+            "Sec-Ch-Ua-Mobile: ?0",
+            "Sec-Ch-Ua-Platform: \"macOS\"",
+            "Accept-Language: en-US;q=0.9,en;q=0.8",
+            "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
+            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Sec-Fetch-Site: none",
+            "Sec-Fetch-Mode: navigate",
+            "Sec-Fetch-User: ?1",
+            "Sec-Fetch-Dest: document",
+            "Accept-Encoding: gzip, deflate, br",
+            "Connection: close",
+            "",
+            ""
+        ).joinToString("\r\n")
+
+        val SAMPLEBURPSCRIPT: String = """
+            def queueRequests(target, wordlists):
+                engine = RequestEngine(endpoint=target.endpoint,
+                                       concurrentConnections=10,
+                                       requestsPerConnection=1,
+                                       pipeline=False
+                                       )
+
+                # engine.engine.applySetting('ignoreLength', True)
+
+                # send 100 requests
+                for word in range(0, 100):
+                    engine.queue(target.req)
+
+
+            def handleResponse(req, interesting):
+                # currently available attributes are req.status, req.wordcount, req.length and req.response
+                if req.status != 99999:
+                    table.add(req)
+        """.trimIndent()
     }
 }
 
@@ -150,7 +193,6 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
             val panel = JPanel(BorderLayout())
             val codeCombo = JComboBox<Any>()
             codeCombo.renderer = ComboBoxRenderer(10)
-            codeCombo.preferredSize = Dimension(500, 30)
             val loadDirectoryButton = JButton("Choose scripts dir")
             loadDirectoryButton.addActionListener {
                 val directoryChooser = JFileChooser()
@@ -216,10 +258,42 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
                     }
                 }
             }
-            val topPanel = JPanel()
-            topPanel.add(codeCombo)
-            topPanel.add(loadDirectoryButton)
-            topPanel.add(saveButton)
+            val topPanel = JPanel(BorderLayout())
+
+            // Host/Port/Protocol controls
+            val initialService = req.httpService
+            val hostField = JTextField(initialService.host, 16)
+            val portField = JTextField(initialService.port.toString(), 5)
+            val protocolCombo = JComboBox(arrayOf("http", "https"))
+            protocolCombo.selectedItem = initialService.protocol
+
+            val leftPanel = JPanel(FlowLayout(FlowLayout.LEFT))
+            leftPanel.add(JLabel("Host:"))
+            leftPanel.add(hostField)
+            leftPanel.add(JLabel("Port:"))
+            leftPanel.add(portField)
+            leftPanel.add(JLabel("Protocol:"))
+            leftPanel.add(protocolCombo)
+
+            val rightPanel = JPanel(GridBagLayout())
+            val gbc = GridBagConstraints()
+            gbc.insets = Insets(0, 4, 0, 0)
+            gbc.gridy = 0
+            gbc.gridx = 0
+            gbc.weightx = 1.0
+            gbc.fill = GridBagConstraints.HORIZONTAL
+            rightPanel.add(codeCombo, gbc)
+
+            gbc.gridx = 1
+            gbc.weightx = 0.0
+            gbc.fill = GridBagConstraints.NONE
+            rightPanel.add(loadDirectoryButton, gbc)
+
+            gbc.gridx = 2
+            rightPanel.add(saveButton, gbc)
+
+            topPanel.add(leftPanel, BorderLayout.WEST)
+            topPanel.add(rightPanel, BorderLayout.CENTER)
             panel.add(topPanel, BorderLayout.NORTH);
             panel.add(scrollableTextEditor, BorderLayout.CENTER)
             val messageEditor = Utils.callbacks.createMessageEditor(MessageController(req), true)
@@ -298,7 +372,13 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
                                 }
                             }
                             else -> {
-                                val requestTable = RequestTable(req.httpService, handler)
+                                // Build service/target from UI inputs
+                                val inputHost = hostField.text.trim().ifEmpty { initialService.host }
+                                val inputPort = try { portField.text.trim().toInt() } catch (ex: Exception) { initialService.port }
+                                val inputProtocol = (protocolCombo.selectedItem?.toString() ?: initialService.protocol).lowercase()
+                                val newService = Utils.callbacks.helpers.buildHttpService(inputHost, inputPort, inputProtocol)
+
+                                val requestTable = RequestTable(newService, handler)
                                 SwingUtilities.invokeLater {
                                     button.text = "Halt"
                                     val requestPanel = JPanel(BorderLayout())
@@ -308,6 +388,7 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
                                     pane.bottomComponent = requestPanel
                                     button.requestFocusInWindow()
                                     pane.rootPane.defaultButton = button
+                                    title = "Turbo Intruder - " + inputHost
                                 }
                                 var script = textEditor.text
 
@@ -315,21 +396,20 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
                                 Utils.callbacks.helpers
 
                                 val baseRequest = Utils.callbacks.helpers.bytesToString(messageEditor.message)
-                                val service = req.httpService
 
                                 val target: String
-                                if (service.host.contains(":")) {
-                                    target = service.protocol + "://[" + service.host + "]:" + service.port
+                                if (inputHost.contains(":")) {
+                                    target = inputProtocol + "://[" + inputHost + "]:" + inputPort
                                 }
                                 else {
-                                    target = service.protocol + "://" + service.host + ":" + service.port
+                                    target = inputProtocol + "://" + inputHost + ":" + inputPort
                                 }
 
                                 // enforce /r/n line endings
                                 script = script.replace("\r\n", "\n")
                                 script = script.replace("\n", "\r\n")
                                 title += " - running"
-                                evalJython(script, baseRequest, messageEditor.message, target, service.host, baseInput, requestTable, handler, reqs)
+                                evalJython(script, baseRequest, messageEditor.message, target, inputHost, baseInput, requestTable, handler, reqs)
                             }
                         }
                     }
