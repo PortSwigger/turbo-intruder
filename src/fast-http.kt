@@ -25,7 +25,9 @@ import kotlin.concurrent.thread
 class Scripts() {
     companion object {
         val SCRIPTENVIRONMENT = Scripts::class.java.getResource("/ScriptEnvironment.py").readText()
-        val DEFAULT_RAW_REQUEST: String = listOf(
+        val SAMPLEBURPSCRIPT = Scripts::class.java.getResource("/examples/default.py").readText()
+
+         val DEFAULT_RAW_REQUEST: String = listOf(
             "GET / HTTP/1.1",
             "Host: example.com",
             "Cache-Control: max-age=0",
@@ -44,27 +46,6 @@ class Scripts() {
             "",
             ""
         ).joinToString("\r\n")
-
-        val SAMPLEBURPSCRIPT: String = """
-            def queueRequests(target, wordlists):
-                engine = RequestEngine(endpoint=target.endpoint,
-                                       concurrentConnections=10,
-                                       requestsPerConnection=1,
-                                       pipeline=False
-                                       )
-
-                # engine.engine.applySetting('ignoreLength', True)
-
-                # send 100 requests
-                for word in range(0, 100):
-                    engine.queue(target.req)
-
-
-            def handleResponse(req, interesting):
-                # currently available attributes are req.status, req.wordcount, req.length and req.response
-                if req.status != 99999:
-                    table.add(req)
-        """.trimIndent()
     }
 }
 
