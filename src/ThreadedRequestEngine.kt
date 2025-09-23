@@ -612,4 +612,26 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
             }
         }
     }
+
+    override fun cleanup() {
+        // Clean up thread-specific resources first
+        domains.clear()
+
+        // Interrupt and clean up threads
+        for (thread in threadPool) {
+            try {
+                if (thread.isAlive) {
+                    thread.interrupt()
+                    // Give thread a brief moment to stop gracefully
+                    thread.join(1000)
+                }
+            } catch (e: Exception) {
+                // Ignore exceptions during cleanup
+            }
+        }
+        threadPool.clear()
+
+        // Call parent cleanup for shared resources
+        super.cleanup()
+    }
 }

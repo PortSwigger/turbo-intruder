@@ -56,6 +56,7 @@ abstract class RequestEngine: IExtensionStateListener {
 
     override fun extensionUnloaded() {
         cancel()
+        cleanup()
     }
 
     fun invokeCallback(req: Request, interesting: Boolean){
@@ -188,6 +189,9 @@ abstract class RequestEngine: IExtensionStateListener {
         if (Utils.unloaded) {
             return true
         }
+        if (Thread.currentThread().isInterrupted) {
+            return true
+        }
         if (attackState.get() >= 3) {
             return true
         }
@@ -248,6 +252,9 @@ abstract class RequestEngine: IExtensionStateListener {
             Utils.out("Cancelled attack")
             showSummary()
         }
+
+        // Clean up memory to prevent leaks
+        cleanup()
     }
 
     fun showSummary() {
@@ -259,6 +266,11 @@ abstract class RequestEngine: IExtensionStateListener {
         val requests = successfulRequests.get().toFloat()
         Utils.err("Sent ${requests.toInt()} requests over ${connections.toInt()} connections in ${duration / 1000000000} seconds")
         Utils.err(String.format("RPS: %.0f\n", requests / ceil((duration / 1000000000).toDouble())))
+
+        // Clean up memory when attack is completed
+        if (attackState.get() >= 4) {
+            cleanup()
+        }
     }
 
     fun statusString(): String {
@@ -357,6 +369,15 @@ abstract class RequestEngine: IExtensionStateListener {
         }
 
         return true
+    }
+
+    open fun cleanup() {
+        // Clear collections to free memory
+        failedWords.clear()
+        baselines.clear()
+        floodgates.clear()
+        requestQueue.clear()
+        userState.clear()
     }
 
 }
