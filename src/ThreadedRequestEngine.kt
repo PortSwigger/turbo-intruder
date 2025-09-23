@@ -523,8 +523,10 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             invokeCallback(badReq, true)
                         }
                     } else {
-                        Utils.out("Autorecovering error with empty queue: ${ex.message}")
-                        ex.printStackTrace()
+                        if (ex !is InterruptedException) {
+                            Utils.out("Autorecovering error with empty queue: ${ex.message}")
+                            ex.printStackTrace()
+                        }
                     }
                 }
 
