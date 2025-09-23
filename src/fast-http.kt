@@ -330,6 +330,7 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
             panel.preferredSize = Dimension(turboSize.width, turboSize.height-200)
 
             var handler = AttackHandler()
+            var requestTable: RequestTable? = null
 
             class ToggleAttack(): ActionListener {
                 override fun actionPerformed(e: ActionEvent?) {
@@ -341,7 +342,9 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
                             }
                             button.text == "Configure" -> {
                                 handler.abort()
+                                requestTable?.clear()
                                 handler = AttackHandler()
+                                requestTable = null
                                 SwingUtilities.invokeLater {
                                     panel.add(button, BorderLayout.SOUTH)
                                     pane.bottomComponent = panel
@@ -359,7 +362,7 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
                                 val inputProtocol = (protocolCombo.selectedItem?.toString() ?: initialService.protocol).lowercase()
                                 val newService = Utils.callbacks.helpers.buildHttpService(inputHost, inputPort, inputProtocol)
 
-                                val requestTable = RequestTable(newService, handler)
+                                requestTable = RequestTable(newService, handler)
                                 SwingUtilities.invokeLater {
                                     button.text = "Halt"
                                     val requestPanel = JPanel(BorderLayout())
@@ -390,7 +393,7 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
                                 script = script.replace("\r\n", "\n")
                                 script = script.replace("\n", "\r\n")
                                 title += " - running"
-                                evalJython(script, baseRequest, messageEditor.message, target, inputHost, baseInput, requestTable, handler, reqs)
+                                evalJython(script, baseRequest, messageEditor.message, target, inputHost, baseInput, requestTable!!, handler, reqs)
                             }
                         }
                     }
@@ -420,6 +423,7 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
             this.addWindowListener(object : WindowAdapter() {
                 override fun windowClosing(e: WindowEvent) {
                     handler.abort()
+                    requestTable?.clear()
                     e.window.dispose()
                 }
             })
