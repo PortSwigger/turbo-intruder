@@ -39,6 +39,7 @@ class BurpExtender() : IBurpExtender, IExtensionStateListener, BurpExtension {
 
     override fun initialize(montoyaApi: MontoyaApi) {
         Utils.montoyaApi = montoyaApi
+        Utilities.montoyaApi = montoyaApi
         montoyaApi.userInterface().registerContextMenuItemsProvider(BulkMenu())
 
         // Keep Montoya registrations minimal to avoid duplicating the existing top-level menu
