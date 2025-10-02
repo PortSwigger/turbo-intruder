@@ -1,13 +1,16 @@
 package burp
 
 import java.awt.BorderLayout
+import java.awt.Component
 import java.awt.Dimension
 import java.awt.event.ActionEvent
 import java.awt.event.ActionListener
 import java.net.URL
+import java.text.NumberFormat
 import java.util.concurrent.atomic.AtomicInteger
 import javax.swing.*
 import javax.swing.border.BevelBorder
+import javax.swing.table.DefaultTableCellRenderer
 import javax.swing.table.TableRowSorter
 
 
@@ -104,6 +107,28 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         }
         issueTable.rowSorter = sorter
         setSortOrder(0, true)
+
+        // Add custom renderer for anomaly rank column to format with commas
+        val anomalyRankRenderer = object : DefaultTableCellRenderer() {
+            private val numberFormat = NumberFormat.getNumberInstance()
+
+            override fun getTableCellRendererComponent(
+                table: JTable?,
+                value: Any?,
+                isSelected: Boolean,
+                hasFocus: Boolean,
+                row: Int,
+                column: Int
+            ): Component {
+                val formattedValue = if (value is Number) {
+                    numberFormat.format(value)
+                } else {
+                    value
+                }
+                return super.getTableCellRendererComponent(table, formattedValue, isSelected, hasFocus, row, column)
+            }
+        }
+        issueTable.columnModel.getColumn(10).cellRenderer = anomalyRankRenderer
 
         issueTable.autoResizeMode = JTable.AUTO_RESIZE_OFF
         //issueTable.getColumnModel().getColumn(0).setPreferredWidth(500)
