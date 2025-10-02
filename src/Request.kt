@@ -29,6 +29,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
     var endpointOverride: String? = null
     var montoyaReq: HttpRequestResponse? = null
     var autoFixContentLength: Boolean = true
+    var anomalyRank: Float? = null
 
     private val attributes: HashMap<String, Any> = HashMap()
 

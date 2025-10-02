@@ -267,9 +267,52 @@ abstract class RequestEngine: IExtensionStateListener {
         Utils.err("Sent ${requests.toInt()} requests over ${connections.toInt()} connections in ${duration / 1000000000} seconds")
         Utils.err(String.format("RPS: %.0f\n", requests / ceil((duration / 1000000000).toDouble())))
 
+        // Calculate anomaly rankings when attack is stopped or completed
+        if (attackState.get() >= 3) {
+            calculateAnomalyRankings()
+        }
+
         // Clean up memory when attack is completed
         if (attackState.get() >= 4) {
             cleanup()
+        }
+    }
+
+    private fun calculateAnomalyRankings() {
+        if (!Utils.gotBurp || Utils.unloaded) {
+            return
+        }
+
+        try {
+            val allRequests = outputHandler.getAllRquests()
+            if (allRequests.isEmpty()) {
+                return
+            }
+
+            // Convert Request objects to Montoya HttpRequestResponse objects
+            val montoyaRequests = allRequests.mapNotNull { it.getMontoyaRequest() }
+            if (montoyaRequests.isEmpty()) {
+                return
+            }
+
+            // Calculate rankings using Burp's RankingUtils
+            val rankedRequests = Utils.montoyaApi.utilities().rankingUtils().rank(montoyaRequests)
+
+            // Map rankings back to Request objects
+            for (i in allRequests.indices) {
+                if (i < rankedRequests.size) {
+                    allRequests[i].anomalyRank = rankedRequests[i].rank()
+                }
+            }
+
+            // Notify the table model to update the UI
+            val handler = outputHandler
+            if (handler is RequestTable) {
+                handler.model.updateRankings()
+            }
+        } catch (e: Exception) {
+            Utils.err("Error calculating anomaly rankings: ${e.message}")
+            e.printStackTrace()
         }
     }
 

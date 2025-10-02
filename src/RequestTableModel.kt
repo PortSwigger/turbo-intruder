@@ -39,6 +39,7 @@ class RequestTableModel: AbstractTableModel() {
                 7 -> String::class.java
                 8 -> java.lang.Integer::class.java
                 9 -> java.lang.Integer::class.java
+                10 -> java.lang.Float::class.java
 
                 else -> throw RuntimeException("Invalid column requested")
             }
@@ -64,6 +65,7 @@ class RequestTableModel: AbstractTableModel() {
                 7 -> request.label
                 8 -> request.id
                 9 -> request.connectionID
+                10 -> request.anomalyRank ?: 0.0f
                 else -> throw RuntimeException("Invalid column requested")
             }
         } catch (e: Exception) {
@@ -88,7 +90,7 @@ class RequestTableModel: AbstractTableModel() {
     }
 
     companion object {
-        internal val columns = listOf("Row", "Payload", "Status", "Words", "Length", "Time", "Arrival", "Label", "Queue ID", "Connection ID")
+        internal val columns = listOf("Row", "Payload", "Status", "Words", "Length", "Time", "Arrival", "Label", "Queue ID", "Connection ID", "Anomaly rank")
     }
 
     fun getAllRequests(): List<Request> {
@@ -109,6 +111,12 @@ class RequestTableModel: AbstractTableModel() {
     fun clear() {
         SwingUtilities.invokeLater({
             requests.clear()
+            fireTableDataChanged()
+        })
+    }
+
+    fun updateRankings() {
+        SwingUtilities.invokeLater({
             fireTableDataChanged()
         })
     }
