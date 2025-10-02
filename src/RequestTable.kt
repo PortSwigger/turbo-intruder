@@ -87,7 +87,22 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
 
     init {
 
-        issueTable.rowSorter = TableRowSorter(model)
+        val sorter = object : TableRowSorter<RequestTableModel>(model) {
+            override fun toggleSortOrder(column: Int) {
+                val sortKeys = this.sortKeys
+                if (sortKeys.isEmpty() || sortKeys[0].column != column) {
+                    // First click: descending
+                    this.sortKeys = listOf(RowSorter.SortKey(column, SortOrder.DESCENDING))
+                } else if (sortKeys[0].sortOrder == SortOrder.DESCENDING) {
+                    // Second click: ascending
+                    this.sortKeys = listOf(RowSorter.SortKey(column, SortOrder.ASCENDING))
+                } else {
+                    // Third click: unsorted
+                    this.sortKeys = emptyList()
+                }
+            }
+        }
+        issueTable.rowSorter = sorter
         setSortOrder(0, true)
 
         issueTable.autoResizeMode = JTable.AUTO_RESIZE_OFF

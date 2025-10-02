@@ -301,7 +301,8 @@ abstract class RequestEngine: IExtensionStateListener {
             // Map rankings back to Request objects
             for (i in allRequests.indices) {
                 if (i < rankedRequests.size) {
-                    allRequests[i].anomalyRank = rankedRequests[i].rank()
+                    val floatRank = rankedRequests[i].rank()
+                    allRequests[i].anomalyRank = kotlin.math.round(floatRank * 10000).toInt()
                 }
             }
 

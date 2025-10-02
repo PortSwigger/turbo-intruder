@@ -39,7 +39,7 @@ class RequestTableModel: AbstractTableModel() {
                 7 -> String::class.java
                 8 -> java.lang.Integer::class.java
                 9 -> java.lang.Integer::class.java
-                10 -> java.lang.Float::class.java
+                10 -> java.lang.Integer::class.java
 
                 else -> throw RuntimeException("Invalid column requested")
             }
@@ -65,7 +65,7 @@ class RequestTableModel: AbstractTableModel() {
                 7 -> request.label
                 8 -> request.id
                 9 -> request.connectionID
-                10 -> request.anomalyRank ?: 0.0f
+                10 -> request.anomalyRank ?: 0
                 else -> throw RuntimeException("Invalid column requested")
             }
         } catch (e: Exception) {
