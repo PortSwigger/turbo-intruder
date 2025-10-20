@@ -98,7 +98,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
     internal fun autoSortByAnomalyRank() {
         descending = true
         val order = SortOrder.DESCENDING
-        issueTable.rowSorter.sortKeys = listOf(RowSorter.SortKey(10, order))
+        issueTable.rowSorter.sortKeys = listOf(RowSorter.SortKey(3, order))
     }
 
     init {
@@ -142,7 +142,7 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
                 return super.getTableCellRendererComponent(table, formattedValue, isSelected, hasFocus, row, column)
             }
         }
-        issueTable.columnModel.getColumn(10).cellRenderer = anomalyRankRenderer
+        issueTable.columnModel.getColumn(3).cellRenderer = anomalyRankRenderer
 
         issueTable.autoResizeMode = JTable.AUTO_RESIZE_OFF
         //issueTable.getColumnModel().getColumn(0).setPreferredWidth(500)

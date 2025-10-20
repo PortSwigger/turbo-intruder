@@ -34,10 +34,10 @@ class RequestTableModel: AbstractTableModel() {
                 2 -> java.lang.Integer::class.java
                 3 -> java.lang.Integer::class.java
                 4 -> java.lang.Integer::class.java
-                5 -> java.lang.Long::class.java
+                5 -> java.lang.Integer::class.java
                 6 -> java.lang.Long::class.java
-                7 -> String::class.java
-                8 -> java.lang.Integer::class.java
+                7 -> java.lang.Long::class.java
+                8 -> String::class.java
                 9 -> java.lang.Integer::class.java
                 10 -> java.lang.Integer::class.java
 
@@ -58,14 +58,14 @@ class RequestTableModel: AbstractTableModel() {
                 0 -> rowIndex
                 1 -> request.words.joinToString(separator = "/")
                 2 -> request.code
-                3 -> request.wordcount
-                4 -> request.length
-                5 -> request.time
-                6 -> request.arrival
-                7 -> request.label
-                8 -> request.id
-                9 -> request.connectionID
-                10 -> request.anomalyRank ?: 0
+                3 -> request.anomalyRank ?: 0
+                4 -> request.wordcount
+                5 -> request.length
+                6 -> request.time
+                7 -> request.arrival
+                8 -> request.label
+                9 -> request.id
+                10 -> request.connectionID
                 else -> throw RuntimeException("Invalid column requested")
             }
         } catch (e: Exception) {
@@ -90,7 +90,7 @@ class RequestTableModel: AbstractTableModel() {
     }
 
     companion object {
-        internal val columns = listOf("Row", "Payload", "Status", "Words", "Length", "Time", "Arrival", "Label", "Queue ID", "Connection ID", "Anomaly rank")
+        internal val columns = listOf("Row", "Payload", "Status", "Anomaly rank", "Words", "Length", "Time", "Arrival", "Label", "Queue ID", "Connection ID")
     }
 
     fun getAllRequests(): List<Request> {
