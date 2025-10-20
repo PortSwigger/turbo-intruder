@@ -3,11 +3,11 @@ ExtensionType: 1
 Name: Turbo Intruder
 RepoName: turbo-intruder
 ScreenVersion: 1.60
-SerialVersion: 62
+SerialVersion: 63
 MinPlatformVersion: 19
 ProOnly: False
 Author: James Kettle, PortSwigger
 ShortDescription: Send large numbers of HTTP requests and analyze the results.
-EntryPoint: hpack-1.0.2.jar
+EntryPoint: turbo-intruder.jar
 BuildCommand: ./gradlew build fatJar
 SupportedProducts: Pro, Community
