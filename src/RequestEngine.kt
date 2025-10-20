@@ -324,6 +324,13 @@ abstract class RequestEngine: IExtensionStateListener {
             val handler = outputHandler
             if (handler is RequestTable) {
                 handler.model.updateRankings()
+
+                // Auto-sort by anomaly rank if user hasn't customized sorting
+                javax.swing.SwingUtilities.invokeLater {
+                    if (!handler.hasSortBeenModified()) {
+                        handler.autoSortByAnomalyRank()
+                    }
+                }
             }
         } catch (e: Exception) {
             Utils.err("Error calculating anomaly rankings: ${e.message}")

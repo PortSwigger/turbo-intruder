@@ -63,10 +63,14 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
     private var firstEntry = true
     private val lock = Object()
     private var descending = true
+    private var initialized = false
+    private var sortModifiedAfterInit = false
 
     fun clear() {
         model.clear()
     }
+
+    fun hasSortBeenModified(): Boolean = sortModifiedAfterInit
 
     fun setCurrentRequest(req: Request?) {
         synchronized(lock) {
@@ -83,15 +87,25 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
     }
 
     fun setSortOrder(column: Int, descending: Boolean) {
+        if (initialized) {
+            sortModifiedAfterInit = true
+        }
         this.descending = descending
         val order = if (descending) SortOrder.DESCENDING else SortOrder.ASCENDING
         issueTable.rowSorter.sortKeys = listOf(RowSorter.SortKey(column, order))
+    }
+
+    internal fun autoSortByAnomalyRank() {
+        descending = true
+        val order = SortOrder.DESCENDING
+        issueTable.rowSorter.sortKeys = listOf(RowSorter.SortKey(10, order))
     }
 
     init {
 
         val sorter = object : TableRowSorter<RequestTableModel>(model) {
             override fun toggleSortOrder(column: Int) {
+                sortModifiedAfterInit = true
                 val sortKeys = this.sortKeys
                 if (sortKeys.isEmpty() || sortKeys[0].column != column) {
                     // First click: descending
@@ -242,6 +256,8 @@ class RequestTable(val service: IHttpService, val handler: AttackHandler): JPane
         issueTable.componentPopupMenu = menu
         Utils.callbacks.customizeUiComponent(this)
         Utils.callbacks.customizeUiComponent(issueTable)
+
+        initialized = true
     }
 
     private fun getSelectedRequests(): ArrayList<Request> {
