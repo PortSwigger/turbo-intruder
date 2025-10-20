@@ -303,7 +303,7 @@ abstract class RequestEngine: IExtensionStateListener {
                 for (i in allRequests.indices) {
                     if (i < rankedRequests.size) {
                         val floatRank = rankedRequests[i].rank()
-                        allRequests[i].anomalyRank = kotlin.math.round(floatRank * 10000).toInt()
+                        allRequests[i].anomalyRank = floatRank // kotlin.math.round(floatRank * 10000).toInt()
                     }
                 }
             } catch (e: NoSuchMethodError) {
@@ -313,7 +313,7 @@ abstract class RequestEngine: IExtensionStateListener {
                     request.anomalyRank = 0
                 }
             } catch (e: NoClassDefFoundError) {
-                Utils.err("Anomaly ranking API not available in this version of Burp versions below 2025.10")
+                Utils.err("Anomaly ranking API not available in Burp versions below 2025.10")
                 // Set all ranks to 0 as fallback
                 for (request in allRequests) {
                     request.anomalyRank = 0

@@ -2,15 +2,9 @@ package burp
 
 import burp.api.montoya.BurpExtension
 import burp.api.montoya.MontoyaApi
-import burp.api.montoya.ui.contextmenu.ContextMenuEvent
-import burp.api.montoya.ui.contextmenu.ContextMenuItemsProvider
-import java.awt.Component
 import javax.swing.JMenuItem
 import javax.swing.SwingUtilities
 import javax.swing.JFrame
-import burp.api.montoya.ui.menu.BasicMenuItem
-import burp.api.montoya.ui.menu.Menu
-import burp.api.montoya.ui.menu.MenuBar
 
 class BurpExtender() : IBurpExtender, IExtensionStateListener, BurpExtension {
 

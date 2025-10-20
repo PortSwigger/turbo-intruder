@@ -3,12 +3,10 @@ import burp.api.montoya.MontoyaApi;
 import kotlin.NotImplementedError;
 import kotlin.jvm.functions.Function2;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 class TurboHelper implements AutoCloseable {
 

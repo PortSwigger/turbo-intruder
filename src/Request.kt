@@ -3,7 +3,6 @@ import burp.api.montoya.http.message.HttpRequestResponse
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.lang.Exception
-import java.net.URL
 import java.util.*
 import kotlin.collections.HashMap
 

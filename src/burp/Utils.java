@@ -1,5 +1,4 @@
 package burp;
-import burp.api.montoya.BurpExtension;
 
 import burp.api.montoya.MontoyaApi;
 import kotlin.Pair;
@@ -12,7 +11,6 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.LinkedList;
 
 public class Utils {
