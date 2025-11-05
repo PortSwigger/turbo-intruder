@@ -3,6 +3,9 @@ package burp
 import burp.api.montoya.http.message.HttpRequestResponse
 import org.fife.ui.rsyntaxtextarea.*
 import org.fife.ui.rtextarea.*
+import org.fife.rsta.ui.search.FindDialog
+import org.fife.rsta.ui.search.SearchListener
+import org.fife.rsta.ui.search.SearchEvent
 import org.python.util.PythonInterpreter
 import java.awt.BorderLayout
 import java.awt.Dimension
@@ -225,6 +228,42 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
             //val scrollableTextEditor = JScrollPane(textEditor)
             val scrollableTextEditor = RTextScrollPane(textEditor)
             scrollableTextEditor.lineNumbersEnabled = Utilities.globalSettings.getBoolean("line-numbers")
+
+            // Add Ctrl+F search functionality using RSyntaxTextArea's built-in FindDialog
+            val searchListener = object : SearchListener {
+                override fun searchEvent(e: SearchEvent) {
+                    val context = e.searchContext
+                    val result = SearchEngine.find(textEditor, context)
+                    if (!result.wasFound() && context.searchForward) {
+                        // Wrap around
+                        textEditor.caretPosition = 0
+                        SearchEngine.find(textEditor, context)
+                    } else if (!result.wasFound() && !context.searchForward) {
+                        // Wrap around backwards
+                        textEditor.caretPosition = textEditor.text.length
+                        SearchEngine.find(textEditor, context)
+                    }
+                }
+                
+                override fun getSelectedText(): String {
+                    return textEditor.selectedText ?: ""
+                }
+            }
+            
+            val findDialog = FindDialog(this@TurboIntruderFrame, searchListener)
+            
+            textEditor.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+                KeyStroke.getKeyStroke("control F"), "find"
+            )
+            textEditor.actionMap.put("find", object : AbstractAction() {
+                override fun actionPerformed(e: ActionEvent) {
+                    if (!findDialog.isVisible) {
+                        findDialog.isVisible = true
+                    } else {
+                        findDialog.toFront()
+                    }
+                }
+            })
 
             val saveButton = JButton("Save")
             saveButton.isEnabled = false
