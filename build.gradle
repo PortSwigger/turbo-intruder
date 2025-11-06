@@ -41,6 +41,7 @@ dependencies {
     // runtimeOnly 'org.python:jython-standalone:2.7.0' // use this for library jar
 
     implementation 'com.fifesoft:rsyntaxtextarea:3.1.1'
+    implementation 'com.fifesoft:rstaui:3.1.1'
     implementation files('hpack-1.0.2.jar')
     implementation files('albinowaxUtils-all.jar') // includes burp wiener API
     // implementation files('http2-spike-enhanced-obfuscated.jar') // used for research only
