@@ -161,8 +161,9 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         var startTime: Long = 0
         var reuseSSL = resumeSSL
 
-        while (!shouldAbandonAttack()) {
-            try {
+        try {
+            while (!shouldAbandonAttack()) {
+                try {
 
                 val socket: Socket?
                 try {
@@ -230,7 +231,6 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                     break
                                 }
                                 if(attackState.get() >= 2) {
-                                    completedLatch.countDown()
                                     return
                                 }
                             }
@@ -536,7 +536,10 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                 //println("Lost ${inflight.size} requests. Changing requestsPerConnection to $requestsPerConnection and readFreq to $readFreq")
                 retryQueue.addAll(inflight)
                 inflight.clear()
+                }
             }
+        } finally {
+            completedLatch.countDown()
         }
     }
 

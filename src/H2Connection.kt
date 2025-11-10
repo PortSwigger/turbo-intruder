@@ -362,7 +362,6 @@ class H2Connection(val target: URL, val seedQueue: Queue<Request>, private val r
                         if (engine.attackState.get() == 2 && !hasInflightRequests()) {
                             close()
                             done = true
-                            engine.completedLatch.countDown()
                             return
                         }
                         continue
@@ -395,6 +394,8 @@ class H2Connection(val target: URL, val seedQueue: Queue<Request>, private val r
         } catch (e: Exception) {
             Utils.out("Killing write thread")
             close()
+        } finally {
+            engine.completedLatch.countDown()
         }
         debug("Exiting write thread")
     }

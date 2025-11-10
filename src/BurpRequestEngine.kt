@@ -102,14 +102,15 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
     }
 
     private fun sendRequests(service: IHttpService) {
-        while(attackState.get()<1) {
-            Thread.sleep(10)
-        }
+        try {
+            while(attackState.get()<1) {
+                Thread.sleep(10)
+            }
 
 
-        while(attackState.get() < 3 && !Utils.unloaded) {
+            while(attackState.get() < 3 && !Utils.unloaded) {
 
-            try {
+                try {
                 val requestGroup = getGatedRequests()
                 if (requestGroup != null) {
                     val preppedRequestBatch = ArrayList<HttpRequest>()
@@ -182,7 +183,6 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
                     }
 
                     if (attackState.get() == 2) {
-                        completedLatch.countDown()
                         return
                     } else {
                         continue
@@ -242,7 +242,10 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
                 permaFails.getAndIncrement()
                 // todo add null response to table
                 continue
+                }
             }
+        } finally {
+            completedLatch.countDown()
         }
     }
 

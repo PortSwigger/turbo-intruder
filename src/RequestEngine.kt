@@ -24,7 +24,6 @@ abstract class RequestEngine: IExtensionStateListener {
     val lastRequestID = AtomicInteger(0)
     var connections = AtomicInteger(0)
     val attackState = AtomicInteger(0) // 0 = connecting, 1 = live, 2 = fully queued, 3 = cancelled, 4 = completed
-    val activeCallbacks = AtomicInteger(0) // Tracks callbacks currently executing to prevent race in calculateAnomalyRankings
     lateinit var completedLatch: CountDownLatch
     private val baselines = LinkedList<SafeResponseVariations>()
     val retries = AtomicInteger(0)
@@ -61,18 +60,13 @@ abstract class RequestEngine: IExtensionStateListener {
     }
 
     fun invokeCallback(req: Request, interesting: Boolean){
-        activeCallbacks.incrementAndGet()
+        updateLastLife()
         try {
-            updateLastLife()
-            try {
-                req.invokeCallback(interesting)
-            } catch (ex: Exception){
-                Utils.out("Error in user-defined callback: $ex")
-                ex.printStackTrace()
-                permaFails.incrementAndGet()
-            }
-        } finally {
-            activeCallbacks.decrementAndGet()
+            req.invokeCallback(interesting)
+        } catch (ex: Exception){
+            Utils.out("Error in user-defined callback: $ex")
+            ex.printStackTrace()
+            permaFails.incrementAndGet()
         }
     }
 
@@ -256,6 +250,17 @@ abstract class RequestEngine: IExtensionStateListener {
         if (attackState.get() != 3) {
             attackState.set(3)
             Utils.out("Cancelled attack")
+
+            // Wait for all worker threads to finish their callbacks before calculating anomaly rankings
+            // This prevents ConcurrentModificationException when iterating the request list
+            if (::completedLatch.isInitialized) {
+                val timeout = 30L // seconds
+                val finished = completedLatch.await(timeout, TimeUnit.SECONDS)
+                if (!finished) {
+                    Utils.err("Warning: Worker threads did not complete within ${timeout}s during cancellation")
+                }
+            }
+
             showSummary()
         }
 
@@ -275,11 +280,8 @@ abstract class RequestEngine: IExtensionStateListener {
 
         // Calculate anomaly rankings when attack is stopped or completed
         if (attackState.get() >= 3) {
-            // Wait for all active callbacks to complete before calculating rankings
-            // This prevents ConcurrentModificationException when iterating the request list
-            while (activeCallbacks.get() > 0 && !Utils.unloaded) {
-                Thread.sleep(10)
-            }
+            // All worker threads have finished (waited in cancel() or showStats())
+            // so it's safe to iterate the request list for anomaly ranking
             calculateAnomalyRankings()
         }
 
