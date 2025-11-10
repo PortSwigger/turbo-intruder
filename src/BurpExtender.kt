@@ -9,7 +9,7 @@ import javax.swing.JFrame
 class BurpExtender() : IBurpExtender, IExtensionStateListener, BurpExtension {
 
     companion object {
-        const val version = "1.60"
+        const val version = "1.61"
     }
 
     override fun extensionUnloaded() {
