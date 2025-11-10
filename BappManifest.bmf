@@ -9,5 +9,5 @@ ProOnly: False
 Author: James Kettle, PortSwigger
 ShortDescription: Send large numbers of HTTP requests and analyze the results.
 EntryPoint: turbo-intruder.jar
-BuildCommand: ./gradlew build fatJar
+BuildCommand: ./gradlew fatJar
 SupportedProducts: Pro, Community
