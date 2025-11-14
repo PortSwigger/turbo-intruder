@@ -23,7 +23,7 @@ import kotlin.jvm.optionals.getOrNull
 class BurpExtender() : IBurpExtender, IExtensionStateListener, BurpExtension {
 
     companion object {
-        const val version = "1.61"
+        const val version = "1.62"
     }
 
     override fun extensionUnloaded() {
