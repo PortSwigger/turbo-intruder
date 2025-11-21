@@ -279,7 +279,7 @@ abstract class RequestEngine: IExtensionStateListener {
         Utils.err(String.format("RPS: %.0f\n", requests / ceil((duration / 1000000000).toDouble())))
 
         // Calculate anomaly rankings when attack is stopped or completed
-        if (attackState.get() >= 3) {
+        if (attackState.get() >= 3 && shouldCalculateAnomalyRankings()) {
             // All worker threads have finished (waited in cancel() or showStats())
             // so it's safe to iterate the request list for anomaly ranking
             calculateAnomalyRankings()
@@ -289,6 +289,13 @@ abstract class RequestEngine: IExtensionStateListener {
         if (attackState.get() >= 4) {
             cleanup()
         }
+    }
+
+    private fun shouldCalculateAnomalyRankings(): Boolean {
+        if (!Utils.gotBurp || Utils.unloaded) {
+            return false
+        }
+        return Utilities.globalSettings.getBoolean("anomaly ranking")
     }
 
     private fun calculateAnomalyRankings() {
