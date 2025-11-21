@@ -373,6 +373,12 @@ abstract class RequestEngine: IExtensionStateListener {
             return false
         }
 
+        val shouldLearn = req.learnBoring != 0
+        val hasBaselines = baselines.isNotEmpty()
+
+        if (!shouldLearn && !hasBaselines) {
+            return true
+        }
 
         val resp = Utils.callbacks.helpers.analyzeResponseVariations(response)
 
@@ -383,7 +389,7 @@ abstract class RequestEngine: IExtensionStateListener {
             }
         }
 
-        if (req.learnBoring != 0) {
+        if (shouldLearn) {
             var base = baselines.getOrNull(req.learnBoring-1)
             if (base == null) {
                 base = SafeResponseVariations()
@@ -394,10 +400,6 @@ abstract class RequestEngine: IExtensionStateListener {
             //reinvokeCallbacks()
             return false
         }
-        else if (baselines.isEmpty()) {
-            return true
-        }
-
         return true
     }
 
