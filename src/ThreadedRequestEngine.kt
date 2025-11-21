@@ -215,7 +215,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                     var readCount = 0
                     startTime = 0
                     var endTime: Long = 0
-                    var buffer = ""
+                    val buffer = StringBuilder()
 
                     for (j in 1..readFreq) {
                         if (requestsSent >= requestsPerConnection) {
@@ -260,7 +260,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             outputstream.write(part1)
                             startTime = System.nanoTime()
 
-                            buffer = waitForData(socket, req.pauseTime)
+                            buffer.setLength(0)
+                            buffer.append(waitForData(socket, req.pauseTime))
 
                             val part2 = byteReq.sliceArray(end until byteReq.size)
                             outputstream.write(part2)
@@ -277,7 +278,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                     pausePoint = Utils.helpers.indexOf(byteReq, pauseBytes, true, i, byteReq.size)
                                     if (pausePoint != -1) {
                                         outputstream.write(byteReq.sliceArray(i until (pausePoint+pauseBytes.size)))
-                                        buffer = waitForData(socket, req.pauseTime)
+                                        buffer.setLength(0)
+                                        buffer.append(waitForData(socket, req.pauseTime))
                                         i = pausePoint + pauseBytes.size
                                         break
                                     }
@@ -309,7 +311,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             endTime = System.nanoTime()
                         }
 
-                        var consumeFirstBlock = buffer.startsWith("HTTP/1.1 100")
+                        var consumeFirstBlock = buffer.startsWithPrefix("HTTP/1.1 100")
                         var ateContinue = false
                         var continueBlock = ""
 
@@ -321,9 +323,9 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                             }
                             endTime = System.nanoTime()
 
-                            val read = Utils.bytesToString(readBuffer.copyOfRange(0, len))
+                            val read = String(readBuffer, 0, len, Charsets.ISO_8859_1)
                             triggerReadCallback(read)
-                            buffer += read
+                            buffer.append(read)
                             bodyStart = buffer.indexOf("\r\n\r\n")
                         }
 
@@ -335,16 +337,16 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                 }
                                 endTime = System.nanoTime()
 
-                                val read = Utils.bytesToString(readBuffer.copyOfRange(0, len))
+                                val read = String(readBuffer, 0, len, Charsets.ISO_8859_1)
                                 triggerReadCallback(read)
-                                buffer += read
-                                consumeFirstBlock = buffer.startsWith("HTTP/1.1 100")
+                                buffer.append(read)
+                                consumeFirstBlock = buffer.startsWithPrefix("HTTP/1.1 100")
                                 bodyStart = buffer.indexOf("\r\n\r\n")
                                 if (consumeFirstBlock && bodyStart != -1 && !ateContinue && !ignoreLength) {
                                     consumeFirstBlock = false
                                     ateContinue = true
                                     continueBlock = buffer.substring(0, bodyStart+4)
-                                    buffer = buffer.substring(bodyStart+4)
+                                    buffer.delete(0, bodyStart+4)
                                     bodyStart = buffer.indexOf("\r\n\r\n")
                                 }
                             } catch (ex: SocketTimeoutException) {
@@ -353,7 +355,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         }
 
                         if (buffer.isEmpty() && ateContinue) {
-                            buffer = continueBlock
+                            buffer.append(continueBlock)
                             continueBlock = ""
                             bodyStart = buffer.length
                             // todo handle missing body
@@ -386,23 +388,23 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                 if (len == -1) {
                                     ditchConnection = true
                                     body = buffer.substring(bodyStart + 4)
-                                    buffer = ""
+                                    buffer.setLength(0)
                                     break
                                     //throw RuntimeException("CL response finished unexpectedly")
                                 }
-                                val read =  Utils.bytesToString(readBuffer.copyOfRange(0, len))
+                                val read =  String(readBuffer, 0, len, Charsets.ISO_8859_1)
                                 triggerReadCallback(read)
-                                buffer += read
+                                buffer.append(read)
                             }
 
                             if (!ditchConnection && !shouldAbandonAttack()) {
                                 body = buffer.substring(bodyStart + 4, responseLength)
-                                buffer = buffer.substring(responseLength)
+                                buffer.delete(0, responseLength)
                             }
                         }
                         else if (headers.lowercase().contains("transfer-encoding: chunked") || headers.contains("^transfer-encoding:[ ]*chunked".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)))  && !ignoreLength) {
 
-                            buffer = buffer.substring(bodyStart + 4)
+                            buffer.delete(0, bodyStart + 4)
 
                             while (!shouldAbandonAttack()) {
                                 var chunk = getNextChunkLength(buffer)
@@ -411,14 +413,14 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                     if (len == -1) {
                                         throw RuntimeException("Chunked response finished unexpectedly")
                                     }
-                                    val read = Utils.bytesToString(readBuffer.copyOfRange(0, len))
+                                    val read = String(readBuffer, 0, len, Charsets.ISO_8859_1)
                                     triggerReadCallback(read)
-                                    buffer += read
+                                    buffer.append(read)
                                     chunk = getNextChunkLength(buffer)
                                 }
 
                                 body += buffer.substring(chunk.skip, chunk.length)
-                                buffer = buffer.substring(chunk.length + 2)
+                                buffer.delete(0, chunk.length + 2)
 
                                 if (chunk.length == chunk.skip) {
                                     break
@@ -439,6 +441,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                             try {
                                 body += buffer.substring(bodyStart + 4)
+                                buffer.setLength(0)
                                 while (!shouldAbandonAttack()) {
                                     val len = socket.getInputStream().read(readBuffer)
 
@@ -446,8 +449,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                         break
                                     }
 
-                                    buffer = Utils.bytesToString(readBuffer.copyOfRange(0, len))
-                                    body += buffer
+                                    val read = String(readBuffer, 0, len, Charsets.ISO_8859_1)
+                                    body += read
                                 }
                             } catch (ex: SocketTimeoutException) {
 
@@ -543,6 +546,18 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         }
     }
 
+    private fun StringBuilder.startsWithPrefix(prefix: String): Boolean {
+        if (prefix.length > this.length) {
+            return false
+        }
+        for (i in prefix.indices) {
+            if (this[i] != prefix[i]) {
+                return false
+            }
+        }
+        return true
+    }
+
     private fun waitForData(socket: Socket, pauseTime: Int): String {
 
         val oldTimeout = socket.soTimeout
@@ -560,13 +575,13 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         }
         var read = ""
         if (len != -1) {
-            read = Utils.bytesToString(readBuffer.copyOfRange(0, len))
+            read = String(readBuffer, 0, len, Charsets.ISO_8859_1)
         }
 
         return read
     }
 
-    fun getContentLength(buf: String): Int {
+    fun getContentLength(buf: StringBuilder): Int {
         val cstart = buf.indexOf("Content-Length: ")+16
         if (cstart == 15) {
             return -1
@@ -582,7 +597,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
     data class Result(val skip: Int, val length: Int)
 
-    fun getNextChunkLength(buf: String): Result {
+    fun getNextChunkLength(buf: StringBuilder): Result {
         if (buf.isEmpty()) {
             return Result(-1, -1)
         }

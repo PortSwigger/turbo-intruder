@@ -40,6 +40,7 @@ class BurpExtender() : IBurpExtender, IExtensionStateListener, BurpExtension {
 
         Utils.utilities = Utilities(callbacks, HashMap(), "Turbo Intruder")
         Utilities.globalSettings.registerSetting("learn observed words", false);
+        Utilities.globalSettings.registerSetting("anomaly ranking", true);
 
         SwingUtilities.invokeLater(ConfigMenu())
         SwingUtilities.invokeLater { addRunScriptToExistingMenu() }
