@@ -373,6 +373,9 @@ abstract class RequestEngine: IExtensionStateListener {
             return false
         }
 
+        if (req.learnBoring == 0 && baselines.isEmpty()) {
+            return true
+        }
 
         val resp = Utils.callbacks.helpers.analyzeResponseVariations(response)
 
@@ -393,9 +396,6 @@ abstract class RequestEngine: IExtensionStateListener {
 
             //reinvokeCallbacks()
             return false
-        }
-        else if (baselines.isEmpty()) {
-            return true
         }
 
         return true
