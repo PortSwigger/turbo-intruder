@@ -105,13 +105,13 @@ abstract class RequestEngine: IExtensionStateListener {
             throw Exception("The request has a %s injection point, but no payloads specified: '$context'")
         }
 
-        val payloadsAsStrings = payloads.map { it.toString().replace("\$randomplz", RandomStringUtils.randomAlphanumeric(8).lowercase(), true) }
+        val payloadsAsStrings = payloads.map { it.toString().replace("\$randomplz", RandomStringUtils.randomAlphanumeric(10).lowercase(), true) }
 
         if (learnBoring != 0 && !Utils.gotBurp) {
             throw Exception("Automatic interesting response detection using 'learn=X' isn't support in command line mode.")
         }
 
-        val request = buildRequest(template.replace("\$randomplz", RandomStringUtils.randomAlphanumeric(8).lowercase(), true), payloadsAsStrings, learnBoring, label)
+        val request = buildRequest(template.replace("\$randomplz", RandomStringUtils.randomAlphanumeric(10).lowercase(), true), payloadsAsStrings, learnBoring, label)
         request._engine = this
         if (pythonEngine != null) {
             request.engine = pythonEngine
