@@ -1,3 +1,6 @@
 .gradle
 build
 .idea/
+.DS_Store
+plan.md
+src/spec-*.md
