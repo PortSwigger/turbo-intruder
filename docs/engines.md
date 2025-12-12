@@ -6,9 +6,9 @@ Turbo Intruder provides multiple HTTP engines for different scenarios.
 
 | Engine | Protocol | Speed | Reliability | Pipelining | Use Case |
 |--------|----------|-------|-------------|------------|----------|
-| `Engine.THREADED` | HTTP/1.1 | Fastest | Good | Yes | Default, most attacks |
+| `Engine.THREADED` | HTTP/1.1 | Extremely fast | Toggleable | Yes | Default, most attacks |
 | `Engine.BURP` | HTTP/1.1 | Fast | Excellent | No | Proxy, auth, upstream |
-| `Engine.BURP2` | HTTP/2 | Fast | Excellent | N/A | HTTP/2, race conditions |
+| `Engine.BURP2` | HTTP/2 | Extremely fast | Excellent | Automatic | HTTP/2, race conditions |
 
 > **Note:** `Engine.HTTP2` is deprecated. Use `Engine.BURP2` for HTTP/2.
 
@@ -160,16 +160,6 @@ Host: example.com
 
 See [race-conditions.md](race-conditions.md) for single-packet attack examples.
 
-## Detecting HTTP/2 Support
-
-```python
-if target.req.split('\r\n', 1)[0].endswith('HTTP/2'):
-    engineType = Engine.BURP2
-    connections = 1
-else:
-    engineType = Engine.THREADED
-    connections = 50
-```
 
 ## Example Scripts
 
