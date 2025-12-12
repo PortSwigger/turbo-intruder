@@ -302,23 +302,31 @@ abstract class RequestEngine: IExtensionStateListener {
                 return
             }
 
-            // Convert Request objects to Montoya HttpRequestResponse objects
-            val montoyaRequests = allRequests.mapNotNull { it.getMontoyaRequest() }
-            if (montoyaRequests.isEmpty()) {
+            // Convert Request objects to Montoya HttpRequestResponse objects, preserving mapping
+            val requestsWithMontoya = allRequests.mapNotNull { req ->
+                req.getMontoyaRequest()?.let { montoya -> req to montoya }
+            }
+            if (requestsWithMontoya.isEmpty()) {
                 return
             }
 
             try {
                 // Calculate rankings using Burp's RankingUtils
+                val startTime = System.currentTimeMillis()
+                Utils.out("Calculating anomaly rankings...")
+                val montoyaRequests = requestsWithMontoya.map { it.second }
                 val rankedRequests = Utils.montoyaApi.utilities().rankingUtils().rank(montoyaRequests)
 
-                // Map rankings back to Request objects
-                for (i in allRequests.indices) {
+                Utils.out("Mapping anomaly rankings...")
+                // Map rankings back to the correct Request objects
+                for (i in requestsWithMontoya.indices) {
                     if (i < rankedRequests.size) {
                         val floatRank = rankedRequests[i].rank()
-                        allRequests[i].anomalyRank = floatRank // kotlin.math.round(floatRank * 10000).toInt()
+                        requestsWithMontoya[i].first.anomalyRank = floatRank
                     }
                 }
+                val duration = System.currentTimeMillis() - startTime
+                Utils.out("...ranked ${montoyaRequests.size} entries in ${duration}ms")
             } catch (e: NoSuchMethodError) {
                 Utils.err("Anomaly ranking API not available in Burp versions below 2025.10")
                 // Set all ranks to 0 as fallback
