@@ -14,6 +14,17 @@ On the other hand it's undeniably harder to use, and the network stack isn't as 
 
 To get started with Turbo Intruder, please refer to the video and documentation at https://portswigger.net/blog/turbo-intruder-embracing-the-billion-request-attack
 
+#### API Reference
+
+- [API Quickstart](docs/api-quickstart.md) - Essential reference
+- [Engine Types](docs/engines.md) - THREADED vs BURP vs BURP2
+- [Performance Tuning](docs/performance.md) - Maximize requests per second
+- [Race Conditions](docs/race-conditions.md) - Gated requests, timing attacks
+- [Settings](docs/settings.md) - Full parameter reference
+- [Response Processing](docs/response-processing.md) - Callbacks, filtering
+- [Decorators](docs/decorators.md) - Response filtering decorators
+- [Wordlists & Misc](docs/misc.md) - Utilities
+
 
 #### Development
 Build using:
