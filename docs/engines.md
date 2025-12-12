@@ -12,6 +12,8 @@ Turbo Intruder provides multiple HTTP engines for different scenarios.
 
 > **Note:** `Engine.HTTP2` is deprecated. Use `Engine.BURP2` for HTTP/2.
 
+> **Note:** `Engine.SPIKE` is non-functional and should not be used.
+
 > **THREADED vs BURP:** The THREADED engine is significantly faster due to its custom HTTP stack with pipelining support, but Burp's HTTP stack (used by BURP/BURP2) is more mature and stable. If you encounter connection errors or malformed responses with THREADED, try switching to BURP for better compatibility.
 
 ## Engine.THREADED
@@ -36,10 +38,22 @@ engine = RequestEngine(endpoint=target.endpoint,
 |-----------|---------|-------------|
 | `pipeline` | False | `True` = send all requests before reading; `N` = read after every N requests |
 | `timeout` | 10 | Socket timeout in seconds |
-| `readCallback` | None | Callback receiving partial response data as it arrives |
+| `readCallback` | None | Callback receiving partial response data as it arrives (see below) |
 | `readSize` | 1024 | Socket receive buffer size in bytes |
 | `resumeSSL` | True | Reuse SSL sessions (auto-disables on SSL errors) |
 | `requestsPerConnection` | 100 | Requests before reconnecting |
+
+**readCallback Signature:**
+
+```python
+def handleRead(data):
+    # data contains the latest chunk of response data (string)
+    # Note: data is only the last socket read, not the full response
+    # Tokens or patterns may be split across multiple reads
+    if 'token' in data:
+        engine.queue('follow-up-request')
+    # Return value is ignored
+```
 
 **Unique queue() Parameters:**
 
@@ -109,6 +123,29 @@ engine = RequestEngine(endpoint=target.endpoint,
 - Single-packet attacks: all gated requests sent in one TCP packet
 - Uses Burp's upstream proxy settings
 - Automatic authentication handling
+
+**HTTP/2 Character Escapes:**
+
+When using HTTP/2 engines, you can use these escape sequences in requests:
+
+| Escape | Character | Description |
+|--------|-----------|-------------|
+| `^` | `\r` | Carriage return |
+| `~` | `\n` | Line feed |
+| `` ` `` | `:` | Colon |
+
+**Overriding Pseudo-Headers:**
+
+You can override HTTP/2 pseudo-headers by specifying them as regular headers:
+
+```python
+req = '''GET / HTTP/2
+Host: example.com
+:path: /custom-path
+:method: POST
+
+'''
+```
 
 **Limitations:**
 - `requestsPerConnection` forced to 1

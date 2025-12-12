@@ -5,7 +5,7 @@ def queueRequests(target, wordlists):
                            concurrentConnections=1,
                            requestsPerConnection=100,
                            pipeline=False,
-                           engine=Engine.SPIKE,
+                           engine=Engine.BURP2,
                            maxRetriesPerRequest=3
                            )
 

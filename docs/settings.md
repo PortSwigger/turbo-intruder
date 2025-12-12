@@ -106,6 +106,24 @@ The results table displays:
 - Label
 - Anomaly rank (Burp 2025.10+)
 
+### Custom Sort Order
+
+```python
+table.setSortOrder(column, descending)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `column` | int | Column index (0-based) |
+| `descending` | bool | `True` for descending, `False` for ascending |
+
+Setting a custom sort order also disables the automatic sort-by-anomaly-rank on attack completion.
+
+```python
+# Sort by first column (status) in ascending order
+table.setSortOrder(0, False)
+```
+
 ## Handler Methods
 
 ```python

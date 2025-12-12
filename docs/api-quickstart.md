@@ -49,14 +49,18 @@ In `handleResponse(req, interesting)`:
 | Property | Type | Description |
 |----------|------|-------------|
 | `req.response` | str | Full HTTP response |
+| `req.request` | str | Full HTTP request (with payloads injected) |
 | `req.status` | int | HTTP status code |
+| `req.code` | int | HTTP status code (alias for `status`) |
 | `req.length` | int | Response body length |
 | `req.wordcount` | int | Word count in response |
 | `req.time` | long | Response time (μs) |
 | `req.words` | list | Injected payloads |
-| `req.label` | str | Custom label |
+| `req.label` | str | Custom label (writable) |
 | `req.template` | str | Original request template |
 | `req.engine` | obj | Engine instance (for recursive queueing) |
+| `req.order` | int | Response order within gate (0 = first) |
+| `req.id` | int | Unique request ID |
 
 ## Engine Types
 

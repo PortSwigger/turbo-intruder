@@ -19,14 +19,16 @@ def handleResponse(req, interesting):
     # Response data
     req.response    # Full HTTP response (str)
     req.status      # HTTP status code (int)
+    req.code        # HTTP status code (alias for status)
     req.length      # Response body length (int)
     req.wordcount   # Word count in response (int)
     req.time        # Response time in μs (long)
 
     # Request data
-    req.template    # Original request template
+    req.request     # Full HTTP request with payloads injected (str)
+    req.template    # Original request template (str)
     req.words       # List of injected payloads
-    req.label       # Custom label
+    req.label       # Custom label (writable)
 
     # Metadata
     req.order       # Response order within gate (0 = first)
