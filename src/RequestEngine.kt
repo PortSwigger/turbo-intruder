@@ -52,6 +52,8 @@ abstract class RequestEngine: IExtensionStateListener {
             // todo use a helper method instead
             Utils.callbacks.registerExtensionStateListener(this)
         }
+
+        internalSettings["calculateAnomalyRank"] = true
     }
 
     override fun extensionUnloaded() {
@@ -293,6 +295,10 @@ abstract class RequestEngine: IExtensionStateListener {
 
     private fun calculateAnomalyRankings() {
         if (!Utils.gotBurp || Utils.unloaded) {
+            return
+        }
+
+        if (internalSettings["calculateAnomalyRank"] == false) {
             return
         }
 
