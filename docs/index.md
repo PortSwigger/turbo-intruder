@@ -13,7 +13,7 @@
 
 ## Advanced Topics
 
-- [Race Conditions](race-conditions.md) - Gated requests, single-packet attacks, timing
+- [Race Conditions & Timing Attacks](race-conditions.md) - Gated requests, single-packet attacks, timing
 - [Performance Tuning](performance.md) - Maximize requests per second
 - [Wordlists & Utilities](misc.md) - Bruteforce, clipboard, random strings, multi-host
 
