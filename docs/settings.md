@@ -81,7 +81,7 @@ engine.queue(
 | `label` | str | "" | Custom label for grouping |
 | `delay` | int | 0 | Delay response processing (ms) |
 | `endpoint` | str | None | Override target for this request |
-| `fixContentLength` | bool | True | Auto-update Content-Length |
+| `fixContentLength` | bool | True | Update existing Content-Length header (does not add if missing) |
 
 ### Special Payload Values
 
@@ -146,4 +146,10 @@ engine.applySetting(name, value)  # Internal settings
 
 ```python
 engine.applySetting("calculateAnomalyRank", False)  # Disable anomaly ranking
+engine.applySetting("ignoreLength", True)           # Ignore Content-Length (THREADED only)
 ```
+
+| Setting | Default | Engine | Description |
+|---------|---------|--------|-------------|
+| `calculateAnomalyRank` | True | All | Calculate anomaly rankings on completion |
+| `ignoreLength` | False | THREADED | Ignore Content-Length and chunked encoding when parsing responses. Useful for HTTP research with malformed responses. |

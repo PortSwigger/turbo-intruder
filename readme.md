@@ -16,6 +16,8 @@ To get started with Turbo Intruder, please refer to the video and documentation 
 
 #### API Reference
 
+See the [full documentation index](docs/index.md), or jump directly to:
+
 - [API Quickstart](docs/api-quickstart.md) - Essential reference
 - [Engine Types](docs/engines.md) - THREADED vs BURP vs BURP2
 - [Performance Tuning](docs/performance.md) - Maximize requests per second
