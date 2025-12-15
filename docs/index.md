@@ -1,18 +1,10 @@
 # Turbo Intruder Documentation
 
-## Getting Started
-
-- [API Quickstart](api-quickstart.md) - Essential reference for scripting
-
-## Core Reference
-
+- [API Quickstart](api-quickstart.md)
 - [Settings](settings.md) - Complete parameter reference for RequestEngine and queue()
 - [Engine Types](engines.md) - THREADED vs BURP vs BURP2
 - [Response Processing](response-processing.md) - Callbacks, filtering, Burp integration
 - [Decorators](decorators.md) - @MatchStatus, @FilterRegex, and other response filters
-
-## Advanced Topics
-
 - [Race Conditions & Timing Attacks](race-conditions.md) - Gated requests, single-packet attacks, timing
 - [Performance Tuning](performance.md) - Maximize requests per second
 - [Wordlists & Utilities](misc.md) - Bruteforce, clipboard, random strings, multi-host
