@@ -1,8 +1,11 @@
 # Turbo Intruder Documentation
 
-- [API Quickstart](api-quickstart.md)
-- [Settings](settings.md) - Complete parameter reference for RequestEngine and queue()
+## Basics
+- [Quickstart](api-quickstart.md)
 - [Engine Types](engines.md) - THREADED vs BURP vs BURP2
+- [Settings](settings.md) - Complete parameter reference for RequestEngine and queue()
+
+## Advanced
 - [Response Processing](response-processing.md) - Callbacks, filtering, Burp integration
 - [Decorators](decorators.md) - @MatchStatus, @FilterRegex, and other response filters
 - [Race Conditions & Timing Attacks](race-conditions.md) - Gated requests, single-packet attacks, timing
