@@ -17,13 +17,6 @@
 - [Performance Tuning](performance.md) - Maximize requests per second
 - [Wordlists & Utilities](misc.md) - Bruteforce, clipboard, random strings, multi-host
 
-## Extension Development
-
-- [Montoya API Examples](montoya-api-examples.md) - Patterns for Burp extension development
-- [Development Best Practices](development-best-practices.md) - AI features, threading
-- [BApp Store Requirements](bapp-store-requirements.md) - Submission criteria
-- [External Resources](resources.md) - Montoya API docs, examples
-
 ## Example Scripts
 
 Example scripts are located in [resources/examples/](../resources/examples/):
@@ -41,3 +34,4 @@ Example scripts are located in [resources/examples/](../resources/examples/):
 
 - [Turbo Intruder: Embracing the billion-request attack](https://portswigger.net/research/turbo-intruder-embracing-the-billion-request-attack) - Original blog post
 - [Smashing the state machine](https://portswigger.net/research/smashing-the-state-machine) - Single-packet attack research
+- [Listen to the whispers](https://portswigger.net/research/listen-to-the-whispers-web-timing-attacks-that-actually-work) - Web timing attacks
