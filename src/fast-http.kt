@@ -206,8 +206,8 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
             textEditor.paintTabLines = false
             textEditor.tabSize = 4
             textEditor.tabsEmulated = true
-            textEditor.eolMarkersVisible = Utilities.globalSettings.getBoolean("show-eol")
-            textEditor.isWhitespaceVisible = Utilities.globalSettings.getBoolean("visible-whitespace")
+            textEditor.eolMarkersVisible = false
+            textEditor.isWhitespaceVisible = false
 
             if (UIManager.getLookAndFeel().getID().contains("Dar")) {
                 val `in` = javaClass.getResourceAsStream("/org/fife/ui/rsyntaxtextarea/themes/dark.xml")
@@ -287,6 +287,15 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
             val protocolCombo = JComboBox(arrayOf("http", "https"))
             protocolCombo.selectedItem = initialService.protocol
 
+            val engineCombo = JComboBox(arrayOf("Jython", "Python 3"))
+            val configuredEngine = Utils.callbacks.loadExtensionSetting("enginePreference")
+            if (configuredEngine == "Python 3" && Python3Runner.isAvailable()) {
+                engineCombo.selectedItem = "Python 3"
+            }
+
+            val pythonPathField = JTextField(Utils.callbacks.loadExtensionSetting("python3Path") ?: "", 15)
+            pythonPathField.toolTipText = "Leave empty to auto-detect"
+
             val leftPanel = JPanel(FlowLayout(FlowLayout.LEFT))
             leftPanel.add(JLabel("Host:"))
             leftPanel.add(hostField)
@@ -294,7 +303,10 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
             leftPanel.add(portField)
             leftPanel.add(JLabel("Protocol:"))
             leftPanel.add(protocolCombo)
-
+            leftPanel.add(JLabel("Engine:"))
+            leftPanel.add(engineCombo)
+            leftPanel.add(JLabel("Py3 Path:"))
+            leftPanel.add(pythonPathField)
             val rightPanel = JPanel(GridBagLayout())
             val gbc = GridBagConstraints()
             gbc.insets = Insets(0, 4, 0, 0)
@@ -432,7 +444,38 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
                                 script = script.replace("\r\n", "\n")
                                 script = script.replace("\n", "\r\n")
                                 title += " - running"
-                                evalJython(script, baseRequest, messageEditor.message, target, inputHost, baseInput, requestTable!!, handler, reqs)
+                                
+                                val selectedEngine = engineCombo.selectedItem as String
+                                Utils.callbacks.saveExtensionSetting("enginePreference", selectedEngine)
+                                
+                                val pyPath = pythonPathField.text.trim()
+                                if (pyPath.isNotEmpty()) {
+                                    Utils.callbacks.saveExtensionSetting("python3Path", pyPath)
+                                } else {
+                                    Utils.callbacks.saveExtensionSetting("python3Path", "")
+                                }
+                                
+                                if (selectedEngine == "Python 3") {
+                                    try {
+                                        val runner = Python3Runner(
+                                            script = script,
+                                            baseRequest = baseRequest,
+                                            rawRequest = messageEditor.message,
+                                            endpoint = target,
+                                            host = inputHost,
+                                            baseInput = baseInput,
+                                            outputHandler = requestTable!!,
+                                            attackHandler = handler
+                                        )
+                                        runner.start()
+                                    } catch (e: Exception) {
+                                        handler.overrideStatus("Python 3 error: ${e.message}")
+                                        handler.abort()
+                                        Utils.out("Python 3 initialization failed: ${e.message}")
+                                    }
+                                } else {
+                                    evalJython(script, baseRequest, messageEditor.message, target, inputHost, baseInput, requestTable!!, handler, reqs)
+                                }
                             }
                         }
                     }
