@@ -27,6 +27,9 @@ import kotlin.concurrent.thread
 
 class Scripts() {
     companion object {
+        // !! SYNC: ScriptEnvironment.py is the Jython API environment. If RequestEngine.__init__
+        // !! signature changes here (engine params), update BOTH resources/ScriptEnvironment.py
+        // !! AND resources/turbo_intruder.py. See Python3Runner.checkApiParity() for auto-detection.
         val SCRIPTENVIRONMENT = Scripts::class.java.getResource("/ScriptEnvironment.py").readText()
         val SAMPLEBURPSCRIPT = Scripts::class.java.getResource("/examples/default.py").readText()
 

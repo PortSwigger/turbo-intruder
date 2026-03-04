@@ -149,3 +149,26 @@ java -jar turbo-intruder-all.jar scriptFile baseRequestFile endpoint [baseInput]
 - `ThreadedRequestEngine` trusts all SSL certs (`TrustingTrustManager`) — intentional for pentest use
 - No CI pipeline, no linter config, no formatter config
 - Burp App Store metadata: `BappManifest.bmf`, `BappDescription.html`
+
+## API SYNC RULE
+
+**`RequestEngine.__init__` exists in TWO files and must always be identical:**
+
+| File | Runtime | Role |
+|------|---------|------|
+| `resources/ScriptEnvironment.py` | Jython 2.7 (inside JVM) | Injected before every user attack script in Burp; calls Kotlin/Java directly via Jython interop |
+| `resources/turbo_intruder.py` | CPython 3.x (subprocess) | Extracted from JAR and executed as a standalone Python 3 process; sends JSON-RPC to Kotlin instead of calling Java |
+
+Both `RequestEngine.__init__` signatures must stay **byte-for-byte identical** (same parameter names, same order, same defaults).
+
+### When a Kotlin engine parameter changes (add / remove / rename):
+
+1. Update `RequestEngine.__init__` in **`resources/ScriptEnvironment.py`**
+2. Update `RequestEngine.__init__` in **`resources/turbo_intruder.py`** — same change, same position
+3. Update the engine constructor call body in `ScriptEnvironment.py` (the `burp.*` Java dispatch)
+4. Update the `createEngine` RPC params in `turbo_intruder.py`
+5. Update `handleCreateEngine()` in `src/Python3Runner.kt` to handle the new param over RPC
+6. Rebuild: `JAVA_HOME=... ./gradlew fatjar`
+
+Both files contain a `# !! SYNC:` comment above `__init__` as a reminder. Do not remove those comments.
+

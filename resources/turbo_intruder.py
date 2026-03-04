@@ -269,6 +269,9 @@ class Engine:
     SPIKE = 5
 
 class RequestEngine:
+    # !! SYNC: If you change this __init__ signature (add/remove/rename parameters or change defaults),
+    # !! you MUST make the identical change in RequestEngine.__init__ in resources/ScriptEnvironment.py.
+    # !! See AGENTS.md § API SYNC RULE for full guidance.
     def __init__(self, endpoint, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=100, timeout=10, maxRetriesPerRequest=3, idleTimeout=0, readCallback=None, readSize=1024, resumeSSL=True, autoStart=True, explodeOnEarlyRead=False, warmLocalConnection=True, fatPacket=False):
         self.endpoint = endpoint
         params = {

@@ -320,6 +320,10 @@ class Python3Runner(
         }
 
 
+        // !! SYNC: turbo_intruder.py is the Python 3 RPC stub. If RequestEngine.__init__ signature
+        // !! changes (engine params added/removed), update BOTH resources/turbo_intruder.py AND
+        // !! resources/ScriptEnvironment.py. See AGENTS.md § API SYNC RULE for full guidance.
+
         fun extractStub(): String {
             val resource = Python3Runner::class.java.getResourceAsStream("/turbo_intruder.py")
                 ?: throw IllegalStateException("turbo_intruder.py not found in JAR resources")
