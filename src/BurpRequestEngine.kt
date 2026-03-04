@@ -159,7 +159,7 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
                         } else {
                             req.connectionID = connectionID
                         }
-                        req.interesting = processResponse(req, resp.response().toByteArray().bytes)
+                        req.interesting = if (resp.response() != null) processResponse(req, resp.response().toByteArray().bytes) else false
                         reqs.add(req)
                     }
 
@@ -213,9 +213,14 @@ open class BurpRequestEngine(url: String, threads: Int, maxQueueSize: Int, overr
                     val montoyaService =
                         HttpService.httpService(tempService.host, port, "https".equals(tempService.protocol))
                     val montoyaResp = Utils.montoyaApi.http().sendRequest(HttpRequest.httpRequest(montoyaService, req.getRequest().replace("HTTP/2\r\n","HTTP/1.1\r\n")))
-                    req.response = montoyaResp.response().toString()
-                    req.montoyaReq = montoyaResp
-                    req.interesting = processResponse(req, montoyaResp.response().toByteArray().bytes)
+                    if (montoyaResp.response() != null) {
+                        req.response = montoyaResp.response().toString()
+                        req.montoyaReq = montoyaResp
+                        req.interesting = processResponse(req, montoyaResp.response().toByteArray().bytes)
+                    } else {
+                        req.response = "The server closed the connection without issuing a response."
+                        req.interesting = false
+                    }
                     successfulRequests.getAndIncrement()
                     invokeCallback(req, req.interesting)
                     continue

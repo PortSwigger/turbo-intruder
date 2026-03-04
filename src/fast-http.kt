@@ -206,8 +206,8 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
             textEditor.paintTabLines = false
             textEditor.tabSize = 4
             textEditor.tabsEmulated = true
-            textEditor.eolMarkersVisible = false
-            textEditor.isWhitespaceVisible = false
+            textEditor.eolMarkersVisible = Utilities.globalSettings.getBoolean("show-eol")
+            textEditor.isWhitespaceVisible = Utilities.globalSettings.getBoolean("visible-whitespace")
 
             if (UIManager.getLookAndFeel().getID().contains("Dar")) {
                 val `in` = javaClass.getResourceAsStream("/org/fife/ui/rsyntaxtextarea/themes/dark.xml")
