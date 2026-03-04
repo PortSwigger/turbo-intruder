@@ -262,7 +262,7 @@ class Engine:
     BURP2 = 4
     SPIKE = 5
 
-class _RequestEngineBase:
+class RequestEngine:
 
     def __init__(self, endpoint, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=100, timeout=10, maxRetriesPerRequest=3, idleTimeout=0, readCallback=None, readSize=1024, resumeSSL=True, autoStart=True, explodeOnEarlyRead=False, warmLocalConnection=True, fatPacket=False):
         concurrentConnections = int(concurrentConnections)
@@ -284,15 +284,6 @@ class _RequestEngineBase:
             if(readCallback != None):
                 print('Read callbacks are not supported in the Burp request engine. Try Engine.THREADED instead.')
 
-        self._init_engine(endpoint, callback, engine, concurrentConnections, requestsPerConnection, readFreq, maxQueueSize, timeout, maxRetriesPerRequest, idleTimeout, readCallback, readSize, resumeSSL, autoStart, explodeOnEarlyRead, warmLocalConnection, fatPacket)
-
-    def _init_engine(self, endpoint, callback, engine, concurrentConnections, requestsPerConnection, readFreq, maxQueueSize, timeout, maxRetriesPerRequest, idleTimeout, readCallback, readSize, resumeSSL, autoStart, explodeOnEarlyRead, warmLocalConnection, fatPacket):
-        raise NotImplementedError
-
-
-class RequestEngine(_RequestEngineBase):
-
-    def _init_engine(self, endpoint, callback, engine, concurrentConnections, requestsPerConnection, readFreq, maxQueueSize, timeout, maxRetriesPerRequest, idleTimeout, readCallback, readSize, resumeSSL, autoStart, explodeOnEarlyRead, warmLocalConnection, fatPacket):
         if(engine == Engine.BURP):
             self.engine = burp.BurpRequestEngine(endpoint, concurrentConnections, maxQueueSize, maxRetriesPerRequest, idleTimeout, callback, readCallback, True)
         elif(engine == Engine.BURP2):
@@ -331,15 +322,15 @@ class RequestEngine(_RequestEngineBase):
 
     def start(self, timeout=5):
         if self.autoStart or self.engine.attackState.get() != 0:
-            print('The engine has already started - you no longer need to invoke engine.start() manually. If you prefer to invoke engine.start() manually, set autoStart=False in the constructor')
+            print 'The engine has already started - you no longer need to invoke engine.start() manually. If you prefer to invoke engine.start() manually, set autoStart=False in the constructor'
             return
         self.engine.start(timeout)
 
     def complete(self, timeout=-1):
         self.engine.showStats(timeout)
 
+    def cancel(self):
         self.engine.cancel()
-
 
 def completed(ignored):
     pass

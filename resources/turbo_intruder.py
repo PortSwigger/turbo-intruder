@@ -268,9 +268,8 @@ class Engine:
     BURP2 = 4
     SPIKE = 5
 
-class RequestEngine(_RequestEngineBase):
-
-    def _init_engine(self, endpoint, callback, engine, concurrentConnections, requestsPerConnection, readFreq, maxQueueSize, timeout, maxRetriesPerRequest, idleTimeout, readCallback, readSize, resumeSSL, autoStart, explodeOnEarlyRead, warmLocalConnection, fatPacket):
+class RequestEngine:
+    def __init__(self, endpoint, callback=None, engine=Engine.THREADED, concurrentConnections=50, requestsPerConnection=100, pipeline=False, maxQueueSize=100, timeout=10, maxRetriesPerRequest=3, idleTimeout=0, readCallback=None, readSize=1024, resumeSSL=True, autoStart=True, explodeOnEarlyRead=False, warmLocalConnection=True, fatPacket=False):
         self.endpoint = endpoint
         params = {
             "endpoint": endpoint,
@@ -288,7 +287,7 @@ class RequestEngine(_RequestEngineBase):
             payloads = []
         elif not isinstance(payloads, list):
             payloads = [str(payloads)]
-
+        
         params = {
             "template": template,
             "words": payloads,
