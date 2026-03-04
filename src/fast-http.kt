@@ -27,6 +27,9 @@ import kotlin.concurrent.thread
 
 class Scripts() {
     companion object {
+        // !! SYNC: ScriptEnvironment.py is the Jython API environment. If RequestEngine.__init__
+        // !! signature changes here (engine params), update BOTH resources/ScriptEnvironment.py
+        // !! AND resources/turbo_intruder.py. See Python3Runner.checkApiParity() for auto-detection.
         val SCRIPTENVIRONMENT = Scripts::class.java.getResource("/ScriptEnvironment.py").readText()
         val SAMPLEBURPSCRIPT = Scripts::class.java.getResource("/examples/default.py").readText()
 
@@ -287,6 +290,15 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
             val protocolCombo = JComboBox(arrayOf("http", "https"))
             protocolCombo.selectedItem = initialService.protocol
 
+            val engineCombo = JComboBox(arrayOf("Jython", "Python 3"))
+            val configuredEngine = Utils.callbacks.loadExtensionSetting("enginePreference")
+            if (configuredEngine == "Python 3" && Python3Runner.isAvailable()) {
+                engineCombo.selectedItem = "Python 3"
+            }
+
+            val pythonPathField = JTextField(Utils.callbacks.loadExtensionSetting("python3Path") ?: "", 15)
+            pythonPathField.toolTipText = "Leave empty to auto-detect"
+
             val leftPanel = JPanel(FlowLayout(FlowLayout.LEFT))
             leftPanel.add(JLabel("Host:"))
             leftPanel.add(hostField)
@@ -294,7 +306,10 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
             leftPanel.add(portField)
             leftPanel.add(JLabel("Protocol:"))
             leftPanel.add(protocolCombo)
-
+            leftPanel.add(JLabel("Engine:"))
+            leftPanel.add(engineCombo)
+            leftPanel.add(JLabel("Py3 Path:"))
+            leftPanel.add(pythonPathField)
             val rightPanel = JPanel(GridBagLayout())
             val gbc = GridBagConstraints()
             gbc.insets = Insets(0, 4, 0, 0)
@@ -432,7 +447,38 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
                                 script = script.replace("\r\n", "\n")
                                 script = script.replace("\n", "\r\n")
                                 title += " - running"
-                                evalJython(script, baseRequest, messageEditor.message, target, inputHost, baseInput, requestTable!!, handler, reqs)
+                                
+                                val selectedEngine = engineCombo.selectedItem as String
+                                Utils.callbacks.saveExtensionSetting("enginePreference", selectedEngine)
+                                
+                                val pyPath = pythonPathField.text.trim()
+                                if (pyPath.isNotEmpty()) {
+                                    Utils.callbacks.saveExtensionSetting("python3Path", pyPath)
+                                } else {
+                                    Utils.callbacks.saveExtensionSetting("python3Path", "")
+                                }
+                                
+                                if (selectedEngine == "Python 3") {
+                                    try {
+                                        val runner = Python3Runner(
+                                            script = script,
+                                            baseRequest = baseRequest,
+                                            rawRequest = messageEditor.message,
+                                            endpoint = target,
+                                            host = inputHost,
+                                            baseInput = baseInput,
+                                            outputHandler = requestTable!!,
+                                            attackHandler = handler
+                                        )
+                                        runner.start()
+                                    } catch (e: Exception) {
+                                        handler.overrideStatus("Python 3 error: ${e.message}")
+                                        handler.abort()
+                                        Utils.out("Python 3 initialization failed: ${e.message}")
+                                    }
+                                } else {
+                                    evalJython(script, baseRequest, messageEditor.message, target, inputHost, baseInput, requestTable!!, handler, reqs)
+                                }
                             }
                         }
                     }
