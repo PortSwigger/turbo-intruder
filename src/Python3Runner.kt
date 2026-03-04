@@ -60,7 +60,7 @@ class Python3Runner(
             "jsonrpc" to "2.0",
             "method"  to "init",
             "params"  to mapOf(
-                "script"    to script,
+                "script"    to (extractBaseClass() + "\n" + script),
                 "req"       to baseRequest,
                 "rawReq"    to java.util.Base64.getEncoder().encodeToString(rawRequest),
                 "endpoint"  to endpoint,
@@ -328,6 +328,19 @@ class Python3Runner(
             val tmpFile = File(System.getProperty("java.io.tmpdir"), "turbo_intruder_$hash.py")
             if (!tmpFile.exists()) tmpFile.writeBytes(content)
             return tmpFile.absolutePath
+        }
+
+        fun extractBaseClass(): String {
+            val resource = Python3Runner::class.java.getResourceAsStream("/ScriptEnvironment.py")
+                ?: return ""
+            val content = resource.bufferedReader(Charsets.UTF_8).readText()
+            val startMarker = "class _RequestEngineBase:"
+            val endMarker = "class RequestEngine(_RequestEngineBase):"
+            val startIdx = content.indexOf(startMarker)
+            if (startIdx < 0) return ""
+            val endIdx = content.indexOf(endMarker, startIdx)
+            return if (endIdx > startIdx) content.substring(startIdx, endIdx).trimEnd()
+                else ""
         }
 
         fun isAvailable(): Boolean = try { findPython3(); true } catch (_: Exception) { false }
