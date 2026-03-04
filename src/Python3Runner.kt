@@ -1,5 +1,7 @@
 package burp
 
+import com.google.gson.Gson
+import com.google.gson.JsonParser
 import java.io.*
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -259,24 +261,31 @@ class Python3Runner(
     }
 
 
+    private val gson = Gson()
 
-    private fun jsonEncode(value: Any?): String = when (value) {
-        null              -> "null"
-        is Boolean        -> value.toString()
-        is Number         -> value.toString()
-        is String         -> "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")
-                                       .replace("\n", "\\n").replace("\r", "\\r")
-                                       .replace("\t", "\\t")}\""
-        is Map<*, *>      -> "{${value.entries.joinToString(",") {
-                                    "${jsonEncode(it.key)}:${jsonEncode(it.value)}" }}}"
-        is List<*>        -> "[${value.joinToString(",") { jsonEncode(it) }}]"
-        else              -> "\"${value}\""
-    }
+    private fun jsonEncode(value: Any?): String = gson.toJson(value)
 
     @Suppress("UNCHECKED_CAST")
     private fun parseJson(text: String): Map<String, Any?> {
+        return try {
+            val obj = JsonParser.parseString(text.trim()).asJsonObject
+            obj.entrySet().associate { (k, v) -> k to unwrapJsonElement(v) }
+        } catch (_: Exception) { emptyMap() }
+    }
 
-        return SimpleJsonParser.parseObject(text)
+    private fun unwrapJsonElement(el: com.google.gson.JsonElement): Any? = when {
+        el.isJsonNull    -> null
+        el.isJsonPrimitive -> {
+            val p = el.asJsonPrimitive
+            when {
+                p.isBoolean -> p.asBoolean
+                p.isNumber  -> p.asDouble
+                else        -> p.asString
+            }
+        }
+        el.isJsonArray  -> el.asJsonArray.map { unwrapJsonElement(it) }
+        el.isJsonObject -> el.asJsonObject.entrySet().associate { (k, v) -> k to unwrapJsonElement(v) }
+        else            -> null
     }
 
 
@@ -284,9 +293,7 @@ class Python3Runner(
     companion object {
         fun findPython3(): String {
 
-            val configured = try {
-                Utils.callbacks?.loadExtensionSetting("python3Path")
-            } catch (_: Exception) { null }
+            val configured = Utils.callbacks?.loadExtensionSetting("python3Path")
             if (!configured.isNullOrBlank()) return configured
 
 
@@ -327,92 +334,4 @@ class Python3Runner(
     }
 }
 
-object SimpleJsonParser {
-    fun parseObject(text: String): Map<String, Any?> {
-        val trimmed = text.trim()
-        if (!trimmed.startsWith("{")) return emptyMap()
-        @Suppress("UNCHECKED_CAST")
-        return parseValue(trimmed, 0).first as? Map<String, Any?> ?: emptyMap()
-    }
 
-    private fun parseValue(s: String, start: Int): Pair<Any?, Int> {
-        var i = skipWS(s, start)
-        return when {
-            i >= s.length     -> Pair(null, i)
-            s[i] == '{'       -> parseMap(s, i)
-            s[i] == '['       -> parseList(s, i)
-            s[i] == '"'       -> parseString(s, i)
-            s[i] == 't'       -> Pair(true,  i + 4)
-            s[i] == 'f'       -> Pair(false, i + 5)
-            s[i] == 'n'       -> Pair(null,  i + 4)
-            else              -> parseNumber(s, i)
-        }
-    }
-
-    private fun parseMap(s: String, start: Int): Pair<Map<String, Any?>, Int> {
-        val map = LinkedHashMap<String, Any?>()
-        var i = skipWS(s, start + 1)
-        while (i < s.length && s[i] != '}') {
-            val (key, i2) = parseString(s, skipWS(s, i))
-            var i3 = skipWS(s, i2)
-            if (i3 < s.length && s[i3] == ':') i3++
-            val (value, i4) = parseValue(s, skipWS(s, i3))
-            map[key as String] = value
-            i = skipWS(s, i4)
-            if (i < s.length && s[i] == ',') i++
-            i = skipWS(s, i)
-        }
-        return Pair(map, if (i < s.length) i + 1 else i)
-    }
-
-    private fun parseList(s: String, start: Int): Pair<List<Any?>, Int> {
-        val list = mutableListOf<Any?>()
-        var i = skipWS(s, start + 1)
-        while (i < s.length && s[i] != ']') {
-            val (value, i2) = parseValue(s, i)
-            list.add(value)
-            i = skipWS(s, i2)
-            if (i < s.length && s[i] == ',') i++
-            i = skipWS(s, i)
-        }
-        return Pair(list, if (i < s.length) i + 1 else i)
-    }
-
-    private fun parseString(s: String, start: Int): Pair<String, Int> {
-        val sb = StringBuilder()
-        var i = start + 1
-        while (i < s.length && s[i] != '"') {
-            if (s[i] == '\\' && i + 1 < s.length) {
-                when (s[i + 1]) {
-                    '"'  -> sb.append('"')
-                    '\\' -> sb.append('\\')
-                    'n'  -> sb.append('\n')
-                    'r'  -> sb.append('\r')
-                    't'  -> sb.append('\t')
-                    'u'  -> { sb.append(s.substring(i+2, i+6).toInt(16).toChar()); i += 4 }
-                    else -> sb.append(s[i + 1])
-                }
-                i += 2
-            } else {
-                sb.append(s[i++])
-            }
-        }
-        return Pair(sb.toString(), i + 1)
-    }
-
-    private fun parseNumber(s: String, start: Int): Pair<Any, Int> {
-        var i = start
-        while (i < s.length && (s[i].isDigit() || s[i] == '-' || s[i] == '.' || s[i] == 'e' || s[i] == 'E' || s[i] == '+')) i++
-        val num = s.substring(start, i)
-        return if ('.' in num || 'e' in num || 'E' in num)
-            Pair(num.toDouble(), i)
-        else
-            Pair(num.toLong(), i)
-    }
-
-    private fun skipWS(s: String, i: Int): Int {
-        var j = i
-        while (j < s.length && s[j].isWhitespace()) j++
-        return j
-    }
-}

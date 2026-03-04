@@ -44,6 +44,7 @@ dependencies {
     implementation 'com.fifesoft:rstaui:3.1.1'
     implementation files('hpack-1.0.2.jar')
     implementation files('albinowaxUtils-all.jar') // includes burp wiener API
+    implementation 'com.google.code.gson:gson:2.11.0'
     // implementation files('http2-spike-enhanced-obfuscated.jar') // used for research only
 }
 
