@@ -60,8 +60,11 @@ engine = RequestEngine(
 - `readCallback` not supported
 
 **HTTP3:**
+- Requires Burp Suite Professional
 - `concurrentConnections` defaults to 10
 - `requestsPerConnection` defaults to 1000000
+- `pipeline` not supported
+- `readCallback` not supported
 - Adds `verifyCertificates` and `gateMode`
 
 ## engine.queue() Parameters

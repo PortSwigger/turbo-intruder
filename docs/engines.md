@@ -6,11 +6,11 @@ Turbo Intruder provides multiple HTTP engines for different scenarios.
 
 | Engine | Protocol | Speed | Reliability | Pipelining | Use Case |
 |--------|----------|-------|-------------|------------|----------|
-| `Engine.AUTO` | Highest available | Adaptive | Adaptive | No | Professional default, ease of use |
+| `Engine.AUTO` | Highest available | Adaptive | Adaptive | No | Professional default, ease of use (Burp Suite Pro) |
 | `Engine.THREADED` | HTTP/1.1 | Extremely fast | Toggleable | Yes | Community default, tuned HTTP/1.1 use cases |
 | `Engine.BURP` | HTTP/1.1 | Fast | Excellent | No | Proxy, auth, upstream |
 | `Engine.BURP2` | HTTP/2 | Extremely fast | Excellent | Automatic | HTTP/2, race conditions |
-| `Engine.HTTP3` | HTTP/3 over QUIC | Extremely fast | Good | Automatic | HTTP/3 targets, race conditions |
+| `Engine.HTTP3` | HTTP/3 over QUIC | Extremely fast | Good | Automatic | HTTP/3 targets, race conditions (Burp Suite Pro) |
 
 > **Note:** `Engine.HTTP2` is deprecated. Use `Engine.BURP2` for HTTP/2.
 
@@ -155,7 +155,7 @@ See [race-conditions.md](race-conditions.md) for single-packet attack examples.
 
 ## Engine.HTTP3
 
-Uses Turbo Intruder's own HTTP/3 stack over QUIC. This engine requires Burp Suite Professional.
+`Engine.HTTP3` requires Burp Suite Professional. Uses Turbo Intruder's own HTTP/3 stack over QUIC. This engine requires Burp Suite Professional.
 The target has to support HTTP/3; there is no fallback to HTTP/2 or HTTP/1.1.
 
 ```python
@@ -164,13 +164,9 @@ engine = RequestEngine(endpoint=target.endpoint,
                        concurrentConnections=32)
 ```
 
-**Going fast:**
-- Raise `concurrentConnections` until the `Fails` column stops reading zero, then back off. Each connection runs up to 256 requests at once
-- `requestsPerConnection` defaults to a million. Only raise it if one connection will carry more requests than that
-
 **Features:**
 - HTTP/3 multiplexing over QUIC
-- Two race condition techniques
+- Two HTTP/3-Specific race condition techniques
 
 See [Kettled Requests](#kettled-requests-burp2-and-http3) for pseudo-header overrides and malformed
 field values. HTTP3 uses the same per-request API and escape syntax as BURP2.
@@ -190,7 +186,7 @@ Settings:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `gateMode` | `'auto'` | Which gate to use |
+| `gateMode` | `'auto'` | Which gate to use. Can force 'sda' or 'qpack' |
 
 **Limitations:**
 - Doesn't use Burp's proxy settings, authentication, or cookie handling

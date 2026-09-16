@@ -78,11 +78,11 @@ In `handleResponse(req, interesting)`:
 
 | Engine | Protocol | Use Case |
 |--------|----------|----------|
-| `Engine.AUTO` | Highest available | Ease of use (Burp Suite Professional) |
+| `Engine.AUTO` | Highest available | Ease of use (Burp Suite Pro) |
 | `Engine.THREADED` | HTTP/1.1 | Fast custom stack for tuned HTTP/1.1 use cases |
 | `Engine.BURP` | HTTP/1.1 | Needs Burp's proxy/auth |
 | `Engine.BURP2` | HTTP/2 | HTTP/2, single-packet attacks |
-| `Engine.HTTP3` | HTTP/3 | HTTP/3, single datagram attack |
+| `Engine.HTTP3` | HTTP/3 | HTTP/3, single datagram attack (Burp Suite Pro) |
 
 See [engines.md](engines.md) for details.
 

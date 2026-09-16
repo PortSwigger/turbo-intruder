@@ -14,8 +14,7 @@ How to maximize requests per second (RPS) for high-volume runs.
 ## Engine Selection
 
 For a long run with a continuous backlog, `Engine.AUTO` can choose the highest available protocol
-and tune it during the run. Protocol preference is always HTTP/3, then HTTP/2, then HTTP/1.1; AUTO
-does not choose whichever protocol benchmarks fastest.
+and tune it during the run. Protocol preference is always HTTP/3, then HTTP/2, then HTTP/1.1.
 
 Typical speed ranking (fastest to slowest):
 
@@ -90,20 +89,7 @@ engine = RequestEngine(endpoint=target.endpoint,
                        pipeline=True)
 ```
 
-## Tuning Engine.HTTP3
-
-You should only need to tune `concurrentConnections`:
-
-```python
-engine = RequestEngine(endpoint=target.endpoint,
-                       engine=Engine.HTTP3,
-                       concurrentConnections=32)
-```
-
-Start with ~10 and increase until RPS plateaus.
-`requestsPerConnection` should be left alone unless one connection will carry more than a million requests.
-
-## Tuning Engine.BURP / BURP2
+## Tuning Engine.BURP / BURP2 / HTTP3
 
 Only `concurrentConnections` is tunable:
 
