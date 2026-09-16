@@ -68,6 +68,37 @@ public class Utils {
         stderr = new PrintWriter(callbacks.getStderr(), true);
     }
 
+    public static boolean isProfessionalEdition(String[] burpVersion) {
+        return burpVersion != null
+                && burpVersion.length > 0
+                && "Burp Suite Professional".equals(burpVersion[0]);
+    }
+
+    public static boolean isBurpProfessional() {
+        if (!gotBurp || callbacks == null) {
+            return false;
+        }
+        try {
+            return isProfessionalEdition(callbacks.getBurpVersion());
+        } catch (RuntimeException ignored) {
+            return false;
+        }
+    }
+
+    static void requireBurpProfessional() {
+        requireBurpProfessional("Engine.HTTP3");
+    }
+
+    public static void requireAutoEngineAvailable() {
+        requireBurpProfessional("Engine.AUTO");
+    }
+
+    private static void requireBurpProfessional(String feature) {
+        if (!isBurpProfessional()) {
+            throw new IllegalArgumentException(feature + " requires Burp Suite Professional");
+        }
+    }
+
     static void out(String message) {
         if (gotBurp) {
             stdout.println(message);

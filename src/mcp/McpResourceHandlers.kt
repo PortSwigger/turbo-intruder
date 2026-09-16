@@ -11,10 +11,17 @@ fun Request.toSummaryMap(): Map<String, Any?> = mapOf(
     "length" to length,
     "ttfb" to ttfb,
     "ttlb" to ttlb,
+    // Microseconds from the start of the run, unlike ttfb/ttlb which each engine measures from
+    // its own idea of "sent", so it is the one field two requests can be compared on directly.
+    "arrival" to arrival,
     "wordcount" to wordcount,
     "words" to words,
     "label" to label,
-    "anomaly_rank" to anomalyRank
+    "anomaly_rank" to anomalyRank,
+    // Null unless the request went through an HTTP/3 gate. Which gate released it is not
+    // cosmetic: it is what separates a real behavioural difference between two runs from the
+    // engine having released them differently.
+    "gate_mode" to gateMode
 )
 
 class McpResourceHandlers(
@@ -25,7 +32,7 @@ class McpResourceHandlers(
 
     val docTopics = mapOf(
         "api-quickstart" to "Quick reference for scripting",
-        "engines" to "Engine types (THREADED, BURP, BURP2)",
+        "engines" to "Engine types (AUTO, THREADED, BURP, BURP2, HTTP3)",
         "settings" to "Complete parameter reference",
         "race-conditions" to "Race condition testing with gates",
         "response-processing" to "Handling and filtering responses",
@@ -38,10 +45,12 @@ class McpResourceHandlers(
         "0cl-exploit", "0cl-find-offset", "0cl-poc",
         "apis", "basic", "benchmark-h1-race", "benchmark-h2-race",
         "burpIntegration", "customSortOrder", "debug", "default", "desync-gadget-hunter",
-        "email-link-extraction", "http2", "infinite", "micro-crawl",
+        "email-link-extraction", "http2", "http3", "infinite", "micro-crawl",
         "misc", "multiHost", "multipleParameters", "outputToFile",
         "partialReadCallback", "pinwheel", "race-multi-endpoint",
-        "race-single-packet-attack", "ratelimit", "recursive",
+        "race-http3",
+        "race-single-packet-attack",
+        "ratelimit", "recursive",
         "specialWordlists", "test", "timing", "timingAttackWithState"
     )
 

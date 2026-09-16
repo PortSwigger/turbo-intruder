@@ -1,6 +1,7 @@
 def queueRequests(target, wordlists):
     global engine
     engine = RequestEngine(endpoint=target.endpoint,
+                           engine=Engine.THREADED,
                            concurrentConnections=2,
                            readCallback=handleRead,
                            readSize=256, # TCP socket buffer size - the server may choose to send less

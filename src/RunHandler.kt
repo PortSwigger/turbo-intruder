@@ -18,6 +18,9 @@ class RunHandler (){
 
     fun lastError(): String? = engine?.lastError
 
+    /** The engine's own account of why the run produced nothing, or null if it has none. */
+    fun failureSummary(): String? = engine?.failureSummary()
+
     fun status(): String {
         if (errorFlag) return "failed"
         val eng = engine
@@ -50,7 +53,14 @@ class RunHandler (){
         }
 
         if (engine != null) {
-            return engine!!.statusString() + " | "+msg
+            val engineStatus = engine!!.statusString()
+            if (msg.isBlank()) return engineStatus
+            val terminal = listOf(" | Completed", " | Cancelled").firstOrNull(engineStatus::endsWith)
+            return if (terminal == null) {
+                "$engineStatus | $msg"
+            } else {
+                engineStatus.removeSuffix(terminal) + " | " + msg + terminal
+            }
         }
 
         return "Engine warming up..."

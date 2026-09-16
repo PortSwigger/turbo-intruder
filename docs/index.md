@@ -2,7 +2,7 @@
 
 ## Basics
 - [Quickstart](api-quickstart.md)
-- [Engine Types](engines.md) - THREADED vs BURP vs BURP2
+- [Engine Types](engines.md) - AUTO vs THREADED vs BURP vs BURP2 vs HTTP3
 - [Settings](settings.md) - Complete parameter reference for RequestEngine and queue()
 
 ## Advanced
@@ -30,3 +30,4 @@ Example scripts are located in [resources/examples/](../resources/examples/):
 - [Turbo Intruder: Embracing the billion-request attack](https://portswigger.net/research/turbo-intruder-embracing-the-billion-request-attack) - Original blog post
 - [Smashing the state machine](https://portswigger.net/research/smashing-the-state-machine) - Single-packet attack research
 - [Listen to the whispers](https://portswigger.net/research/listen-to-the-whispers-web-timing-attacks-that-actually-work) - Web timing attacks
+- [HTTP/3 Support](https://portswigger.net/research/100000-requests-per-second-over-wifi) - Introduction of the HTTP3 engine

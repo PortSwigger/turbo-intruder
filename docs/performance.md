@@ -13,13 +13,27 @@ How to maximize requests per second (RPS) for high-volume runs.
 
 ## Engine Selection
 
+For a long run with a continuous backlog, `Engine.AUTO` can choose the highest available protocol
+and tune it during the run. Protocol preference is always HTTP/3, then HTTP/2, then HTTP/1.1; AUTO
+does not choose whichever protocol benchmarks fastest.
+
 Typical speed ranking (fastest to slowest):
 
-1. **Engine.THREADED** (well-tuned) - fastest for HTTP/1.1
-2. **Engine.BURP2** - fast for HTTP/2
-3. **Engine.BURP** - most compatible, slowest
+1. **Engine.HTTP3** - very fast for HTTP/3
+2. **Engine.THREADED** (well-tuned) - fastest for HTTP/1.1
+3. **Engine.BURP2** - fast for HTTP/2
+4. **Engine.BURP** - most compatible, slowest
 
 > **Tip:** A well-tuned THREADED engine can achieve 30,000+ RPS to remote servers.
+
+> **Tip:** A well-tuned HTTP3 engine can achieve 100,000+ RPS to remote servers.
+
+## Automatic Tuning with Engine.AUTO
+
+```python
+engine = RequestEngine(endpoint=target.endpoint, engine=Engine.AUTO)
+```
+This will tune all of the relevant settings for you.
 
 ## Tuning Engine.THREADED
 
@@ -76,6 +90,19 @@ engine = RequestEngine(endpoint=target.endpoint,
                        pipeline=True)
 ```
 
+## Tuning Engine.HTTP3
+
+You should only need to tune `concurrentConnections`:
+
+```python
+engine = RequestEngine(endpoint=target.endpoint,
+                       engine=Engine.HTTP3,
+                       concurrentConnections=32)
+```
+
+Start with ~10 and increase until RPS plateaus.
+`requestsPerConnection` should be left alone unless one connection will carry more than a million requests.
+
 ## Tuning Engine.BURP / BURP2
 
 Only `concurrentConnections` is tunable:
@@ -87,47 +114,6 @@ engine = RequestEngine(endpoint=target.endpoint,
 ```
 
 Start with 20-50 and increase until RPS plateaus.
-
-## Reducing Request Size
-
-Remove unnecessary headers to minimize bandwidth:
-
-```
-GET /path HTTP/1.1
-Host: target.com
-
-```
-
-vs bloated:
-
-```
-GET /path HTTP/1.1
-Host: target.com
-User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) ...
-Accept: text/html,application/xhtml+xml,...
-Accept-Language: en-US,en;q=0.9
-Accept-Encoding: gzip, deflate, br
-Cookie: session=abc123; tracking=xyz789; preferences=...
-```
-
-## Reducing Response Size
-
-### HEAD Method
-
-If you only need status codes:
-
-```python
-req = target.req.replace('GET ', 'HEAD ')
-engine.queue(req, payload)
-```
-
-### Range Header
-
-Request only first N bytes:
-
-```python
-req = target.req.replace('\r\n\r\n', '\r\nRange: bytes=0-500\r\n\r\n')
-```
 
 ## Memory Management
 
@@ -192,6 +178,18 @@ Watch the status bar for:
 - **RPS** - requests per second (maximize this)
 - **Retries** - should stay near zero
 - **Fails** - connection failures
+
+An AUTO status suffix shows the selected engine plus its current `concurrentConnections` and
+`requestsPerConnection` settings. BURP2 reports `requestsPerConnection=N/A` because Burp manages
+that connection lifetime. Detailed probe results and tuning transitions remain in the output log.
+
+RPS is `requests / seconds`, with the seconds rounded up to a whole number. On a short run that
+rounding is coarse: 200,000 requests in 1.9 seconds reads as 100,000, and the same run taking 2.1
+seconds reads as 66,667. Compare runs by whether they cross a second boundary, or make the run long
+enough that a rounded second stops mattering.
+
+Once a run finishes, its RPS stops moving. A finished run reports the rate it achieved however long
+ago it finished.
 
 If Retries climbs:
 1. Reduce `concurrentConnections`

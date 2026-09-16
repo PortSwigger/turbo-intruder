@@ -9,33 +9,48 @@ import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.GZIPInputStream
 import javax.net.SocketFactory
 import javax.net.ssl.*
 import kotlin.IllegalStateException
 import kotlin.concurrent.thread
 
-open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, val requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override var idleTimeout: Long = 0, override val callback: (Request, Boolean) -> Boolean, var timeout: Int, override var readCallback: ((String) -> Boolean)?, val readSize: Int, val resumeSSL: Boolean, var explodeOnEarlyRead: Boolean = false): RequestEngine() {
+open class ThreadedRequestEngine @JvmOverloads constructor(url: String, val threads: Int, maxQueueSize: Int, val readFreq: Int, requestsPerConnection: Int, override val maxRetriesPerRequest: Int, override var idleTimeout: Long = 0, override val callback: (Request, Boolean) -> Boolean, var timeout: Int, override var readCallback: ((String) -> Boolean)?, val readSize: Int, val resumeSSL: Boolean, var explodeOnEarlyRead: Boolean = false, private val adaptive: Boolean = false): RequestEngine(), AdaptiveTransport {
 
     private val connectedLatch = CountDownLatch(threads)
+    private val threadPool = Collections.synchronizedList(ArrayList<Thread>())
+    private val workerRegistry = DynamicWorkerRegistry()
+    private val adaptiveWorkerStarter = AdaptiveWorkerStarterConstructionContext.current()
+    private val adaptiveWorkersReady = CountDownLatch(if (adaptive) 1 else 0)
+    private val requestLimit = AtomicInteger(requestsPerConnection)
+    private val retryQueue = LinkedBlockingQueue<Request>()
+    private lateinit var ipAddress: InetAddress
+    private var port: Int = 0
+    private lateinit var trustingSslSocketFactory: SSLSocketFactory
 
-    private val threadPool = ArrayList<Thread>()
+    val requestsPerConnection: Int
+        get() = requestLimit.get()
 
     var domains = HashSet<String>()
 
     init {
-        val desyncMode = Utilities.globalSettings?.getBoolean("desync-agent-mode")
-        Utils.out("desync-agent-mode = $desyncMode, requestsPerConnection = $requestsPerConnection")
-        if (desyncMode == true && requestsPerConnection > 1) {
-            throw IllegalArgumentException("desync-agent-mode is enabled: requestsPerConnection must be 1 to prevent false-positives (currently set to $requestsPerConnection)")
-        }
-
-        internalSettings.put("ignoreLength", false)
-
-        idleTimeout *= 1000
-        lastLife = System.currentTimeMillis()
-
         try {
+            require(!adaptive || requestsPerConnection in 1..1_000_000) {
+                "Adaptive request lifetime must be between 1 and 1,000,000"
+            }
+            val desyncMode = Utilities.globalSettings?.getBoolean("desync-agent-mode")
+            Utils.out("desync-agent-mode = $desyncMode, requestsPerConnection = $requestsPerConnection")
+            if (desyncMode == true && requestsPerConnection > 1) {
+                throw IllegalArgumentException("desync-agent-mode is enabled: requestsPerConnection must be 1 to prevent false-positives (currently set to $requestsPerConnection)")
+            }
+
+            internalSettings.put("ignoreLength", false)
+
+            idleTimeout *= 1000
+            lastLife = System.currentTimeMillis()
+
+            require(!adaptive || threads > 0) { "Adaptive worker count must be positive" }
             target = URL(url)
 
             requestQueue = if (maxQueueSize > 0) {
@@ -46,30 +61,68 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
             }
 
             completedLatch = CountDownLatch(threads)
-            val retryQueue = LinkedBlockingQueue<Request>()
-            val ipAddress = InetAddress.getByName(target.host)
-            val port = if (target.port == -1) { target.defaultPort } else { target.port }
+            ipAddress = InetAddress.getByName(target.host)
+            port = if (target.port == -1) { target.defaultPort } else { target.port }
 
-            val trustingSslSocketFactory = createSSLSocketFactory()
+            trustingSslSocketFactory = createSSLSocketFactory()
 
             Utils.err("Establishing $threads connection to $url ...");
-            for(j in 1..threads) {
-                threadPool.add(
-                    thread {
-                        sendRequests(target, trustingSslSocketFactory, ipAddress, port, retryQueue, completedLatch, readFreq, requestsPerConnection, connectedLatch)
-                    }
-                )
+            if (adaptive) {
+                workerRegistry.resizeTo(threads, ::startAdaptiveWorker)
+                // Gate admission counts only workers that have actually entered their run loop.
+                workerRegistry.awaitLiveSize(threads)
+                adaptiveWorkersReady.countDown()
+            } else {
+                repeat(threads) { startFixedWorker() }
             }
-        } catch(e: Exception) {
+        } catch(failure: Throwable) {
+            if (adaptive) {
+                runState.set(3)
+                workerRegistry.abort()
+                adaptiveWorkersReady.countDown()
+                val partialWorkers = synchronized(threadPool) {
+                    threadPool.toList().also { threadPool.clear() }
+                }
+                partialWorkers.forEach(Thread::interrupt)
+            }
             if (Utils.gotBurp && !Utils.unloaded) {
                 Utils.callbacks.removeExtensionStateListener(this)
             }
-            throw e
+            throw failure
         }
 
     }
 
     companion object {
+
+        @JvmSynthetic
+        internal fun withAdaptiveWorkerStarter(
+            url: String,
+            threads: Int,
+            maxQueueSize: Int,
+            readFreq: Int,
+            requestsPerConnection: Int,
+            maxRetriesPerRequest: Int,
+            idleTimeout: Long,
+            callback: (Request, Boolean) -> Boolean,
+            timeout: Int,
+            readCallback: ((String) -> Boolean)?,
+            readSize: Int,
+            resumeSSL: Boolean,
+            explodeOnEarlyRead: Boolean,
+            starter: AdaptiveWorkerStarter,
+        ) = AdaptiveWorkerStarterConstructionContext.withStarter(starter) {
+            ThreadedRequestEngine(
+                url, threads, maxQueueSize, readFreq, requestsPerConnection, maxRetriesPerRequest,
+                idleTimeout, callback, timeout, readCallback, readSize, resumeSSL, explodeOnEarlyRead,
+                adaptive = true,
+            )
+        }
+
+        internal fun connectionBackoffMillis(consecutiveFailures: Int, adaptive: Boolean): Long {
+            val exponent = if (adaptive) consecutiveFailures.coerceIn(1, 7) else consecutiveFailures
+            return Math.pow(2.0, exponent.toDouble()).toLong() * 200L
+        }
 
         fun uncompressIfNecessary(headers: String, body: String): String {
             if (headers.lowercase().indexOf("content-encoding: ") == -1) {
@@ -140,6 +193,83 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         start = System.nanoTime()
     }
 
+    override val autoProtocol = AutoProtocol.HTTP1
+
+    override fun defaultAdaptiveLimits() = AdaptiveLimits(50, 100)
+
+    override fun currentAdaptiveLimits() = AdaptiveLimits(
+        if (adaptive) workerRegistry.desiredSize() else threads,
+        requestLimit.get(),
+    )
+
+    override fun adaptiveMetrics(): AdaptiveMetrics {
+        val limits = currentAdaptiveLimits()
+        val saturated = requestQueue.isNotEmpty() || retryQueue.isNotEmpty() || activeRequests.get() >= limits.concurrency
+        return baseAdaptiveMetrics(limits, saturated).copy(
+            safeToMeasure = !adaptive || workerRegistry.isConverged(),
+        )
+    }
+
+    override fun resizeConcurrency(newLimit: Int) {
+        require(adaptive) { "Live resize is available only to adaptive threaded engines" }
+        require(newLimit > 0) { "Adaptive worker count must be positive" }
+        workerRegistry.resizeTo(
+            target = newLimit,
+            start = ::startAdaptiveWorker,
+            onStartFailure = ::handleAdaptiveWorkerStartFailure,
+        )
+    }
+
+    private fun handleAdaptiveWorkerStartFailure(failure: Throwable) {
+        if (isRecoverableAdaptiveCapacityFailure(failure)) recordTransportFailure(failure)
+        else throw failure
+    }
+
+    override fun resizeRequestsPerConnection(newLimit: Int): Boolean {
+        require(adaptive) { "Live request lifetime is available only to adaptive threaded engines" }
+        requestLimit.set(newLimit.coerceIn(1, 1_000_000))
+        return true
+    }
+
+    internal fun currentWorkerCapacity(): Int = if (adaptive) workerRegistry.liveSize() else threads
+
+    internal fun awaitAdaptiveWorkerCount(target: Int, timeout: Long, unit: TimeUnit): Int {
+        require(adaptive)
+        workerRegistry.awaitCount(target, timeout, unit)
+        return workerRegistry.size()
+    }
+
+    override fun completionInitialized(): Boolean = if (adaptive) true else super.completionInitialized()
+
+    override fun awaitCompletion(timeout: Long, unit: TimeUnit): Boolean =
+        if (adaptive) workerRegistry.awaitEmptyAndSeal(timeout, unit) else super.awaitCompletion(timeout, unit)
+
+    override fun sealCompletion() {
+        if (adaptive) workerRegistry.seal() else super.sealCompletion()
+    }
+
+    private fun startFixedWorker() = launchWorker(null, readFreq)
+
+    private fun startAdaptiveWorker(handle: DynamicWorkerRegistry.Handle) {
+        adaptiveWorkerStarter?.start(handle) ?: launchWorker(handle, 1)
+    }
+
+    private fun launchWorker(handle: DynamicWorkerRegistry.Handle?, workerReadFreq: Int) {
+        val worker = thread(start = false) {
+            handle?.markStarted()
+            try {
+                if (handle != null) adaptiveWorkersReady.await()
+                sendRequests(handle, workerReadFreq)
+            } finally {
+                threadPool.remove(Thread.currentThread())
+            }
+        }
+        startTrackedWorker(worker, threadPool)
+    }
+
+    private fun shouldRetire(handle: DynamicWorkerRegistry.Handle?): Boolean =
+        handle != null && workerRegistry.claimRetirement(handle)
+
     override fun buildRequest(template: String, payloads: List<String?>, learnBoring: Int?, label: String): Request {
         var prepared = template
 
@@ -154,10 +284,9 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         return Request(prepared, payloads, learnBoring?: 0, label)
     }
 
-    private fun sendRequests(url: URL, trustingSslSocketFactory: SSLSocketFactory, ipAddress: InetAddress?, port: Int, retryQueue: LinkedBlockingQueue<Request>, completedLatch: CountDownLatch, baseReadFreq: Int, baseRequestsPerConnection: Int, connectedLatch: CountDownLatch) {
+    private fun sendRequests(handle: DynamicWorkerRegistry.Handle?, baseReadFreq: Int) {
         val readFreq = baseReadFreq
         val inflight = ArrayDeque<Request>()
-        val requestsPerConnection = baseRequestsPerConnection
         var connected = false
         var reqWithResponse: Request? = null
         var answeredRequests = 0
@@ -165,14 +294,27 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         var consecutiveFailedConnections = 0
         var startTime: Long = 0
         var reuseSSL = resumeSSL
+        var requestReservedForSetup: Request? = null
 
         try {
             while (!shouldAbandonRun()) {
+                if (shouldRetire(handle)) return
+                if (adaptive && runState.get() >= 1 && requestReservedForSetup == null) {
+                    while (!shouldAbandonRun() && !shouldRetire(handle)) {
+                        requestReservedForSetup = retryQueue.poll() ?: requestQueue.poll(100, TimeUnit.MILLISECONDS)
+                        if (requestReservedForSetup != null || runState.get() >= 2) break
+                    }
+                    if (requestReservedForSetup == null) {
+                        if (runState.get() >= 2 || shouldAbandonRun() || shouldRetire(handle)) return
+                        continue
+                    }
+                    activeRequests.incrementAndGet()
+                }
                 try {
 
                 val socket: Socket?
                 try {
-                    socket = if (url.protocol == "https") {
+                    socket = if (target.protocol == "https") {
                         if (reuseSSL) {
                             trustingSslSocketFactory.createSocket(ipAddress, port)
                         } else {
@@ -183,17 +325,29 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                     }
                 }
                 catch (ex: Exception) {
+                    recordTransportFailure(ex)
                     Utils.out("Thread failed to connect")
-                    retries.getAndIncrement()
                     val stackTrace = StringWriter()
                     ex.printStackTrace(PrintWriter(stackTrace))
                     Utils.err(stackTrace.toString())
                     consecutiveFailedConnections += 1
-                    val sleep = Math.pow(2.0, consecutiveFailedConnections.toDouble())
-                    Thread.sleep(sleep.toLong() * 200)
+                    if (adaptive) {
+                        requestReservedForSetup?.let { request ->
+                            if (!shouldRetry(request)) {
+                                finishFailedSetupRequest(request, ex)
+                                activeRequests.decrementAndGet()
+                                requestReservedForSetup = null
+                            }
+                        }
+                        if (!waitForAdaptiveConnectionBackoff(consecutiveFailedConnections, handle)) return
+                    } else {
+                        retries.getAndIncrement()
+                        Thread.sleep(connectionBackoffMillis(consecutiveFailedConnections, adaptive = false))
+                    }
                     continue
                 }
                 val connectionIdAuto = connections.incrementAndGet().toString()
+                try {
                 //(socket as SSLSocket).session.peerCertificates
                 socket!!.soTimeout = timeout * 1000
                 socket.tcpNoDelay = true
@@ -214,7 +368,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
 
                 var requestsSent = 0
                 answeredRequests = 0
-                while (requestsSent < requestsPerConnection && !shouldAbandonRun()) {
+                while (requestsSent < requestLimit.get() && !shouldAbandonRun()) {
+                    if (shouldRetire(handle)) return
                     val ignoreLength = internalSettings.get("ignoreLength") as Boolean
                     var ditchConnection = false;
                     var readCount = 0
@@ -224,12 +379,14 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                     var buffer = ""
 
                     for (j in 1..readFreq) {
-                        if (requestsSent >= requestsPerConnection) {
+                        if (requestsSent >= requestLimit.get() || shouldRetire(handle)) {
                             break
                         }
 
-                        var req = retryQueue.poll()
-                        while (req == null && !shouldAbandonRun()) {
+                        val wasReservedForSetup = requestReservedForSetup != null
+                        var req = requestReservedForSetup.also { requestReservedForSetup = null }
+                            ?: retryQueue.poll()
+                        while (req == null && !shouldAbandonRun() && !shouldRetire(handle) && requestsSent < requestLimit.get()) {
                             req = requestQueue.poll(100, TimeUnit.MILLISECONDS)
 
                             if (req == null) {
@@ -243,8 +400,17 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         }
 
                         if (req == null) break
+                        if (requestsSent >= requestLimit.get() || shouldRetire(handle)) {
+                            // The bounded request queue may refill after poll returns. The retry
+                            // queue is unbounded and checked first by every worker, so this stays
+                            // non-blocking without dropping the request during shrink or shutdown.
+                            retryQueue.add(req)
+                            if (wasReservedForSetup) activeRequests.decrementAndGet()
+                            break
+                        }
 
                         inflight.addLast(req)
+                        if (!wasReservedForSetup) activeRequests.incrementAndGet()
                         val byteReq = req.getRequestAsBytes()
                         val outputstream = socket.getOutputStream()
                         if (req.gate != null) {
@@ -482,20 +648,32 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         msg += uncompressIfNecessary(headers, body)
 
                         reqWithResponse = inflight.removeFirst()
-                        successfulRequests.getAndIncrement()
-                        reqWithResponse.response = msg
-                        if (reqWithResponse.connectionId == null) {
-                            reqWithResponse.connectionId = connectionIdAuto
+                        try {
+                            successfulRequests.getAndIncrement()
+                            reqWithResponse.response = msg
+                            if (reqWithResponse.connectionId == null) {
+                                reqWithResponse.connectionId = connectionIdAuto
+                            }
+                            reqWithResponse.ttfb = (endTime - startTime) / 1000 // convert ns to microseconds
+                            reqWithResponse.ttlb = (bodyEndTime - startTime) / 1000
+                            reqWithResponse.time = reqWithResponse.ttfb
+                            reqWithResponse.arrival = (endTime - start) / 1000
+
+                            answeredRequests += 1
+                            val interesting = try {
+                                processResponse(
+                                    reqWithResponse,
+                                    (reqWithResponse.response as String).toByteArray(Charsets.ISO_8859_1),
+                                )
+                            } catch (exception: Throwable) {
+                                recordResponseProcessingFailure(exception)
+                                null
+                            }
+                            if (interesting != null) invokeCallback(reqWithResponse, interesting)
+                        } finally {
+                            activeRequests.decrementAndGet()
+                            finishGatedRequest(reqWithResponse)
                         }
-                        reqWithResponse.ttfb = (endTime - startTime) / 1000 // convert ns to microseconds
-                        reqWithResponse.ttlb = (bodyEndTime - startTime) / 1000
-                        reqWithResponse.time = reqWithResponse.ttfb
-                        reqWithResponse.arrival = (endTime - start) / 1000
-
-                        answeredRequests += 1
-                        val interesting = processResponse(reqWithResponse, (reqWithResponse.response as String).toByteArray(Charsets.ISO_8859_1))
-
-                        invokeCallback(reqWithResponse, interesting)
 
                     }
                     badWords.clear()
@@ -504,7 +682,16 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                         break
                     }
                 }
+                } finally {
+                    runCatching { socket.close() }
+                    retiredConnections.incrementAndGet()
+                }
             } catch (ex: Exception) {
+
+                val failedAttemptCount = inflight.size
+                if (ex !is InterruptedException) {
+                    repeat(maxOf(1, failedAttemptCount)) { recordTransportFailure(ex) }
+                }
 
                 if (reuseSSL && (ex is SSLHandshakeException || ex is SSLException)) {
                     reuseSSL = false
@@ -536,6 +723,7 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                                 badReq.time = elapsed
                             }
                             invokeCallback(badReq, true)
+                            finishGatedRequest(badReq)
                         }
                     } else {
                         if (ex !is InterruptedException) {
@@ -549,13 +737,53 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
                 //readFreq = max(1, readFreq / 2)
                 //requestsPerConnection = max(1, requestsPerConnection/2)
                 //println("Lost ${inflight.size} requests. Changing requestsPerConnection to $requestsPerConnection and readFreq to $readFreq")
+                activeRequests.addAndGet(-failedAttemptCount)
                 retryQueue.addAll(inflight)
                 inflight.clear()
                 }
             }
         } finally {
-            completedLatch.countDown()
+            requestReservedForSetup?.let { request ->
+                if (runState.get() < 3) retryQueue.add(request)
+                activeRequests.decrementAndGet()
+            }
+            activeRequests.addAndGet(-inflight.size)
+            inflight.clear()
+            if (handle == null) completedLatch.countDown() else handle.close()
         }
+    }
+
+    private fun finishFailedSetupRequest(request: Request, failure: Throwable) {
+        request.gate?.let { gate ->
+            gate.reportReadyWithoutWaiting()
+            while (!gate.isOpen.get() && runState.get() < 3 && !Thread.currentThread().isInterrupted) {
+                Thread.sleep(10)
+            }
+        }
+        if (runState.get() >= 3) return
+        request.response = "null"
+        Utils.err("Ignoring error: $failure")
+        invokeCallback(request, true)
+        finishGatedRequest(request)
+    }
+
+    private fun waitForAdaptiveConnectionBackoff(
+        consecutiveFailures: Int,
+        handle: DynamicWorkerRegistry.Handle?,
+    ): Boolean {
+        var remainingMillis = connectionBackoffMillis(consecutiveFailures, adaptive = true)
+        while (remainingMillis > 0) {
+            if (shouldAbandonRun() || shouldRetire(handle)) return false
+            val pause = minOf(remainingMillis, 50L)
+            try {
+                Thread.sleep(pause)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                return false
+            }
+            remainingMillis -= pause
+        }
+        return !shouldAbandonRun() && !shouldRetire(handle)
     }
 
     private fun waitForData(socket: Socket, pauseTime: Int): String {
@@ -638,7 +866,8 @@ open class ThreadedRequestEngine(url: String, val threads: Int, maxQueueSize: In
         domains.clear()
 
         // Interrupt and clean up threads (copy to avoid ConcurrentModificationException)
-        for (thread in threadPool.toList()) {
+        val workers = synchronized(threadPool) { threadPool.toList() }
+        for (thread in workers) {
             try {
                 if (thread.isAlive) {
                     thread.interrupt()

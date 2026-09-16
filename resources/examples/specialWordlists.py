@@ -1,5 +1,6 @@
 def queueRequests(target, wordlists):
     engine = RequestEngine(endpoint=target.endpoint,
+                           engine=Engine.THREADED,
                            concurrentConnections=5,
                            requestsPerConnection=100,
                            pipeline=False

@@ -50,7 +50,7 @@ class TurboMcpServer(
     private val organizerProvider: OrganizerProvider = BurpOrganizerProvider(),
     private val desyncMode: () -> Boolean = { false }
 ) {
-    private val manager = RunManager()
+    val manager = RunManager()
     val toolHandlers = McpToolHandlers(manager, organizerProvider, collaboratorProvider)
     val resourceHandlers = McpResourceHandlers(manager, organizerProvider, desyncMode)
 
@@ -157,6 +157,11 @@ class TurboMcpServer(
         statelessServer = null
         jettyServer?.stop()
         jettyServer = null
+        // The monitor is a daemon, so leaving it running does not hold the JVM open - but it does
+        // hold this RunManager, its stored runs, and the classloader that defined the thread's body
+        // reachable for ever. One per extension load: fourteen had accumulated in a Burp that was
+        // running metaspace at 98.7% full and doing full collections to cope.
+        manager.stopMemoryMonitor()
     }
 
     private val allStatelessTools by lazy {

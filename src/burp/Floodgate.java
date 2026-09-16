@@ -60,6 +60,10 @@ public class Floodgate {
         remaining.incrementAndGet();
     }
 
+    boolean hasStartedOpening() {
+        return fullyQueued.get() || isOpen.get();
+    }
+
     void waitForGo() throws InterruptedException {
         remaining.decrementAndGet();
         synchronized (remaining) {

@@ -6,15 +6,28 @@ Turbo Intruder provides multiple HTTP engines for different scenarios.
 
 | Engine | Protocol | Speed | Reliability | Pipelining | Use Case |
 |--------|----------|-------|-------------|------------|----------|
-| `Engine.THREADED` | HTTP/1.1 | Extremely fast | Toggleable | Yes | Default, most use cases |
+| `Engine.AUTO` | Highest available | Adaptive | Adaptive | No | Professional default, ease of use |
+| `Engine.THREADED` | HTTP/1.1 | Extremely fast | Toggleable | Yes | Community default, tuned HTTP/1.1 use cases |
 | `Engine.BURP` | HTTP/1.1 | Fast | Excellent | No | Proxy, auth, upstream |
 | `Engine.BURP2` | HTTP/2 | Extremely fast | Excellent | Automatic | HTTP/2, race conditions |
+| `Engine.HTTP3` | HTTP/3 over QUIC | Extremely fast | Good | Automatic | HTTP/3 targets, race conditions |
 
 > **Note:** `Engine.HTTP2` is deprecated. Use `Engine.BURP2` for HTTP/2.
 
 > **Note:** `Engine.SPIKE` is non-functional and should not be used.
 
 > **THREADED vs BURP:** The THREADED engine is significantly faster due to its custom HTTP stack with pipelining support, but Burp's HTTP stack (used by BURP/BURP2) is more mature and stable. If you encounter connection errors or malformed responses with THREADED, try switching to BURP for better compatibility.
+
+## Engine.AUTO
+
+`Engine.AUTO` requires Burp Suite Professional. It handles engine configuration for you by selecting
+the highest available HTTP version, then configuring the relevant settings dynamically as the attack
+runs. It is selected by default in Professional when `engine` is omitted. Other editions default to
+`Engine.THREADED`, while desync-agent mode defaults to `Engine.BURP`.
+
+```python
+engine = RequestEngine(endpoint=target.endpoint)
+```
 
 ## Engine.THREADED
 
@@ -124,28 +137,8 @@ engine = RequestEngine(endpoint=target.endpoint,
 - Uses Burp's upstream proxy settings
 - Automatic authentication handling
 
-**HTTP/2 Character Escapes:**
-
-When using HTTP/2 engines, you can use these escape sequences in requests:
-
-| Escape | Character | Description |
-|--------|-----------|-------------|
-| `^` | `\r` | Carriage return |
-| `~` | `\n` | Line feed |
-| `` ` `` | `:` | Colon |
-
-**Overriding Pseudo-Headers:**
-
-You can override HTTP/2 pseudo-headers by specifying them as regular headers:
-
-```python
-req = '''GET / HTTP/2
-Host: example.com
-:path: /custom-path
-:method: POST
-
-'''
-```
+See [Kettled Requests](#kettled-requests-burp2-and-http3) for pseudo-header overrides and CRLF
+injection through Burp's native HTTP/2 API.
 
 **Limitations:**
 - `requestsPerConnection` forced to 1
@@ -160,9 +153,84 @@ Host: example.com
 
 See [race-conditions.md](race-conditions.md) for single-packet attack examples.
 
+## Engine.HTTP3
+
+Uses Turbo Intruder's own HTTP/3 stack over QUIC. This engine requires Burp Suite Professional.
+The target has to support HTTP/3; there is no fallback to HTTP/2 or HTTP/1.1.
+
+```python
+engine = RequestEngine(endpoint=target.endpoint,
+                       engine=Engine.HTTP3,
+                       concurrentConnections=32)
+```
+
+**Going fast:**
+- Raise `concurrentConnections` until the `Fails` column stops reading zero, then back off. Each connection runs up to 256 requests at once
+- `requestsPerConnection` defaults to a million. Only raise it if one connection will carry more requests than that
+
+**Features:**
+- HTTP/3 multiplexing over QUIC
+- Two race condition techniques
+
+See [Kettled Requests](#kettled-requests-burp2-and-http3) for pseudo-header overrides and malformed
+field values. HTTP3 uses the same per-request API and escape syntax as BURP2.
+
+**Race Gates**
+
+Requests sharing a `gate` get their own connection and are released together. `gateMode` picks how
+that connection is held.
+
+| `gateMode` | Behaviour |
+|------------|-----------|
+| `auto` (default) | Whichever gate the server supports |
+| `sda` | Single Datagram Attack. The whole batch released in one UDP packet |
+| `qpack` | Blocks the batch on one withheld QPACK insertion. Takes bigger batches, up to the server's `SETTINGS_QPACK_BLOCKED_STREAMS` |
+
+Settings:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `gateMode` | `'auto'` | Which gate to use |
+
+**Limitations:**
+- Doesn't use Burp's proxy settings, authentication, or cookie handling
+
+**Best for:** HTTP/3 targets, and races that need the smallest possible gap between requests.
+
+See [race-conditions.md](race-conditions.md) for gate examples.
+
+## Kettled Requests (BURP2 and HTTP3)
+
+Pass `kettled=True` to encode deliberately malformed HTTP/2 or HTTP/3 field names and values. This is supported by `Engine.BURP2`, `Engine.HTTP3`, and `Engine.AUTO` when AUTO selects either of those protocols.
+
+```python
+req = '''GET /ignored HTTP/1.1
+Host: example.com
+:method: POST
+:path: /actual
+X-Test: one^~transfer-encoding:^schunked
+
+body'''
+
+engine.queue(req, kettled=True)
+```
+The HTTP/1 style request line is required and implies the `:method` and `:path` pseudo headers. If they are then provided, you are **replacing** the values that were implied. You can then include duplicates if you so wish with an additional pseudo header.
+
+You can also add the binary representation of characters that cannot be expressed in HTTP/1.1 using the following escape sequences.
+
+| Escape | Value |
+|--------|-------|
+| `^~` | CRLF |
+| `^r` | CR |
+| `^n` | LF |
+| `^0` | NUL |
+| `^s` | Space |
+| `^xNN` | Byte `0xNN` |
+| `^^` | Literal `^` |
 
 ## Example Scripts
 
-- [default.py](../resources/examples/default.py) - Basic THREADED usage
+- [default.py](../resources/examples/default.py) - Basic edition-dependent default usage
 - [burpIntegration.py](../resources/examples/burpIntegration.py) - BURP engine with Collaborator
 - [race-single-packet-attack.py](../resources/examples/race-single-packet-attack.py) - BURP2 for races
+- [race-http3.py](../resources/examples/race-http3.py) - Single Datagram Attack
