@@ -24,6 +24,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
     var targetUrl: URL? = null
     var engine: Any? = null
     var connectionId: String? = null   // connection identifier (user-specified or auto-assigned)
+    var gateMode: String? = null       // which gate released this request, for gated HTTP/3 requests
     var callback: ((Request, Boolean) -> Boolean)? = null
     var gate: Floodgate? = null
     var order: Int = 0
@@ -40,6 +41,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
     var endpointOverride: String? = null
     var montoyaReq: HttpRequestResponse? = null
     var autoFixContentLength: Boolean = true
+    var kettled: Boolean = false
     var anomalyRank: Int? = null
 
     private val attributes: HashMap<String, Any> = HashMap()

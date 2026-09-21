@@ -24,6 +24,10 @@ class UpdateStatusbar(val message: JLabel, val handler: RunHandler): ActionListe
         }
 
         message.text = handler.statusString()
+        // The label clips at the width of the window rather than wrapping. A run that has
+        // a reason to report leads with it so the start of it survives, and the tooltip is
+        // where the rest of the line, underlying error included, can still be read.
+        message.toolTipText = if (handler.failureSummary() != null) message.text else null
     }
 
 }

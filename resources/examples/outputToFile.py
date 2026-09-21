@@ -1,6 +1,7 @@
 # Find more example scripts at https://github.com/PortSwigger/turbo-intruder/blob/master/resources/examples/
 def queueRequests(target, wordlists):
     engine = RequestEngine(endpoint=target.endpoint,
+                           engine=Engine.THREADED,
                            concurrentConnections=5,
                            requestsPerConnection=100,
                            pipeline=False

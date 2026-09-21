@@ -1,5 +1,6 @@
 def queueRequests(target, wordlists):
     engine = RequestEngine(endpoint=target.endpoint, # this is just a protocol:domain:port string like https://example.com:443
+                           engine=Engine.THREADED,
                            concurrentConnections=5,
                            requestsPerConnection=100,
                            pipeline=False,

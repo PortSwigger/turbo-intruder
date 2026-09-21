@@ -19,7 +19,7 @@ To get started with Turbo Intruder, please refer to the video and documentation 
 See the [full documentation index](docs/index.md), or jump directly to:
 
 - [API Quickstart](docs/api-quickstart.md) - Essential reference
-- [Engine Types](docs/engines.md) - THREADED vs BURP vs BURP2
+- [Engine Types](docs/engines.md) - THREADED vs BURP vs BURP2 vs HTTP3
 - [Performance Tuning](docs/performance.md) - Maximize requests per second
 - [Race Conditions](docs/race-conditions.md) - Gated requests, timing tests
 - [Settings](docs/settings.md) - Full parameter reference

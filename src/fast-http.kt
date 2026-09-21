@@ -151,7 +151,17 @@ class RecordResize: ComponentAdapter() {
 
 }
 
-class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: IntArray, val fixedScript: String?, val requestOverride: ByteArray?, val reqs: MutableList<HttpRequestResponse>?): ActionListener, JFrame("Turbo Intruder - " + inputReq.httpService.host)  {
+class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: IntArray, val fixedScript: String?, val requestOverride: ByteArray?, val reqs: MutableList<HttpRequestResponse>?): ActionListener, JDialog(findBurpFrame(), "Turbo Intruder - " + inputReq.httpService.host)  {
+
+    private companion object {
+        // Owned by Burp's main frame so the editor window follows Burp's monitor and window
+        // lifecycle instead of appearing wherever the OS puts a standalone frame. Null when Burp's
+        // frame cannot be found — JDialog then falls back to a shared hidden owner.
+        fun findBurpFrame(): Frame? {
+            return Frame.getFrames().firstOrNull { it.isVisible && it.title.startsWith("Burp Suite") }
+        }
+    }
+
     val req = Utils.callbacks.saveBuffersToTempFiles(inputReq) // warning: currently changes HTTP/2 to HTTP/1.1 and breaks the offsets
 
     private fun getDefaultScript(): String {
@@ -487,7 +497,7 @@ class TurboIntruderFrame(inputReq: IHttpRequestResponse, val selectionBounds: In
     }
 
     fun getBurpFrame(): Frame? {
-        return Frame.getFrames().firstOrNull { it.isVisible && it.title.startsWith("Burp Suite") }
+        return findBurpFrame()
     }
     fun readScriptDirectories( codeCombo : JComboBox<Any>) {
         codeCombo.removeAllItems()

@@ -44,6 +44,27 @@ All gated requests are sent in a single TCP packet, arriving at the server simul
 
 See: https://portswigger.net/research/smashing-the-state-machine
 
+## HTTP/3 Race Conditions
+
+`Engine.HTTP3` has two gates and picks between them per connection:
+
+```python
+engine = RequestEngine(endpoint=target.endpoint,
+                       concurrentConnections=1,
+                       engine=Engine.HTTP3,
+                       gateMode='auto')
+
+for i in range(20):
+    engine.queue(target.req, gate='race1')
+
+engine.openGate('race1')
+```
+
+`gateMode='auto'` uses the QPACK gate wherever the server advertises both settings, and the
+single-datagram gate otherwise.
+
+Set `gateMode='sda'`, or `gateMode='qpack'` to force the gateMode.
+
 ## HTTP/1.1 Race Conditions
 
 For HTTP/1.1, use `Engine.THREADED` or `Engine.BURP`:
@@ -109,7 +130,9 @@ def queueRequests(target, wordlists):
 
 ## Response Order
 
-Use `req.order` to see which request in a gate got a response first (0 = first):
+Use `req.order` to see which request in a gate got a response first (0 = first). A gate's callbacks
+fire together once the whole batch is back, because a rank cannot be given to one response until the
+others have arrived:
 
 ```python
 def handleResponse(req, interesting):

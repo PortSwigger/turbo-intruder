@@ -50,6 +50,7 @@ dependencies {
     implementation 'com.fifesoft:rstaui:3.1.1'
     implementation files('hpack-1.0.2.jar')
     implementation files('albinowaxUtils-all.jar') // includes burp wiener API
+    implementation 'tech.kwik:kwik:0.10.3'
     // implementation files('http2-spike-enhanced-obfuscated.jar') // used for research only
 
     // MCP Server
@@ -85,8 +86,11 @@ jar {
         attributes('Main-Class': 'burp.Fast_httpKt')
     }
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    // Signed dependencies (at.favre.lib:hkdf, pulled in by Kwik) ship signature files that stop
+    // describing the archive once it is repackaged. Left in, the JVM refuses to define any class
+    // from this jar and Burp reports "Extension class is not a recognized type".
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'META-INF/*.EC'
 }
 
 // Ensure tests run before build
 build.dependsOn test
-

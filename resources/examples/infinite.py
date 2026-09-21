@@ -3,6 +3,7 @@
 # WARNING: never use 'for i in range(large_number)' - use xrange() instead to avoid a memory leak.
 def queueRequests(target, wordlists):
     engine = RequestEngine(endpoint=target.endpoint,
+                           engine=Engine.THREADED,
                            concurrentConnections=5,
                            requestsPerConnection=100,
                            pipeline=False
