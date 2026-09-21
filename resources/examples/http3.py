@@ -1,6 +1,6 @@
 def queueRequests(target, wordlists):
     engine = RequestEngine(endpoint=target.endpoint,
-                           engine=Engine.HTTP3
+                           engine=Engine.HTTP3 # Requires Burp Suite Professional
                            )
 
     for word in open('/usr/share/dict/words'):

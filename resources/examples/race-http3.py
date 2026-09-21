@@ -4,7 +4,7 @@ def queueRequests(target, wordlists):
     # the single-datagram gate otherwise
     engine = RequestEngine(endpoint=target.endpoint,
                            concurrentConnections=1,
-                           engine=Engine.HTTP3,
+                           engine=Engine.HTTP3, #Requires Burp Suite Professional
                            gateMode='auto' #Force with 'sda' or 'qpack'
                            )
 

@@ -1,7 +1,5 @@
 def queueRequests(target, wordlists):
-    engine = RequestEngine(endpoint=target.endpoint,
-                           engine=Engine.AUTO
-                           )
+    engine = RequestEngine(endpoint=target.endpoint)
 
     for word in open('/usr/share/dict/words'):
         engine.queue(target.req, word.rstrip())
