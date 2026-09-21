@@ -406,6 +406,18 @@ class StagedExchange internal constructor(
         deadlineStarter(releasedAtNanos)
     }
 
+    /**
+     * Fails a response read that has not completed, releasing a collector parked in
+     * [awaitResponse], then sends STOP_SENDING so the producer parked inside Kwik exits too.
+     * Closing the connection does not reliably release that read. A no-op once the response has
+     * arrived.
+     */
+    fun fail(cause: Throwable) {
+        if (response.completeExceptionally(cause)) {
+            runCatching { stream.stopSending(Http3Exception.H3_REQUEST_CANCELLED) }
+        }
+    }
+
     @Throws(IOException::class)
     fun awaitResponse(): H3Exchange {
         return try {

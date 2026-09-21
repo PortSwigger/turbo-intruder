@@ -38,7 +38,10 @@ open class BurpRequestEngine private constructor(url: String, threads: Int, maxQ
     private val workerRegistry = DynamicWorkerRegistry()
     private val adaptiveWorkerStarter = AdaptiveWorkerStarterConstructionContext.current()
     private val adaptiveWorkersReady = CountDownLatch(if (adaptive) 1 else 0)
-    private val gatedRequests: HashMap<String, LinkedList<Request>> = HashMap()
+    // ConcurrentHashMap with synchronised lists: every worker thread parks gated requests here
+    // while the sending side iterates and removes, and a plain HashMap + LinkedList loses or
+    // duplicates parked requests under that race.
+    private val gatedRequests = ConcurrentHashMap<String, MutableList<Request>>()
     private val connectionLocks = ConcurrentHashMap<String, ReentrantLock>()
     private val hasInjectedRequestSender = requestSender != null
     private val montoyaRequestBuilder = BurpMontoyaRequestBuilder()
@@ -252,14 +255,10 @@ open class BurpRequestEngine private constructor(url: String, threads: Int, maxQ
 
     // this will return null unless there's an open gate with pending requests
     private fun getGatedRequests(): List<Request>? {
-        val gates = gatedRequests.keys
-        for (gate in gates) {
-            synchronized(gate) {
-                if (floodgates.get(gate)?.isOpen?.get() == true) {
-                    val toSend = gatedRequests.get(gate)
-                    gatedRequests.remove(gate)
-                    return toSend
-                }
+        for (gate in gatedRequests.keys) {
+            if (floodgates.get(gate)?.isOpen?.get() == true) {
+                // remove() is the claim: exactly one worker walks away with the batch.
+                gatedRequests.remove(gate)?.let { return it }
             }
         }
         return null
@@ -365,8 +364,9 @@ open class BurpRequestEngine private constructor(url: String, threads: Int, maxQ
                 }
 
                 if (req.gate != null) {
-                    gatedRequests.putIfAbsent(req.gate!!.name, LinkedList<Request>())
-                    gatedRequests.get(req.gate!!.name)!!.add(req)
+                    gatedRequests.computeIfAbsent(req.gate!!.name) {
+                        Collections.synchronizedList(LinkedList<Request>())
+                    }.add(req)
                     req.gate!!.remaining.decrementAndGet() // todo is this right?
                     continue
                 }

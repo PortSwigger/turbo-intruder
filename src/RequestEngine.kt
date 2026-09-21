@@ -36,7 +36,7 @@ abstract class RequestEngine(
      * 100,000 rps immediately and 18,182 rps twelve seconds later.
      */
     private val finished = AtomicLong(0)
-    val failedWords = HashMap<Int, AtomicInteger>()
+    val failedWords = ConcurrentHashMap<Int, AtomicInteger>()
     var successfulRequests = AtomicInteger(0)
     val userState = HashMap<String, Any>()
     val lastRequestID = AtomicInteger(0)
@@ -349,8 +349,13 @@ abstract class RequestEngine(
     }
 
     open fun openGate(gateName: String) {
+        openGateOnce(gateName)
+    }
+
+    /** Returns false when another invocation already opened this floodgate. */
+    protected fun openGateOnce(gateName: String): Boolean {
         // Utils.out("Requested gate open: $gateName")
-        synchronized(floodgates) {
+        return synchronized(floodgates) {
             if (!floodgates.containsKey(gateName)) {
                 throw Exception("Unrecognised gate name in openGate() invocation")
             }
@@ -438,7 +443,7 @@ abstract class RequestEngine(
             Utils.err("Completed run on " +target)
             finish(4)
         }
-        showSummary()
+        runTerminalFinalizer { showSummary() }
     }
 
     fun cancel() {
@@ -469,7 +474,7 @@ abstract class RequestEngine(
                 }
             }
 
-            showSummary()
+            runTerminalFinalizer { showSummary() }
         }
 
         // Clean up memory to prevent leaks
@@ -504,6 +509,12 @@ abstract class RequestEngine(
 
     protected open fun sealCompletion() {}
 
+    /** Lets an engine atomically close task admission before its terminal state is published. */
+    protected open fun onTerminalStateEntering(state: Int) {}
+
+    /** Lets an engine defer summary/ranking until callbacks admitted before teardown have exited. */
+    protected open fun runTerminalFinalizer(finalizer: () -> Unit) = finalizer()
+
     /**
      * Ends the run in [state] - 3 cancelled, 4 completed - and freezes how long it took, so every
      * later read of the status line reports the rate the run actually achieved.
@@ -512,6 +523,7 @@ abstract class RequestEngine(
         var controller: AdaptiveController? = null
         if (state >= 3) {
             synchronized(adaptiveControllerLock) {
+                onTerminalStateEntering(state)
                 adaptiveControllerTerminal = true
                 controller = adaptiveController
                 adaptiveController = null
@@ -744,16 +756,13 @@ abstract class RequestEngine(
 
         val reqID = req.id // req.getRequest().hashCode().toString() +
 
-        val fails = failedWords[reqID]
-        if (fails == null){
-            failedWords[reqID] = AtomicInteger(1)
-        }
-        else {
-            if(fails.incrementAndGet() > maxRetriesPerRequest) {
-                permaFails.getAndIncrement()
-                Utils.out("Skipping word due to multiple failures: $reqID")
-                return false
-            }
+        // One atomic initialise-and-increment: every worker thread lands here, and a get-then-put
+        // on a plain map both loses counts and risks corrupting the map itself.
+        val fails = failedWords.computeIfAbsent(reqID) { AtomicInteger(0) }
+        if (fails.incrementAndGet() > maxRetriesPerRequest) {
+            permaFails.getAndIncrement()
+            Utils.out("Skipping word due to multiple failures: $reqID")
+            return false
         }
 
         retries.getAndIncrement()

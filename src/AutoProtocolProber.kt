@@ -13,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
@@ -45,7 +46,7 @@ fun interface AutoHandshakeProbe {
 /** Establishes protocol handshakes without sending an HTTP request. */
 class AutoProtocolProber(
     private val probes: Map<AutoProtocol, AutoHandshakeProbe> = productionProbes(),
-    private val timeout: Duration = Duration.ofSeconds(12),
+    internal val timeout: Duration = Duration.ofSeconds(12),
 ) {
     init {
         require(!timeout.isZero && !timeout.isNegative) { "probe timeout must be positive" }
@@ -56,6 +57,7 @@ class AutoProtocolProber(
         private val cleanupExecutor = Executors.newCachedThreadPool { runnable ->
             Thread(runnable, "auto-protocol-probe-cleanup").apply { isDaemon = true }
         }
+        private val sharedCache = AutoProtocolProbeCache(Duration.ofSeconds(60))
 
         fun fake(vararg results: AutoProbeResult): AutoProtocolProber =
             AutoProtocolProber(
@@ -219,6 +221,17 @@ class AutoProtocolProber(
         }
     }
 
+    /**
+     * Reuses recent handshake outcomes across AUTO engines in this extension classloader. The
+     * cache contains only protocol availability; every fuzz still creates a fresh request engine
+     * and fresh transport connections.
+     */
+    fun probeCached(
+        endpoint: URL,
+        verifyCertificates: Boolean,
+        eligible: Set<AutoProtocol>,
+    ): List<AutoProbeResult> = sharedCache.probe(this, endpoint, verifyCertificates, eligible)
+
     fun preferredStartable(results: List<AutoProbeResult>): List<AutoProtocol> =
         results.asSequence()
             .filter { it.succeeded }
@@ -226,7 +239,7 @@ class AutoProtocolProber(
             .sortedBy { PREFERENCE.indexOf(it) }
             .toList()
 
-    private fun admittedProtocols(endpoint: URL, eligible: Set<AutoProtocol>): List<AutoProtocol> =
+    internal fun admittedProtocols(endpoint: URL, eligible: Set<AutoProtocol>): List<AutoProtocol> =
         when (endpoint.protocol.lowercase()) {
             "https" -> AutoProtocol.entries.filter { it in eligible }
             "http" -> listOf(AutoProtocol.HTTP1).filter { it in eligible }
@@ -327,4 +340,158 @@ class AutoProtocolProber(
     }
 
     private val PREFERENCE = listOf(AutoProtocol.HTTP3, AutoProtocol.HTTP2, AutoProtocol.HTTP1)
+}
+
+/**
+ * A per-protocol, single-flight TTL cache. The production instance is static on
+ * [AutoProtocolProber], so separate Jython interpreters and RequestEngine instances reuse it while
+ * the extension remains loaded. Tests can construct an isolated cache with a controlled clock.
+ */
+internal class AutoProtocolProbeCache(
+    private val ttl: Duration,
+    private val nanoTime: () -> Long = System::nanoTime,
+    private val maxEntries: Int = 1024,
+) {
+    private data class Key(
+        val scheme: String,
+        val host: String,
+        val port: Int,
+        val verifyCertificates: Boolean,
+        val timeoutNanos: Long,
+        val protocol: AutoProtocol,
+    )
+
+    private class Entry {
+        val result = CompletableFuture<AutoProbeResult>()
+
+        @Volatile
+        var expiresAtNanos: Long = Long.MAX_VALUE
+
+        fun reusableAt(nowNanos: Long): Boolean = !result.isDone || nowNanos < expiresAtNanos
+
+        fun expiredAt(nowNanos: Long): Boolean = result.isDone && nowNanos >= expiresAtNanos
+
+    }
+
+    /** Completed TTL entries are bounded; live flights are transient and coalesced separately. */
+    private val entries = ConcurrentHashMap<Key, Entry>()
+    private val inFlight = HashMap<Key, Entry>()
+    private val admissionLock = Object()
+    private val nextSweepNanos = AtomicLong(Long.MIN_VALUE)
+    private val ttlNanos: Long
+
+    init {
+        require(!ttl.isZero && !ttl.isNegative) { "probe cache TTL must be positive" }
+        require(maxEntries > 0) { "probe cache capacity must be positive" }
+        ttlNanos = ttl.toNanos()
+    }
+
+    fun probe(
+        prober: AutoProtocolProber,
+        endpoint: URL,
+        verifyCertificates: Boolean,
+        eligible: Set<AutoProtocol>,
+    ): List<AutoProbeResult> {
+        val protocols = prober.admittedProtocols(endpoint, eligible)
+        if (protocols.isEmpty()) return emptyList()
+
+        val now = nanoTime()
+        sweepExpired(now)
+        val selected = LinkedHashMap<AutoProtocol, Pair<Key, Entry>>(protocols.size)
+        val claimed = LinkedHashMap<AutoProtocol, Pair<Key, Entry>>()
+
+        protocols.forEach { protocol ->
+            val key = Key(
+                endpoint.protocol.lowercase(),
+                endpoint.host.lowercase(),
+                if (endpoint.port == -1) endpoint.defaultPort else endpoint.port,
+                verifyCertificates,
+                prober.timeout.toNanos(),
+                protocol,
+            )
+            val (entry, owner) = selectEntry(key, now)
+            selected[protocol] = key to entry
+            if (owner) {
+                claimed[protocol] = key to entry
+            }
+        }
+
+        if (claimed.isNotEmpty()) {
+            try {
+                val fresh = prober.probe(endpoint, verifyCertificates, claimed.keys)
+                    .associateBy { it.protocol }
+                val expiresAt = deadlineAfter(nanoTime(), ttlNanos)
+                claimed.forEach { (protocol, keyedEntry) ->
+                    val result = fresh[protocol]
+                        ?: AutoProbeResult.failure(protocol, "probe returned no result")
+                    publish(keyedEntry.first, keyedEntry.second, result, expiresAt)
+                }
+            } catch (failure: Throwable) {
+                claimed.values.forEach { (key, entry) ->
+                    failFlight(key, entry, failure)
+                }
+                throw failure
+            }
+        }
+
+        return protocols.map { protocol -> selected.getValue(protocol).second.result.join() }
+    }
+
+    /**
+     * Reuses or atomically claims one key. In-progress entries live in a separate transient map,
+     * so cache-capacity pressure can neither evict nor duplicate a live handshake.
+     */
+    private fun selectEntry(key: Key, nowNanos: Long): Pair<Entry, Boolean> =
+        synchronized(admissionLock) {
+            entries[key]?.let { current ->
+                if (current.reusableAt(nowNanos)) return@synchronized current to false
+                entries.remove(key, current)
+            }
+
+            inFlight[key]?.let { return@synchronized it to false }
+
+            Entry().let { replacement ->
+                inFlight[key] = replacement
+                replacement to true
+            }
+        }
+
+    private fun publish(
+        key: Key,
+        entry: Entry,
+        value: AutoProbeResult,
+        expiresAtNanos: Long,
+    ) = synchronized(admissionLock) {
+        if (!inFlight.remove(key, entry)) return@synchronized
+        if (entries.size >= maxEntries) {
+            val victim = entries.entries.minByOrNull { it.value.expiresAtNanos }
+            if (victim != null) entries.remove(victim.key, victim.value)
+        }
+        entry.expiresAtNanos = expiresAtNanos
+        entries[key] = entry
+        // Complete only after the entry is visible in the TTL map. A released waiter that starts
+        // another fuzz immediately therefore cannot fall through the gap and claim a new flight.
+        entry.result.complete(value)
+    }
+
+    private fun failFlight(key: Key, entry: Entry, failure: Throwable) =
+        synchronized(admissionLock) {
+            if (inFlight.remove(key, entry)) entry.result.completeExceptionally(failure)
+        }
+
+    private fun sweepExpired(nowNanos: Long) {
+        while (true) {
+            val scheduled = nextSweepNanos.get()
+            if (scheduled != Long.MIN_VALUE && nowNanos < scheduled) return
+            if (nextSweepNanos.compareAndSet(scheduled, deadlineAfter(nowNanos, ttlNanos))) break
+        }
+        synchronized(admissionLock) {
+            entries.forEach { (key, entry) ->
+                if (entry.expiredAt(nowNanos)) entries.remove(key, entry)
+            }
+        }
+    }
+
+    private fun deadlineAfter(nowNanos: Long, durationNanos: Long): Long =
+        if (nowNanos > Long.MAX_VALUE - durationNanos) Long.MAX_VALUE else nowNanos + durationNanos
 }

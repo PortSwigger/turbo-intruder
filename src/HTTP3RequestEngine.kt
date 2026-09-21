@@ -10,6 +10,7 @@ import http3.SdaBatch
 import http3.SdaOptions
 import http3.StageDrain
 import http3.TurboHttp3RequestTranslator
+import java.io.IOException
 import java.net.URI
 import java.net.URL
 import java.time.Duration
@@ -24,6 +25,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * A thread for work that blocks inside Kwik: a handshake, or a response read. Virtual where the JVM
@@ -68,6 +70,41 @@ internal inline fun tryAcquireAdaptiveTaskSlot(
     return false
 }
 
+/**
+ * Atomically orders callback admission against terminal teardown. A callback that owns a token
+ * was admitted before close; after close, no check-then-act window can admit another one.
+ */
+internal class GateCallbackAdmissions {
+    private val state = AtomicLong(0)
+
+    fun tryEnter(): Boolean {
+        while (true) {
+            val current = state.get()
+            if (current < 0) return false
+            check(current < Long.MAX_VALUE) { "too many active gate callbacks" }
+            if (state.compareAndSet(current, current + 1)) return true
+        }
+    }
+
+    fun exit() {
+        while (true) {
+            val current = state.get()
+            val active = current and Long.MAX_VALUE
+            check(active > 0) { "gate callback admission released without an owner" }
+            if (state.compareAndSet(current, current - 1)) return
+        }
+    }
+
+    fun close() {
+        while (true) {
+            val current = state.get()
+            if (current < 0 || state.compareAndSet(current, current or Long.MIN_VALUE)) return
+        }
+    }
+
+    fun activeCount(): Long = state.get() and Long.MAX_VALUE
+}
+
 open class HTTP3RequestEngine @JvmOverloads constructor(
     url: String,
     private val threads: Int,
@@ -97,6 +134,13 @@ open class HTTP3RequestEngine @JvmOverloads constructor(
     private val unsettledGateConnections = ConcurrentHashMap.newKeySet<GateConnection>()
     private val gateSettlementLock = Object()
     private val activeJobs = AtomicInteger()
+    private val gateCollectors = ConcurrentHashMap<String, GateCollector>()
+    private val gateCallbackAdmissions = GateCallbackAdmissions()
+    private val gateLifecycleAdmissions = GateCallbackAdmissions()
+    private val deferredTerminalFinalizer = AtomicReference<(() -> Unit)?>(null)
+    private val terminalActionsLock = Object()
+    private val cleanupRequested = AtomicBoolean()
+    private val cleanupCompleted = AtomicBoolean()
     private val connectionSetupsInFlight = AtomicInteger()
     private val started = AtomicBoolean(false)
     private val resizeLock = Object()
@@ -153,6 +197,9 @@ open class HTTP3RequestEngine @JvmOverloads constructor(
     /** Names request threads in creation order, so a stack dump is readable. */
     private val requestThreads = AtomicInteger()
 
+    /** Names managed gate collectors and keeps them independent of the ordinary request pool. */
+    private val gateThreads = AtomicInteger()
+
     /**
      * Gates that were answered before they were released, and so raced nothing.
      *
@@ -196,6 +243,7 @@ open class HTTP3RequestEngine @JvmOverloads constructor(
      * work behind a busy thread.
      */
     private lateinit var requestExecutor: ExecutorService
+    private lateinit var gateExecutor: ExecutorService
 
     @JvmOverloads
     constructor(
@@ -267,10 +315,18 @@ open class HTTP3RequestEngine @JvmOverloads constructor(
                         .unstarted(runnable)
                 }
             }
+            // Gate collectors must not queue behind ordinary requests: on platform-thread JVMs
+            // every request-pool thread can be parked waiting for a connection held by a gate.
+            // A separately managed executor preserves that independent capacity while still
+            // giving teardown one owner that can interrupt and account for every collector.
+            gateExecutor = Executors.newThreadPerTaskExecutor { runnable ->
+                kwikBlockingThread("http3-gate-${gateThreads.incrementAndGet()}").unstarted(runnable)
+            }
             // Started here rather than in start() so that a run cancelled before it ever started
             // still has something to count the completion latch down.
             Thread.ofPlatform().daemon().name("http3-dispatcher").start(::dispatchForever)
         } catch (failure: Throwable) {
+            if (::gateExecutor.isInitialized) gateExecutor.shutdownNow()
             if (::requestExecutor.isInitialized) requestExecutor.shutdownNow()
             if (Utils.gotBurp && !Utils.unloaded) {
                 Utils.callbacks.removeExtensionStateListener(this)
@@ -319,6 +375,11 @@ open class HTTP3RequestEngine @JvmOverloads constructor(
 
     override val autoProtocol = AutoProtocol.HTTP3
     override val supportsKettledRequests = true
+
+    override fun onTerminalStateEntering(state: Int) {
+        gateCallbackAdmissions.close()
+        gateLifecycleAdmissions.close()
+    }
 
     override fun defaultAdaptiveLimits() = AdaptiveLimits(DEFAULT_ADAPTIVE_CONNECTIONS, null)
 
@@ -679,34 +740,39 @@ open class HTTP3RequestEngine @JvmOverloads constructor(
     ): Request = Request(template, payloads, learnBoring ?: 0, label)
 
     override fun openGate(gateName: String) {
-        super.openGate(gateName)
-        val batch = batches[gateName] ?: throw IllegalStateException("No HTTP/3 batch exists for gate $gateName")
+        check(gateLifecycleAdmissions.tryEnter()) { "HTTP/3 run is no longer accepting gate releases" }
+        var admissionTransferred = false
         try {
-            batch.throwIfFailed()
-            batch.awaitStagedRequestsSent(
-                StageDrain(options.stageWaitCapMillis, options.stageFallbackMillis),
-            )
-            batch.markReleased()
-            val exchanges = batch.stagedExchanges()
-            val releasedBy = batch.mode.name.lowercase()
-            val release = batch.release(options)
-                ?: throw IllegalStateException("Gate $gateName has no QUIC connection to release")
-            // The instant the batch actually left, not the instant it entered Kwik's sender
-            // queue. Pacing can hold a queued packet while a server answers the staged prefix;
-            // timing from that enqueue would hide the response that proved this gate did not hold.
-            val releaseCallStarted = System.nanoTime()
-            val releaseStarted = adaptiveTransportAttempt { release.send() }
-            gateReleaseSendSpanNanos.updateAndGet { widest ->
-                maxOf(widest, System.nanoTime() - releaseCallStarted)
-            }
-            exchanges.forEach { staged ->
-                staged.request.sent = releaseStarted
-                staged.request.gateMode = releasedBy
-                staged.exchange.startResponseDeadline(releaseStarted)
-            }
-            // Blocks in Kwik like the readers it collects from, so it takes the same thread kind.
-            kwikBlockingThread("http3-gate-$gateName").start {
-                try {
+            if (!openGateOnce(gateName)) return
+            val batch = batches[gateName]
+                ?: throw IllegalStateException("No HTTP/3 batch exists for gate $gateName")
+            try {
+                batch.throwIfFailed()
+                batch.awaitStagedRequestsSent(
+                    StageDrain(options.stageWaitCapMillis, options.stageFallbackMillis),
+                )
+                batch.markReleased()
+                val exchanges = batch.stagedExchanges()
+                val releasedBy = batch.mode.name.lowercase()
+                val release = batch.release(options)
+                    ?: throw IllegalStateException("Gate $gateName has no QUIC connection to release")
+                // The instant the batch actually left, not the instant it entered Kwik's sender
+                // queue. Pacing can hold a queued packet while a server answers the staged prefix;
+                // timing from that enqueue would hide the response that proved this gate did not hold.
+                val releaseCallStarted = System.nanoTime()
+                val releaseStarted = adaptiveTransportAttempt { release.send() }
+                gateReleaseSendSpanNanos.updateAndGet { widest ->
+                    maxOf(widest, System.nanoTime() - releaseCallStarted)
+                }
+                exchanges.forEach { staged ->
+                    staged.request.sent = releaseStarted
+                    staged.request.gateMode = releasedBy
+                    staged.exchange.startResponseDeadline(releaseStarted)
+                }
+                // Blocks in Kwik like the readers it collects from, so it takes the same thread kind.
+                // Counted as an active job so the dispatcher's drain waits out the batch's callbacks
+                // instead of letting the collector outlive the run it reports to.
+                val collector = GateCollector(gateName, batch) {
                     // Recorded first, called back second. req.order is the rank of a response by
                     // arrival — 0 is the request the server answered first, which is the race
                     // outcome — and this loop reaches the exchanges in the order they were staged,
@@ -739,26 +805,54 @@ open class HTTP3RequestEngine @JvmOverloads constructor(
                         }
                         answered.add(staged.request to interesting)
                     }
+                    if (runState.get() >= 3 || Thread.currentThread().isInterrupted) {
+                        if (adaptive) activeRequests.addAndGet(-answered.size)
+                        return@GateCollector
+                    }
                     answered.sortBy { it.first.ttfb }
                     reportIfGateDidNotHold(gateName, answered.map { it.first })
                     answered.forEachIndexed { rank, (request, interesting) ->
-                        request.order = rank
+                        if (
+                            runState.get() >= 3 ||
+                            Thread.currentThread().isInterrupted ||
+                            !gateCallbackAdmissions.tryEnter()
+                        ) {
+                            if (adaptive) activeRequests.addAndGet(-(answered.size - rank))
+                            return@GateCollector
+                        }
                         try {
+                            request.order = rank
                             invokeCallback(request, interesting)
                         } finally {
+                            gateCallbackAdmissions.exit()
                             if (adaptive) activeRequests.decrementAndGet()
                         }
                     }
-                } finally {
-                    finishBatch(gateName, batch)
                 }
+                activeJobs.incrementAndGet()
+                if (gateCollectors.putIfAbsent(gateName, collector) != null) {
+                    activeJobs.decrementAndGet()
+                    throw IllegalStateException("Gate $gateName already has a response collector")
+                }
+                admissionTransferred = true
+                try {
+                    gateExecutor.execute(collector)
+                } catch (startFailure: Throwable) {
+                    collector.cancelBeforeStart()
+                    throw startFailure
+                }
+            } catch (exception: Throwable) {
+                batch.fail(exception)
+                abandonStagedExchanges(batch, exception)
+                if (adaptive) activeRequests.addAndGet(-batch.stagedExchanges().size)
+                finishBatch(gateName, batch)
+                throw exception
             }
-        } catch (exception: Throwable) {
-            batch.fail(exception)
-            abandonStagedExchanges(batch, exception)
-            if (adaptive) activeRequests.addAndGet(-batch.stagedExchanges().size)
-            finishBatch(gateName, batch)
-            throw exception
+        } finally {
+            if (!admissionTransferred) {
+                gateLifecycleAdmissions.exit()
+                finishDeferredTerminalActions()
+            }
         }
     }
 
@@ -814,8 +908,21 @@ open class HTTP3RequestEngine @JvmOverloads constructor(
                 }
             }
         } finally {
+            // Close admission before interrupting collectors. A collector already inside a
+            // callback retains ownership of its batch until that callback exits; teardown only
+            // fails its pending reads and leaves final settlement to the collector.
+            gateCallbackAdmissions.close()
+            gateExecutor.shutdownNow()
             batches.entries.toList().forEach { (gateName, batch) ->
-                finishBatch(gateName, batch)
+                val cancellation = IOException("gate $gateName closed before its response arrived")
+                batch.fail(cancellation)
+                failStagedResponses(batch, cancellation)
+            }
+            gateCollectors.values.toList().forEach { collector ->
+                collector.cancelBeforeStart()
+            }
+            batches.entries.toList().forEach { (gateName, batch) ->
+                if (!gateCollectors.containsKey(gateName)) finishBatch(gateName, batch)
             }
             // Gate returns publish under the same monitor. Either a return wins and appears in
             // this snapshot, or cancellation wins and the return sees runState >= 3 and closes.
@@ -1449,10 +1556,82 @@ open class HTTP3RequestEngine @JvmOverloads constructor(
         if (!batches.remove(gateName, batch)) {
             return
         }
+        // Cancellation reaches here while a gate collector is parked in awaitResponse(), and
+        // closing the connection does not reliably release that read. Fail the unanswered reads
+        // so the collector winds down inside the drain rather than outliving the run. On the
+        // normal path the collector calls this after every exchange has answered, and failing an
+        // already-completed read is a no-op.
+        failStagedResponses(batch, IOException("gate $gateName closed before its response arrived"))
         try {
             batch.connection?.let { connection -> finishConnection(batch, connection) }
         } finally {
             finishGateLifecycle(gateName)
+        }
+    }
+
+    private fun failStagedResponses(batch: SdaBatch, cause: Throwable) {
+        batch.stagedExchanges().forEach { it.exchange.fail(cause) }
+    }
+
+    /** One managed gate response collector, with exactly one path that settles its batch. */
+    private inner class GateCollector(
+        private val gateName: String,
+        private val batch: SdaBatch,
+        private val collect: GateCollector.() -> Unit,
+    ) : Runnable {
+        private val state = AtomicInteger(COLLECTOR_PENDING)
+
+        override fun run() {
+            if (!state.compareAndSet(COLLECTOR_PENDING, COLLECTOR_RUNNING)) return
+            try {
+                collect()
+            } finally {
+                settle()
+            }
+        }
+
+        fun cancelBeforeStart(): Boolean {
+            if (!state.compareAndSet(COLLECTOR_PENDING, COLLECTOR_SETTLED)) return false
+            settleResources()
+            return true
+        }
+
+        private fun settle() {
+            state.set(COLLECTOR_SETTLED)
+            settleResources()
+        }
+
+        private fun settleResources() {
+            gateCollectors.remove(gateName, this)
+            try {
+                finishBatch(gateName, batch)
+            } finally {
+                activeJobs.decrementAndGet()
+                gateLifecycleAdmissions.exit()
+                finishDeferredTerminalActions()
+            }
+        }
+    }
+
+    override fun runTerminalFinalizer(finalizer: () -> Unit) {
+        if (!deferredTerminalFinalizer.compareAndSet(null, finalizer)) return
+        finishDeferredTerminalActions()
+    }
+
+    override fun cleanup() {
+        cleanupRequested.set(true)
+        finishDeferredTerminalActions()
+    }
+
+    private fun finishDeferredTerminalActions() {
+        if (gateLifecycleAdmissions.activeCount() != 0L) return
+        synchronized(terminalActionsLock) {
+            if (gateLifecycleAdmissions.activeCount() != 0L) return
+            try {
+                deferredTerminalFinalizer.getAndSet(null)?.invoke()
+            } finally {
+                if (cleanupRequested.get() && cleanupCompleted.compareAndSet(false, true)) super.cleanup()
+            }
         }
     }
 
@@ -1475,7 +1654,8 @@ open class HTTP3RequestEngine @JvmOverloads constructor(
             // connection served every gate in a run however long it ran, and
             // requestsPerConnection never reached a gate.
             val carried = connection.requestsCarried + connection.staged().size
-            val connected = connectionId != null &&
+            val connected = runState.get() < 3 &&
+                connectionId != null &&
                 batch.releasedCleanly() &&
                 carried < requestsPerConnection &&
                 runCatching { session.isConnected() }.getOrDefault(false)
@@ -1714,6 +1894,10 @@ open class HTTP3RequestEngine @JvmOverloads constructor(
     }
 
     companion object {
+        private const val COLLECTOR_PENDING = 0
+        private const val COLLECTOR_RUNNING = 1
+        private const val COLLECTOR_SETTLED = 2
+
         /** Matches QuicConfig's handshake timeout: no point giving up before the transport does. */
         /**
          * How long a QUIC handshake is given before the transport abandons it, and so the longest

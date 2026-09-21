@@ -273,7 +273,7 @@ def _autoEligibleProtocols(endpoint):
 def _autoProbe(endpoint, verifyCertificates):
     from java.net import URL
     prober = burp.AutoProtocolProber()
-    return prober.probe(URL(endpoint), verifyCertificates, _autoEligibleProtocols(endpoint))
+    return prober.probeCached(URL(endpoint), verifyCertificates, _autoEligibleProtocols(endpoint))
 
 def _autoBuildEngine(protocol, options):
     if protocol == burp.AutoProtocol.HTTP3:

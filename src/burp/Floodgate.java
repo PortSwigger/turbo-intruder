@@ -21,10 +21,10 @@ public class Floodgate {
     }
 
     // the python thread will set here
-    void open() {
+    boolean open() {
         if (isOpen.get()) {
             Utils.out("Gate is already open");
-            return;
+            return false;
         }
         fullyQueued.set(true);
 
@@ -46,6 +46,7 @@ public class Floodgate {
         else {
             makeOpen();
         }
+        return true;
     }
 
     private void makeOpen() {

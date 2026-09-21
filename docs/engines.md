@@ -25,6 +25,10 @@ the highest available HTTP version, then configuring the relevant settings dynam
 runs. It is selected by default in Professional when `engine` is omitted. Other editions default to
 `Engine.THREADED`, while desync-agent mode defaults to `Engine.BURP`.
 
+AUTO reuses each protocol-availability probe for 60 seconds for the same scheme, host, port, and
+certificate-verification mode. Only the HTTP-version result is cached; every fuzz creates a fresh
+engine and fresh connections.
+
 ```python
 engine = RequestEngine(endpoint=target.endpoint)
 ```
