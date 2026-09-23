@@ -3,7 +3,7 @@ ExtensionType: 1
 Name: Turbo Intruder
 RepoName: turbo-intruder
 ScreenVersion: 2.0.0
-SerialVersion: 67
+SerialVersion: 68
 MinPlatformVersion: 27
 ProOnly: False
 Author: James Kettle, PortSwigger
