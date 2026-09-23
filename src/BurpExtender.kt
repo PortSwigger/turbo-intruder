@@ -27,10 +27,11 @@ class BurpExtender() : IBurpExtender, IExtensionStateListener, BurpExtension {
     }
 
     private var mcpServer: mcp.TurboMcpServer? = null
+    private var mcpServerGate: McpServerGate? = null
 
     override fun extensionUnloaded() {
         Utils.unloaded = true
-        mcpServer?.stop()
+        mcpServerGate?.shutdown()
     }
 
     override fun registerExtenderCallbacks(callbacks: IBurpExtenderCallbacks) {
@@ -44,17 +45,58 @@ class BurpExtender() : IBurpExtender, IExtensionStateListener, BurpExtension {
         Utils.utilities = Utilities(callbacks, HashMap(), "Turbo Intruder")
         Utilities.globalSettings.registerSetting("learn observed words", false);
         Utilities.globalSettings.registerSetting("desync-agent-mode", false);
+        Utilities.globalSettings.registerSetting(
+            McpServerGate.SETTING,
+            false,
+            McpServerGate.DESCRIPTION,
+        )
 
         SwingUtilities.invokeLater(ConfigMenu())
         SwingUtilities.invokeLater { addRunScriptToExistingMenu() }
 
-        mcpServer = mcp.TurboMcpServer(
+        val gate = McpServerGate(
+            enabled = { Utilities.globalSettings?.getBoolean(McpServerGate.SETTING) == true },
+            start = ::startMcpServer,
+            stop = ::stopMcpServer,
+            reportFailure = { message, error ->
+                Utils.err("$message:\n${error.stackTraceToString()}")
+            },
+        )
+        mcpServerGate = gate
+        Utilities.globalSettings.registerListener(McpServerGate.SETTING) { value ->
+            gate.settingChanged(value)
+        }
+        gate.applyInitialState()
+    }
+
+    private fun startMcpServer() {
+        if (mcpServer != null) {
+            return
+        }
+        val server = mcp.TurboMcpServer(
             port = 31337,
             collaboratorProvider = mcp.BurpCollaboratorProvider(),
             desyncMode = { Utilities.globalSettings?.getBoolean("desync-agent-mode") == true }
         )
-        mcpServer?.start()
+        try {
+            server.start()
+        } catch (e: Exception) {
+            try {
+                server.stop()
+            } catch (cleanupFailure: Exception) {
+                e.addSuppressed(cleanupFailure)
+            }
+            throw e
+        }
+        mcpServer = server
         Utils.out("MCP server listening on http://localhost:31337")
+    }
+
+    private fun stopMcpServer() {
+        val server = mcpServer ?: return
+        server.stop()
+        mcpServer = null
+        Utils.out("MCP server stopped")
     }
 
     override fun initialize(montoyaApi: MontoyaApi) {

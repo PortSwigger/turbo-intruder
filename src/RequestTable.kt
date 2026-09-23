@@ -2,7 +2,9 @@ package burp
 
 import java.awt.BorderLayout
 import java.awt.Component
+import java.awt.Dialog
 import java.awt.Dimension
+import java.awt.Frame
 import java.awt.event.ActionEvent
 import java.awt.event.ActionListener
 import java.net.URL
@@ -17,17 +19,25 @@ class UpdateStatusbar(val message: JLabel, val handler: RunHandler): ActionListe
     lateinit var timer: Timer
 
     override fun actionPerformed(e: ActionEvent?) {
-        if (handler.status() != "running" || SwingUtilities.getWindowAncestor(message) == null){
-            timer.stop()
-            val parent = (SwingUtilities.getWindowAncestor(message) as JFrame?)
-            parent?.title = parent?.title?.replace(" - running", " - done")
-        }
+        val window = SwingUtilities.getWindowAncestor(message)
+        val terminal = handler.status() != "running"
 
         message.text = handler.statusString()
         // The label clips at the width of the window rather than wrapping. A run that has
         // a reason to report leads with it so the start of it survives, and the tooltip is
         // where the rest of the line, underlying error included, can still be read.
         message.toolTipText = if (handler.failureSummary() != null) message.text else null
+
+        if (terminal || window == null) {
+            timer.stop()
+        }
+
+        if (terminal) {
+            when (window) {
+                is Frame -> window.title = window.title?.replace(" - running", " - done")
+                is Dialog -> window.title = window.title?.replace(" - running", " - done")
+            }
+        }
     }
 
 }
@@ -309,5 +319,3 @@ class RequestTable(val store: ResultStore, val service: IHttpService, val handle
     }
 
 }
-
-
