@@ -23,7 +23,7 @@ import kotlin.jvm.optionals.getOrNull
 class BurpExtender() : IBurpExtender, IExtensionStateListener, BurpExtension {
 
     companion object {
-        const val version = "2.0.0"
+        const val version = "2.0.1"
     }
 
     private var mcpServer: mcp.TurboMcpServer? = null
