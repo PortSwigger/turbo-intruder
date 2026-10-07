@@ -417,21 +417,44 @@ private class HostValidationFilter : Filter {
     companion object {
         private val ALLOWED_HOSTS = setOf(
             "localhost",
-            "127.0.0.1"
+            "127.0.0.1",
+            "[::1]"
         )
+    }
+
+    private fun isLoopback(authority: String, port: Int): Boolean {
+        val uri = try { java.net.URI("http://$authority") } catch (e: Exception) { return false }
+        if (uri.userInfo != null || uri.host?.lowercase() !in ALLOWED_HOSTS) return false
+        return uri.port == port
+    }
+
+    private fun isOwnOrigin(origin: String, port: Int): Boolean {
+        val uri = try { java.net.URI(origin) } catch (e: Exception) { return false }
+        return uri.scheme == "http" && isLoopback(uri.rawAuthority ?: return false, port)
     }
 
     override fun doFilter(request: ServletRequest, response: ServletResponse, chain: FilterChain) {
         val httpRequest = request as HttpServletRequest
         val httpResponse = response as HttpServletResponse
+        val port = httpRequest.localPort
 
-        val host = httpRequest.getHeader("Host")?.lowercase()?.substringBefore(":") ?: ""
+        val host = httpRequest.getHeader("Host")
+        val origin = httpRequest.getHeader("Origin")
+        val contentType = httpRequest.getHeader("Content-Type")
 
-        if (host in ALLOWED_HOSTS) {
+        val error = when {
+            !isLoopback(host, port) -> "Invalid Host header"
+            origin != null && (!isOwnOrigin(origin, port)) -> "Invalid Origin header"
+            contentType?.substringBefore(";")?.trim()?.lowercase() != "application/json" ->
+                "Content-Type must be application/json"
+            else -> null
+        }
+
+        if (error == null) {
             chain.doFilter(request, response)
         } else {
             httpResponse.status = HttpServletResponse.SC_FORBIDDEN
-            httpResponse.writer.write("Forbidden: Invalid Host header")
+            httpResponse.writer.write("Forbidden: $error")
         }
     }
 }
