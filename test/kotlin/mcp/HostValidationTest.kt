@@ -37,6 +37,7 @@ class HostValidationTest {
             // Send minimal HTTP request
             writer.print("GET / HTTP/1.1\r\n")
             writer.print("Host: $host\r\n")
+            writer.print("Content-Type: application/json\r\n")
             writer.print("Connection: close\r\n")
             writer.print("\r\n")
             writer.flush()
@@ -50,15 +51,15 @@ class HostValidationTest {
     }
 
     @Test
-    fun `allows requests with Host localhost`() {
+    fun `blocks requests with Host localhost and no port`() {
         val statusCode = sendRequestWithHost("localhost")
-        assertNotEquals(403, statusCode, "Host: localhost should be allowed")
+        assertEquals(403, statusCode, "Host: localhost without the server port should be blocked")
     }
 
     @Test
-    fun `allows requests with Host 127_0_0_1`() {
+    fun `blocks requests with Host 127_0_0_1 and no port`() {
         val statusCode = sendRequestWithHost("127.0.0.1")
-        assertNotEquals(403, statusCode, "Host: 127.0.0.1 should be allowed")
+        assertEquals(403, statusCode, "Host: 127.0.0.1 without the server port should be blocked")
     }
 
     @Test
@@ -99,7 +100,7 @@ class HostValidationTest {
 
     @Test
     fun `Host header check is case insensitive`() {
-        val statusCode = sendRequestWithHost("LOCALHOST")
+        val statusCode = sendRequestWithHost("LOCALHOST:$testPort")
         assertNotEquals(403, statusCode, "Host: LOCALHOST should be allowed (case insensitive)")
     }
 }
