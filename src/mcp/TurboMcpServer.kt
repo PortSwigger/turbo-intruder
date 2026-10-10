@@ -15,6 +15,8 @@ import jakarta.servlet.ServletRequest
 import jakarta.servlet.ServletResponse
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import mcp.prompt.PromptRegistry
+import mcp.prompt.createPromptDefinitions
 import mcp.resource.QueryParamAwareUriTemplateManagerFactory
 import mcp.resource.ResourceRegistry
 import mcp.resource.createResourceDefinitions
@@ -41,23 +43,30 @@ fun formatErrorWithStackTrace(e: Exception): Map<String, Any?> {
     )
 }
 
-private const val ENABLE_ASYNC_RUN = false
-
 class TurboMcpServer(
     private val port: Int = 31338,
     private val disabledTools: Set<String> = emptySet(),
     private val collaboratorProvider: CollaboratorProvider? = null,
     private val organizerProvider: OrganizerProvider = BurpOrganizerProvider(),
-    private val desyncMode: () -> Boolean = { false }
+    private val desyncMode: () -> Boolean = { false },
+    private val disabledPrompts: Set<String> = emptySet(),
+    val activityLog: McpActivityLog = McpActivityLog()
 ) {
     val manager = RunManager()
-    val toolHandlers = McpToolHandlers(manager, organizerProvider, collaboratorProvider)
+    val toolHandlers = McpToolHandlers(manager, organizerProvider, collaboratorProvider, activityLog)
     val resourceHandlers = McpResourceHandlers(manager, organizerProvider, desyncMode)
 
     // Resource registry with all resource definitions
     private val resourceRegistry by lazy {
         ResourceRegistry(ObjectMapper()).apply {
             register(*createResourceDefinitions(resourceHandlers).toTypedArray())
+        }
+    }
+
+    // Prompt registry: guided agent workflows that expand to ready-to-use start_run plans.
+    private val promptRegistry by lazy {
+        PromptRegistry().apply {
+            register(*createPromptDefinitions(resourceHandlers).toTypedArray())
         }
     }
 
@@ -142,15 +151,26 @@ class TurboMcpServer(
             .jsonSchemaValidator(JacksonJsonSchemaValidatorSupplier().get())
             .serverInfo("turbo-simulator", "1.0.0")
             .uriTemplateManagerFactory(QueryParamAwareUriTemplateManagerFactory())
-            .capabilities(McpSchema.ServerCapabilities.builder()
-                .tools(true)  // listChanged
-                .resources(true, true)  // subscribe, listChanged
-                .logging()
-                .build())
+            .capabilities(buildServerCapabilities())
             .tools(buildStatelessToolSpecifications())
             .resources(resourceRegistry.buildStatelessSpecs())
+            .prompts(promptRegistry.buildStatelessSpecs(disabledPrompts))
             .build()
     }
+
+    /**
+     * Server capabilities that honestly reflect the stateless HTTP transport. Stateless means no
+     * sessions, so the server cannot push server-initiated notifications: resources are offered
+     * (list + read) but neither `subscribe` nor `listChanged` can be delivered, and log
+     * notifications cannot be pushed either. Advertising those would promise behaviour a strict
+     * client could wait on indefinitely. See docs/plans/2026-10-10-ai-agent-mcp-enhancements-design.md.
+     */
+    fun buildServerCapabilities(): McpSchema.ServerCapabilities =
+        McpSchema.ServerCapabilities.builder()
+            .tools(true)
+            .resources(false, false)
+            .prompts(false)  // prompts offered; no listChanged push on the stateless transport
+            .build()
 
     fun stop() {
         statelessServer?.close()
@@ -167,10 +187,11 @@ class TurboMcpServer(
     private val allStatelessTools by lazy {
         listOfNotNull(
             buildStatelessStartRunTool(),
-            if (ENABLE_ASYNC_RUN) buildStatelessStartRunAsyncTool() else null,
+            buildStatelessStartRunAsyncTool(),
             buildStatelessStopRunTool(),
             buildStatelessDeleteRunTool(),
             buildStatelessSaveToOrganizerTool(),
+            buildStatelessReportFindingTool(),
             buildStatelessGenerateCollaboratorPayloadTool(),
             buildStatelessGetCollaboratorInteractionsTool(),
             buildStatelessSearchResponsesTool()
@@ -322,6 +343,45 @@ class TurboMcpServer(
         }
     }
 
+    private fun buildStatelessReportFindingTool(): McpStatelessServerFeatures.SyncToolSpecification {
+        val tool = McpSchema.Tool.builder()
+            .name("report_finding")
+            .description("Record a structured finding (severity, confidence, type, evidence request) to Burp's Organizer. Use this instead of save_to_organizer when you have identified a specific issue.")
+            .inputSchema(jsonMapper, """
+            {
+                "type": "object",
+                "properties": {
+                    "run_id": { "type": "string" },
+                    "request_id": { "type": "integer", "description": "ID of the request in the run that evidences the finding" },
+                    "title": { "type": "string" },
+                    "severity": { "type": "string", "enum": ["info", "low", "medium", "high", "critical"] },
+                    "confidence": { "type": "string", "enum": ["tentative", "firm", "certain"] },
+                    "finding_type": { "type": "string", "description": "e.g. sqli, ssrf, race-condition, idor" },
+                    "detail": { "type": "string", "description": "Explanation of the issue and how it was found" },
+                    "collaborator_payload": { "type": "string", "description": "Optional Collaborator payload that captured an out-of-band interaction" }
+                },
+                "required": ["run_id", "request_id", "title", "severity", "confidence"]
+            }
+            """.trimIndent())
+            .build()
+
+        return McpStatelessServerFeatures.SyncToolSpecification(tool) { _, request ->
+            executeToolWithErrorHandling {
+                val args = request.arguments()
+                toolHandlers.reportFinding(
+                    runId = args["run_id"] as String,
+                    requestId = (args["request_id"] as Number).toInt(),
+                    title = args["title"] as? String ?: "",
+                    severity = args["severity"] as? String ?: "",
+                    confidence = args["confidence"] as? String ?: "",
+                    findingType = args["finding_type"] as? String ?: "",
+                    detail = args["detail"] as? String ?: "",
+                    collaboratorPayload = args["collaborator_payload"] as? String
+                )
+            }
+        }
+    }
+
     private fun buildStatelessGenerateCollaboratorPayloadTool(): McpStatelessServerFeatures.SyncToolSpecification {
         val tool = McpSchema.Tool.builder()
             .name("generate_collaborator_payload")
@@ -406,6 +466,8 @@ class TurboMcpServer(
             .map { it.tool().name() }
             .toSet()
     }
+
+    fun getEnabledPromptNames(): Set<String> = promptRegistry.names(disabledPrompts).toSet()
 
 }
 

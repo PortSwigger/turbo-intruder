@@ -127,6 +127,85 @@ def completed(results):
         assertEquals("stopped", stopResult["status"])
     }
 
+    private fun runWithRequest(): mcp.ActiveRun {
+        val run = manager.startRun()
+        run.handler.code = "def queueRequests(target, wordlists):\n    pass"
+        val req = burp.Request("GET /vuln?id=1 HTTP/1.1\r\nHost: example.com\r\n\r\n")
+        req.id = 1
+        req.response = "HTTP/1.1 500 Internal Server Error\r\n\r\nSQL syntax error"
+        run.store.add(req)
+        return run
+    }
+
+    @Test
+    fun `reportFinding writes a structured note to the organizer`() {
+        val fakeOrganizer = FakeOrganizerProvider(emptyList())
+        val handlers = McpToolHandlers(manager, fakeOrganizer)
+        val run = runWithRequest()
+
+        val result = handlers.reportFinding(
+            runId = run.id, requestId = 1, title = "SQL injection in id param",
+            severity = "high", confidence = "firm", findingType = "sqli",
+            detail = "Single quote triggers a 500 with a SQL error.",
+            collaboratorPayload = "abc.oast.net"
+        )
+
+        assertEquals("reported", result["status"])
+        assertNotNull(result["finding_id"])
+        assertEquals(1, fakeOrganizer.sentItems.size)
+        val note = fakeOrganizer.sentItems[0].second
+        assertTrue(note.contains("[HIGH/FIRM] SQL injection in id param — sqli"))
+        assertTrue(note.contains("Run ID: ${run.id}"))
+        assertTrue(note.contains("Request ID: 1"))
+        assertTrue(note.contains("Collaborator: abc.oast.net"))
+        assertTrue(note.contains("--- Script ---"))
+    }
+
+    @Test
+    fun `reportFinding is deterministic for the same inputs`() {
+        val handlers = McpToolHandlers(manager, FakeOrganizerProvider(emptyList()))
+        val run = runWithRequest()
+        val a = handlers.reportFinding(run.id, 1, "X", "low", "firm", "sqli")
+        val b = handlers.reportFinding(run.id, 1, "X", "low", "firm", "sqli")
+        assertEquals(a["finding_id"], b["finding_id"])
+    }
+
+    @Test
+    fun `reportFinding rejects invalid severity without writing`() {
+        val fakeOrganizer = FakeOrganizerProvider(emptyList())
+        val handlers = McpToolHandlers(manager, fakeOrganizer)
+        val run = runWithRequest()
+
+        val result = handlers.reportFinding(run.id, 1, "T", "sev?", "firm", "sqli")
+
+        assertEquals("invalid_severity", result["error"])
+        assertEquals(0, fakeOrganizer.sentItems.size)
+    }
+
+    @Test
+    fun `reportFinding rejects invalid confidence without writing`() {
+        val fakeOrganizer = FakeOrganizerProvider(emptyList())
+        val handlers = McpToolHandlers(manager, fakeOrganizer)
+        val run = runWithRequest()
+
+        val result = handlers.reportFinding(run.id, 1, "T", "high", "maybe", "sqli")
+
+        assertEquals("invalid_confidence", result["error"])
+        assertEquals(0, fakeOrganizer.sentItems.size)
+    }
+
+    @Test
+    fun `reportFinding reports request_not_found for a missing request`() {
+        val fakeOrganizer = FakeOrganizerProvider(emptyList())
+        val handlers = McpToolHandlers(manager, fakeOrganizer)
+        val run = runWithRequest()
+
+        val result = handlers.reportFinding(run.id, 999, "T", "high", "firm", "sqli")
+
+        assertEquals("request_not_found", result["error"])
+        assertEquals(0, fakeOrganizer.sentItems.size)
+    }
+
     @Test
     fun `saveToOrganizer saves requests with notes and script`() {
         val fakeOrganizer = FakeOrganizerProvider(emptyList())
