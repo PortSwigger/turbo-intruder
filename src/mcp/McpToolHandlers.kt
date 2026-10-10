@@ -80,6 +80,79 @@ class McpToolHandlers(
         return mapOf("saved" to saved, "errors" to errors)
     }
 
+    companion object {
+        val SEVERITIES = listOf("info", "low", "medium", "high", "critical")
+        val CONFIDENCES = listOf("tentative", "firm", "certain")
+
+        /** Render a structured finding into the stable note format written to the Organizer. */
+        fun renderFindingNote(
+            title: String,
+            severity: String,
+            confidence: String,
+            findingType: String,
+            detail: String,
+            runId: String,
+            requestId: Int,
+            collaboratorPayload: String?,
+            script: String?
+        ): String = buildString {
+            append("[${severity.uppercase()}/${confidence.uppercase()}] $title")
+            if (findingType.isNotBlank()) append(" — $findingType")
+            if (detail.isNotBlank()) append("\n\n$detail")
+            append("\n\nRun ID: $runId")
+            append("\nRequest ID: $requestId")
+            if (!collaboratorPayload.isNullOrBlank()) append("\nCollaborator: $collaboratorPayload")
+            if (!script.isNullOrBlank()) append("\n\n--- Script ---\n$script")
+        }
+
+        /** Deterministic id so the same finding reported twice resolves to the same identifier. */
+        fun findingId(runId: String, requestId: Int, title: String, findingType: String): String =
+            "$runId:$requestId:${Integer.toHexString((title + "|" + findingType).hashCode())}"
+    }
+
+    /**
+     * Record a structured finding (severity/confidence/type + evidence request) to Burp's
+     * Organizer. Unlike save_to_organizer's free-text notes, this validates a typed shape so an
+     * agent (and a human triaging later) can rely on the format.
+     */
+    fun reportFinding(
+        runId: String,
+        requestId: Int,
+        title: String,
+        severity: String,
+        confidence: String,
+        findingType: String = "",
+        detail: String = "",
+        collaboratorPayload: String? = null
+    ): Map<String, Any?> {
+        if (title.isBlank()) return mapOf("error" to "title_required")
+        if (severity.lowercase() !in SEVERITIES)
+            return mapOf("error" to "invalid_severity", "allowed" to SEVERITIES)
+        if (confidence.lowercase() !in CONFIDENCES)
+            return mapOf("error" to "invalid_confidence", "allowed" to CONFIDENCES)
+
+        val run = manager.getRun(runId)
+            ?: return mapOf("error" to runNotFoundMessage(runId))
+        val request = run.store.getRequest(requestId)
+            ?: return mapOf("error" to "request_not_found")
+
+        val script = run.handler.code.takeIf { it.isNotBlank() }
+        val note = renderFindingNote(
+            title, severity.lowercase(), confidence.lowercase(), findingType, detail,
+            run.id, requestId, collaboratorPayload, script
+        )
+        organizerProvider.sendToOrganizer(request, note)
+
+        return mapOf(
+            "status" to "reported",
+            "finding_id" to findingId(run.id, requestId, title, findingType),
+            "run_id" to run.id,
+            "request_id" to requestId,
+            "severity" to severity.lowercase(),
+            "confidence" to confidence.lowercase()
+        )
+    }
+
     fun startRun(
         script: String,
         baseRequest: String,

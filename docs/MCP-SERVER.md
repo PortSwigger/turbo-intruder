@@ -22,6 +22,7 @@ Server listens on `localhost:31337` using streaming HTTP transport.
 | `stop_run` | Stop a run, preserving its results |
 | `delete_run` | Remove a run and its results |
 | `save_to_organizer` | Save selected requests from a run to Burp's Organizer |
+| `report_finding` | Record a structured finding (severity/confidence/type + evidence request) to Burp's Organizer |
 | `generate_collaborator_payload` | Generate a Burp Collaborator payload for out-of-band testing |
 | `get_collaborator_interactions` | Retrieve Collaborator interactions for generated payloads |
 | `search_responses` | Search a run's responses/labels for a string |

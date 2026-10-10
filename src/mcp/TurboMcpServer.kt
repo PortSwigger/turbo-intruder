@@ -178,6 +178,7 @@ class TurboMcpServer(
             buildStatelessStopRunTool(),
             buildStatelessDeleteRunTool(),
             buildStatelessSaveToOrganizerTool(),
+            buildStatelessReportFindingTool(),
             buildStatelessGenerateCollaboratorPayloadTool(),
             buildStatelessGetCollaboratorInteractionsTool(),
             buildStatelessSearchResponsesTool()
@@ -324,6 +325,45 @@ class TurboMcpServer(
                 toolHandlers.saveToOrganizer(
                     runId = args["run_id"] as String,
                     items = args["items"] as? String ?: "[]"
+                )
+            }
+        }
+    }
+
+    private fun buildStatelessReportFindingTool(): McpStatelessServerFeatures.SyncToolSpecification {
+        val tool = McpSchema.Tool.builder()
+            .name("report_finding")
+            .description("Record a structured finding (severity, confidence, type, evidence request) to Burp's Organizer. Use this instead of save_to_organizer when you have identified a specific issue.")
+            .inputSchema(jsonMapper, """
+            {
+                "type": "object",
+                "properties": {
+                    "run_id": { "type": "string" },
+                    "request_id": { "type": "integer", "description": "ID of the request in the run that evidences the finding" },
+                    "title": { "type": "string" },
+                    "severity": { "type": "string", "enum": ["info", "low", "medium", "high", "critical"] },
+                    "confidence": { "type": "string", "enum": ["tentative", "firm", "certain"] },
+                    "finding_type": { "type": "string", "description": "e.g. sqli, ssrf, race-condition, idor" },
+                    "detail": { "type": "string", "description": "Explanation of the issue and how it was found" },
+                    "collaborator_payload": { "type": "string", "description": "Optional Collaborator payload that captured an out-of-band interaction" }
+                },
+                "required": ["run_id", "request_id", "title", "severity", "confidence"]
+            }
+            """.trimIndent())
+            .build()
+
+        return McpStatelessServerFeatures.SyncToolSpecification(tool) { _, request ->
+            executeToolWithErrorHandling {
+                val args = request.arguments()
+                toolHandlers.reportFinding(
+                    runId = args["run_id"] as String,
+                    requestId = (args["request_id"] as Number).toInt(),
+                    title = args["title"] as? String ?: "",
+                    severity = args["severity"] as? String ?: "",
+                    confidence = args["confidence"] as? String ?: "",
+                    findingType = args["finding_type"] as? String ?: "",
+                    detail = args["detail"] as? String ?: "",
+                    collaboratorPayload = args["collaborator_payload"] as? String
                 )
             }
         }
