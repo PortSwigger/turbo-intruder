@@ -11,3 +11,4 @@ logback.xml
 mcp-debug.log
 token-burn.md
 src/LocalAnomalyRanker.kt
+.kotlin
