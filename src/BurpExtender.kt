@@ -122,14 +122,18 @@ class BurpExtender() : IBurpExtender, IExtensionStateListener, BurpExtension {
      * Registers the "Turbo MCP" suite tab: a live view of the MCP server with start/stop controls
      * and an activity log. The buttons drive the gate (runtime start/stop); the persisted
      * auto-start setting still lives in the Turbo Intruder settings menu.
+     *
+     * Burp does not guarantee whether the Montoya initialize() callback runs before or after the
+     * legacy registerExtenderCallbacks() where the gate is created, so the panel dereferences
+     * mcpServerGate at call time (not at registration) and the tab is registered regardless. The
+     * gate is created synchronously during load, so it is always present before the UI is usable.
      */
     private fun registerMcpTab(montoyaApi: MontoyaApi) {
-        val gate = mcpServerGate ?: return
         SwingUtilities.invokeLater {
             val panel = mcp.ui.McpControlPanel(
-                isRunning = { gate.isRunning() },
-                onStart = { gate.settingChanged("true") },
-                onStop = { gate.settingChanged("false") },
+                isRunning = { mcpServerGate?.isRunning() ?: false },
+                onStart = { mcpServerGate?.settingChanged("true") },
+                onStop = { mcpServerGate?.settingChanged("false") },
                 address = { "http://localhost:31337" },
                 activityLog = mcpActivityLog,
                 securityNotice = McpServerGate.DESCRIPTION
