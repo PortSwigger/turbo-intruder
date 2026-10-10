@@ -29,6 +29,13 @@ class McpResourceHandlers(
     private val organizerProvider: OrganizerProvider? = null,
     private val desyncMode: () -> Boolean = { false }
 ) {
+    companion object {
+        /** Upper bound on long-poll duration, so a single status read can never pin a worker thread for long. */
+        const val MAX_WAIT_MS = 55_000L
+
+        /** Clamp a requested long-poll wait into the allowed [0, MAX_WAIT_MS] range. */
+        fun clampWait(requestedMs: Long): Long = requestedMs.coerceIn(0, MAX_WAIT_MS)
+    }
 
     val docTopics = mapOf(
         "api-quickstart" to "Quick reference for scripting",
@@ -63,8 +70,12 @@ class McpResourceHandlers(
         val run = manager.getRun(runId)
             ?: return runNotFoundError(runId)
 
-        if (waitMs > 0 && run.handler.status() == "running") {
-            val deadline = System.currentTimeMillis() + waitMs
+        // Clamp defensively: a long-poll holds a Jetty worker thread for its whole duration, so an
+        // unbounded wait (from a future caller or a hand-crafted request) could pin threads. The
+        // resource layer already passes at most 50s; this guards the handler regardless of caller.
+        val effectiveWait = clampWait(waitMs)
+        if (effectiveWait > 0 && run.handler.status() == "running") {
+            val deadline = System.currentTimeMillis() + effectiveWait
             while (run.handler.status() == "running" && System.currentTimeMillis() < deadline) {
                 Thread.sleep(100)
             }

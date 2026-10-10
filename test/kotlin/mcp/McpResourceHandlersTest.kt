@@ -17,6 +17,15 @@ class McpResourceHandlersTest {
     }
 
     @Test
+    fun `clampWait bounds the long-poll duration`() {
+        assertEquals(0L, McpResourceHandlers.clampWait(0))
+        assertEquals(0L, McpResourceHandlers.clampWait(-5))
+        assertEquals(1000L, McpResourceHandlers.clampWait(1000))
+        assertEquals(McpResourceHandlers.MAX_WAIT_MS, McpResourceHandlers.clampWait(Long.MAX_VALUE))
+        assertEquals(McpResourceHandlers.MAX_WAIT_MS, McpResourceHandlers.clampWait(McpResourceHandlers.MAX_WAIT_MS + 1))
+    }
+
+    @Test
     fun `getRunStatus returns error for nonexistent run`() {
         val result = handlers.getRunStatus("nonexistent")
 

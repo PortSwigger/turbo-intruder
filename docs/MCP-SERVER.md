@@ -17,17 +17,29 @@ Server listens on `localhost:31337` using streaming HTTP transport.
 
 | Tool | Description |
 |------|-------------|
-| `start_run` | Start run (clears previous) |
-| `start_concurrent_run` | Start parallel run |
-| `stop_run` | Stop the active run |
-| `delete_run` | Remove run and results |
-| `delete_all_runs` | Clean up all runs |
+| `start_run` | Start a run and block until it completes or `timeout_ms` elapses |
+| `start_run_async` | Start a run and return immediately with a `run_id` |
+| `stop_run` | Stop a run, preserving its results |
+| `delete_run` | Remove a run and its results |
+| `save_to_organizer` | Save selected requests from a run to Burp's Organizer |
+| `generate_collaborator_payload` | Generate a Burp Collaborator payload for out-of-band testing |
+| `get_collaborator_interactions` | Retrieve Collaborator interactions for generated payloads |
+| `search_responses` | Search a run's responses/labels for a string |
 
-**Tool parameters for start_run / start_concurrent_run:**
+**Tool parameters for start_run / start_run_async:**
 - `script` - Python script with `queueRequests(target, wordlists)` and `completed(results)` functions
 - `base_request` - HTTP request template with `%s` injection points
 - `endpoint` - Target URL (e.g., `https://example.com:443`)
 - `base_input` - Optional input data for the script
+- `timeout_ms` - (`start_run` only) how long to block before returning a `run_id` for polling
+
+### Running long runs without blocking
+
+`start_run_async` returns a `run_id` immediately. Observe progress and completion by
+reading `turbo://runs/{run_id}?wait=true`, which long-polls until the run finishes (up
+to ~50s per read; read again to keep waiting). The stateless HTTP transport has no
+sessions, so the server cannot *push* completion notifications — observation is always
+client-driven via this resource.
 
 ---
 

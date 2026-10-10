@@ -41,8 +41,6 @@ fun formatErrorWithStackTrace(e: Exception): Map<String, Any?> {
     )
 }
 
-private const val ENABLE_ASYNC_RUN = false
-
 class TurboMcpServer(
     private val port: Int = 31338,
     private val disabledTools: Set<String> = emptySet(),
@@ -142,15 +140,24 @@ class TurboMcpServer(
             .jsonSchemaValidator(JacksonJsonSchemaValidatorSupplier().get())
             .serverInfo("turbo-simulator", "1.0.0")
             .uriTemplateManagerFactory(QueryParamAwareUriTemplateManagerFactory())
-            .capabilities(McpSchema.ServerCapabilities.builder()
-                .tools(true)  // listChanged
-                .resources(true, true)  // subscribe, listChanged
-                .logging()
-                .build())
+            .capabilities(buildServerCapabilities())
             .tools(buildStatelessToolSpecifications())
             .resources(resourceRegistry.buildStatelessSpecs())
             .build()
     }
+
+    /**
+     * Server capabilities that honestly reflect the stateless HTTP transport. Stateless means no
+     * sessions, so the server cannot push server-initiated notifications: resources are offered
+     * (list + read) but neither `subscribe` nor `listChanged` can be delivered, and log
+     * notifications cannot be pushed either. Advertising those would promise behaviour a strict
+     * client could wait on indefinitely. See docs/plans/2026-10-10-ai-agent-mcp-enhancements-design.md.
+     */
+    fun buildServerCapabilities(): McpSchema.ServerCapabilities =
+        McpSchema.ServerCapabilities.builder()
+            .tools(true)
+            .resources(false, false)
+            .build()
 
     fun stop() {
         statelessServer?.close()
@@ -167,7 +174,7 @@ class TurboMcpServer(
     private val allStatelessTools by lazy {
         listOfNotNull(
             buildStatelessStartRunTool(),
-            if (ENABLE_ASYNC_RUN) buildStatelessStartRunAsyncTool() else null,
+            buildStatelessStartRunAsyncTool(),
             buildStatelessStopRunTool(),
             buildStatelessDeleteRunTool(),
             buildStatelessSaveToOrganizerTool(),
