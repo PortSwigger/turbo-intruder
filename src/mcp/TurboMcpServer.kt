@@ -49,10 +49,11 @@ class TurboMcpServer(
     private val collaboratorProvider: CollaboratorProvider? = null,
     private val organizerProvider: OrganizerProvider = BurpOrganizerProvider(),
     private val desyncMode: () -> Boolean = { false },
-    private val disabledPrompts: Set<String> = emptySet()
+    private val disabledPrompts: Set<String> = emptySet(),
+    val activityLog: McpActivityLog = McpActivityLog()
 ) {
     val manager = RunManager()
-    val toolHandlers = McpToolHandlers(manager, organizerProvider, collaboratorProvider)
+    val toolHandlers = McpToolHandlers(manager, organizerProvider, collaboratorProvider, activityLog)
     val resourceHandlers = McpResourceHandlers(manager, organizerProvider, desyncMode)
 
     // Resource registry with all resource definitions

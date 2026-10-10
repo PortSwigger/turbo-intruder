@@ -28,6 +28,9 @@ class BurpExtender() : IBurpExtender, IExtensionStateListener, BurpExtension {
 
     private var mcpServer: mcp.TurboMcpServer? = null
     private var mcpServerGate: McpServerGate? = null
+    // Lives for the whole extension so the control panel keeps receiving entries across restarts.
+    private val mcpActivityLog = mcp.McpActivityLog()
+    private var mcpControlPanel: mcp.ui.McpControlPanel? = null
 
     override fun extensionUnloaded() {
         Utils.unloaded = true
@@ -61,6 +64,12 @@ class BurpExtender() : IBurpExtender, IExtensionStateListener, BurpExtension {
             reportFailure = { message, error ->
                 Utils.err("$message:\n${error.stackTraceToString()}")
             },
+            onStateChange = { running ->
+                mcpActivityLog.record(
+                    if (running) "MCP server started on http://localhost:31337" else "MCP server stopped"
+                )
+                SwingUtilities.invokeLater { mcpControlPanel?.refresh() }
+            },
         )
         mcpServerGate = gate
         Utilities.globalSettings.registerListener(McpServerGate.SETTING) { value ->
@@ -76,7 +85,8 @@ class BurpExtender() : IBurpExtender, IExtensionStateListener, BurpExtension {
         val server = mcp.TurboMcpServer(
             port = 31337,
             collaboratorProvider = mcp.BurpCollaboratorProvider(),
-            desyncMode = { Utilities.globalSettings?.getBoolean("desync-agent-mode") == true }
+            desyncMode = { Utilities.globalSettings?.getBoolean("desync-agent-mode") == true },
+            activityLog = mcpActivityLog
         )
         try {
             server.start()
@@ -105,6 +115,32 @@ class BurpExtender() : IBurpExtender, IExtensionStateListener, BurpExtension {
         montoyaApi.userInterface().registerContextMenuItemsProvider(BulkMenu())
         montoyaApi.userInterface().registerContextMenuItemsProvider(OfferTurboIntruderWithScript())
         registerHotkey(montoyaApi)
+        registerMcpTab(montoyaApi)
+    }
+
+    /**
+     * Registers the "Turbo MCP" suite tab: a live view of the MCP server with start/stop controls
+     * and an activity log. The buttons drive the gate (runtime start/stop); the persisted
+     * auto-start setting still lives in the Turbo Intruder settings menu.
+     */
+    private fun registerMcpTab(montoyaApi: MontoyaApi) {
+        val gate = mcpServerGate ?: return
+        SwingUtilities.invokeLater {
+            val panel = mcp.ui.McpControlPanel(
+                isRunning = { gate.isRunning() },
+                onStart = { gate.settingChanged("true") },
+                onStop = { gate.settingChanged("false") },
+                address = { "http://localhost:31337" },
+                activityLog = mcpActivityLog,
+                securityNotice = McpServerGate.DESCRIPTION
+            )
+            mcpControlPanel = panel
+            try {
+                montoyaApi.userInterface().registerSuiteTab("Turbo MCP", panel)
+            } catch (e: Exception) {
+                Utils.err("Failed to register Turbo MCP tab: ${e.message}")
+            }
+        }
     }
 
     fun registerHotkey(montoyaApi: MontoyaApi) {

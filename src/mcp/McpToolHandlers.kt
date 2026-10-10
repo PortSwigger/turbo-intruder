@@ -8,7 +8,8 @@ import kotlin.concurrent.thread
 class McpToolHandlers(
     private val manager: RunManager,
     private val organizerProvider: OrganizerProvider = BurpOrganizerProvider(),
-    private val collaboratorProvider: CollaboratorProvider? = null
+    private val collaboratorProvider: CollaboratorProvider? = null,
+    private val activityLog: McpActivityLog? = null
 ) {
 
     fun setOrganizerNotes(id: Int, notes: String): Map<String, String> {
@@ -142,6 +143,7 @@ class McpToolHandlers(
             run.id, requestId, collaboratorPayload, script
         )
         organizerProvider.sendToOrganizer(request, note)
+        activityLog?.record("report_finding ${severity.lowercase()}/${confidence.lowercase()} ${findingType.ifBlank { "finding" }} run=${run.id} req=$requestId")
 
         return mapOf(
             "status" to "reported",
@@ -163,6 +165,7 @@ class McpToolHandlers(
     ): Map<String, Any?> {
         val normalized = normalizeScriptLineEndings(script, normalizeLineEndings)
         val run = manager.startRun()
+        activityLog?.record("start_run run=${run.id} endpoint=$endpoint")
         launchRun(run, normalized.script, baseRequest, endpoint, baseInput)
 
         // Wait for completion or timeout
@@ -216,6 +219,7 @@ class McpToolHandlers(
     ): Map<String, Any?> {
         val normalized = normalizeScriptLineEndings(script, normalizeLineEndings)
         val run = manager.startRun()
+        activityLog?.record("start_run_async run=${run.id} endpoint=$endpoint")
         launchRun(run, normalized.script, baseRequest, endpoint, baseInput)
         val result = mutableMapOf<String, Any?>("status" to "started", "run_id" to run.id)
         normalized.warning?.let { result["warning"] = it }

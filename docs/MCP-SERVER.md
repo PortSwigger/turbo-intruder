@@ -7,9 +7,22 @@
 java -jar build/libs/turbo-intruder.jar --mcp
 ```
 
-**Burp extension:** Auto-starts when extension loads.
+**Burp extension:** Auto-starts when the extension loads *if* the "enable unsafe MCP
+server" setting is on (off by default).
 
 Server listens on `localhost:31337` using streaming HTTP transport.
+
+### Control UI (Burp)
+
+The **Turbo MCP** suite tab provides a live view of the server:
+
+- **Status** — running/stopped and the listening address.
+- **Start / Stop** — control the running server at runtime. (Persisted auto-start on load
+  is still governed by the "enable unsafe MCP server" setting in the Turbo Intruder menu.)
+- **Activity** — a bounded log of recent MCP activity (runs started, findings reported,
+  lifecycle events).
+
+The server is unauthenticated and loopback-only; keep it off unless an MCP client needs it.
 
 ---
 
