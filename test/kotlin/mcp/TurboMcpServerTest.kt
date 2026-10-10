@@ -40,6 +40,23 @@ class TurboMcpServerTest {
     }
 
     @Test
+    fun `prompts are enabled by default and advertised in capabilities`() {
+        val server = TurboMcpServer(port = 31337)
+        val prompts = server.getEnabledPromptNames()
+        assertTrue(prompts.contains("fuzz_parameter"))
+        assertTrue(prompts.contains("race_condition_test"))
+        assertNotNull(server.buildServerCapabilities().prompts())
+    }
+
+    @Test
+    fun `disabled prompts are excluded`() {
+        val server = TurboMcpServer(port = 31337, disabledPrompts = setOf("fuzz_parameter"))
+        val prompts = server.getEnabledPromptNames()
+        assertFalse(prompts.contains("fuzz_parameter"))
+        assertTrue(prompts.contains("race_condition_test"))
+    }
+
+    @Test
     fun `capabilities do not advertise notifications the stateless transport cannot push`() {
         val server = TurboMcpServer(port = 31337)
         val caps = server.buildServerCapabilities()

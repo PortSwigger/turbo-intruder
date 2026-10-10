@@ -44,6 +44,18 @@ client-driven via this resource.
 
 ---
 
+## Available Prompts
+
+Guided workflows that expand to a ready-to-use `start_run` plan (endpoint, base request
+guidance, and a vetted script from `resources/examples/`). Review and submit via `start_run`.
+
+| Prompt | Arguments | Expands to |
+|--------|-----------|------------|
+| `fuzz_parameter` | `endpoint`, `param` | Wordlist fuzz of one parameter (`default.py`) |
+| `race_condition_test` | `endpoint`, `requests?` | Single-packet-attack race (`race-single-packet-attack.py`) |
+
+---
+
 ## Available Resources
 
 | URI | Description |

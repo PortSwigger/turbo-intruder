@@ -15,6 +15,8 @@ import jakarta.servlet.ServletRequest
 import jakarta.servlet.ServletResponse
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import mcp.prompt.PromptRegistry
+import mcp.prompt.createPromptDefinitions
 import mcp.resource.QueryParamAwareUriTemplateManagerFactory
 import mcp.resource.ResourceRegistry
 import mcp.resource.createResourceDefinitions
@@ -46,7 +48,8 @@ class TurboMcpServer(
     private val disabledTools: Set<String> = emptySet(),
     private val collaboratorProvider: CollaboratorProvider? = null,
     private val organizerProvider: OrganizerProvider = BurpOrganizerProvider(),
-    private val desyncMode: () -> Boolean = { false }
+    private val desyncMode: () -> Boolean = { false },
+    private val disabledPrompts: Set<String> = emptySet()
 ) {
     val manager = RunManager()
     val toolHandlers = McpToolHandlers(manager, organizerProvider, collaboratorProvider)
@@ -56,6 +59,13 @@ class TurboMcpServer(
     private val resourceRegistry by lazy {
         ResourceRegistry(ObjectMapper()).apply {
             register(*createResourceDefinitions(resourceHandlers).toTypedArray())
+        }
+    }
+
+    // Prompt registry: guided agent workflows that expand to ready-to-use start_run plans.
+    private val promptRegistry by lazy {
+        PromptRegistry().apply {
+            register(*createPromptDefinitions(resourceHandlers).toTypedArray())
         }
     }
 
@@ -143,6 +153,7 @@ class TurboMcpServer(
             .capabilities(buildServerCapabilities())
             .tools(buildStatelessToolSpecifications())
             .resources(resourceRegistry.buildStatelessSpecs())
+            .prompts(promptRegistry.buildStatelessSpecs(disabledPrompts))
             .build()
     }
 
@@ -157,6 +168,7 @@ class TurboMcpServer(
         McpSchema.ServerCapabilities.builder()
             .tools(true)
             .resources(false, false)
+            .prompts(false)  // prompts offered; no listChanged push on the stateless transport
             .build()
 
     fun stop() {
@@ -453,6 +465,8 @@ class TurboMcpServer(
             .map { it.tool().name() }
             .toSet()
     }
+
+    fun getEnabledPromptNames(): Set<String> = promptRegistry.names(disabledPrompts).toSet()
 
 }
 
