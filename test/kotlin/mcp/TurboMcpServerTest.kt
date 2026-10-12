@@ -32,6 +32,45 @@ class TurboMcpServerTest {
     }
 
     @Test
+    fun `async run tool is enabled by default`() {
+        val server = TurboMcpServer(port = 31337)
+        val toolNames = server.getEnabledToolNames()
+        assertTrue(toolNames.contains("start_run_async"),
+            "start_run_async should be registered so agents can start long runs without blocking")
+    }
+
+    @Test
+    fun `prompts are enabled by default and advertised in capabilities`() {
+        val server = TurboMcpServer(port = 31337)
+        val prompts = server.getEnabledPromptNames()
+        assertTrue(prompts.contains("fuzz_parameter"))
+        assertTrue(prompts.contains("race_condition_test"))
+        assertNotNull(server.buildServerCapabilities().prompts())
+    }
+
+    @Test
+    fun `disabled prompts are excluded`() {
+        val server = TurboMcpServer(port = 31337, disabledPrompts = setOf("fuzz_parameter"))
+        val prompts = server.getEnabledPromptNames()
+        assertFalse(prompts.contains("fuzz_parameter"))
+        assertTrue(prompts.contains("race_condition_test"))
+    }
+
+    @Test
+    fun `capabilities do not advertise notifications the stateless transport cannot push`() {
+        val server = TurboMcpServer(port = 31337)
+        val caps = server.buildServerCapabilities()
+
+        // Resources are still offered (list + read)...
+        assertNotNull(caps.resources(), "resources must still be advertised")
+        // ...but stateless has no sessions, so neither sub-feature can be delivered.
+        assertEquals(false, caps.resources().subscribe())
+        assertEquals(false, caps.resources().listChanged())
+        // Logging notifications also require a session to target.
+        assertNull(caps.logging(), "logging notifications cannot be pushed over the stateless transport")
+    }
+
+    @Test
     fun `disabled tools are excluded`() {
         val server = TurboMcpServer(
             port = 31337,

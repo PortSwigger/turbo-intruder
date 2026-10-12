@@ -2,8 +2,18 @@ apply plugin: 'java'
 
 apply plugin: 'kotlin'
 
-sourceCompatibility = 21
-targetCompatibility = 21
+// Pin the compile toolchain so the build targets Java 21 regardless of which JDK
+// launches Gradle. Gradle locates an installed JDK 21 automatically; contributors
+// no longer need to juggle JAVA_HOME to get a reproducible 21-targeted build.
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+kotlin {
+    jvmToolchain(21)
+}
 
 buildscript {
 

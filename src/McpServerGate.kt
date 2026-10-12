@@ -15,6 +15,7 @@ class McpServerGate(
     private val start: () -> Unit,
     private val stop: () -> Unit,
     private val reportFailure: (String, Exception) -> Unit = { _, _ -> },
+    private val onStateChange: (Boolean) -> Unit = {},
 ) {
     companion object {
         const val SETTING = "enable unsafe MCP server"
@@ -48,7 +49,11 @@ class McpServerGate(
         reconcileState()
     }
 
+    /** Whether the server is currently running, for the UI to display. */
+    fun isRunning(): Boolean = synchronized(lifecycleLock) { running }
+
     private fun reconcileState() {
+        var changedTo: Boolean? = null
         synchronized(lifecycleLock) {
             val shouldRun = !shutdownRequested.get() && desiredRunning.get() == true
             if (shouldRun == running) {
@@ -63,6 +68,7 @@ class McpServerGate(
                     stop()
                     running = false
                 }
+                changedTo = running
             } catch (e: Exception) {
                 runCatching {
                     reportFailure(
@@ -72,5 +78,8 @@ class McpServerGate(
                 }
             }
         }
+        // Notify outside the lock so a listener (e.g. a Swing panel refresh) cannot deadlock the
+        // lifecycle, and only when the state actually flipped.
+        changedTo?.let { runCatching { onStateChange(it) } }
     }
 }

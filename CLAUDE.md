@@ -8,6 +8,11 @@
 
 The output JAR is at `build/libs/turbo-intruder.jar`.
 
+The build pins a Java 21 toolchain, so a JDK 21 must be installed and discoverable
+by Gradle (it auto-detects installed JDKs). Gradle itself (8.14.x wrapper) runs on
+any JDK from 17 up to and including 24, so no `JAVA_HOME` juggling is needed on
+modern machines.
+
 ## Running the MCP Server
 
 Build and run:
