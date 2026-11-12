@@ -156,7 +156,14 @@ open class Request(val template: String, val words: List<String?>, val learnBori
 
     // todo fix performance
     fun fixContentLength(request: String): String {
-        return String(fixContentLength(request.toByteArray(Charsets.ISO_8859_1)))
+        // The charset is explicit on both sides. Without it, String(byte[]) uses the JVM default
+        // charset - UTF-8 on JDK 18+ - so every byte >= 0x80 that is not part of a valid UTF-8
+        // sequence became U+FFFD and was then re-encoded as '?', silently rewriting binary bodies
+        // and non-ASCII header values before any engine saw them.
+        return String(
+            fixContentLength(request.toByteArray(Charsets.ISO_8859_1)),
+            Charsets.ISO_8859_1,
+        )
     }
 
     fun fixContentLength(request: ByteArray): ByteArray {
@@ -164,7 +171,7 @@ open class Request(val template: String, val words: List<String?>, val learnBori
             return request
         }
 
-        if (Utils.getHeaders(String(request)).contains("Content-Length: ")) {
+        if (Utils.getHeaders(String(request, Charsets.ISO_8859_1)).contains("Content-Length: ")) {
             val start = Utils.getBodyStart(request)
             val contentLength = request.size - start
             try {
